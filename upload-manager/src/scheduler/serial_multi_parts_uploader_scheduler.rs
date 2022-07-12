@@ -1,6 +1,9 @@
 use super::{
-    super::{ConcurrencyProvider, FixedDataPartitionProvider},
-    DataPartitionProvider, DataSource, MultiPartsUploader, MultiPartsUploaderScheduler, ObjectParams,
+    super::{
+        ConcurrencyProvider, DataPartitionProvider, DataSource, FixedDataPartitionProvider, MultiPartsUploader,
+        ObjectParams,
+    },
+    MultiPartsUploaderScheduler,
 };
 use qiniu_apis::http_client::ApiResult;
 use serde_json::Value;
@@ -72,16 +75,16 @@ use {super::AsyncDataSource, futures::future::BoxFuture};
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug)]
-pub struct SerialMultiPartsUploaderScheduler<M> {
+#[derive(Debug, Clone)]
+pub struct SerialMultiPartsUploaderScheduler<M: MultiPartsUploader> {
     data_partition_provider: Box<dyn DataPartitionProvider>,
     multi_parts_uploader: M,
 }
 
-impl<M: MultiPartsUploader> MultiPartsUploaderScheduler for SerialMultiPartsUploaderScheduler<M> {
-    type MultiPartsUploader = M;
-
-    fn new(multi_parts_uploader: Self::MultiPartsUploader) -> Self {
+impl<M: MultiPartsUploader> SerialMultiPartsUploaderScheduler<M> {
+    /// 创建串行分片上传调度器
+    #[inline]
+    pub fn new(multi_parts_uploader: M) -> Self {
         Self {
             data_partition_provider: Box::new(FixedDataPartitionProvider::new_with_non_zero_part_size(
                 #[allow(unsafe_code)]
@@ -93,28 +96,26 @@ impl<M: MultiPartsUploader> MultiPartsUploaderScheduler for SerialMultiPartsUplo
         }
     }
 
-    fn set_concurrency_provider(&mut self, _concurrency_provider: impl ConcurrencyProvider + 'static) -> &mut Self {
-        self
+    /// 获取分片大小提供者
+    #[inline]
+    pub fn data_partition_provider(&self) -> &dyn DataPartitionProvider {
+        &self.data_partition_provider
+    }
+}
+
+impl<M: MultiPartsUploader> MultiPartsUploaderScheduler<M::HashAlgorithm> for SerialMultiPartsUploaderScheduler<M> {
+    fn set_concurrency_provider(&mut self, _concurrency_provider: Box<dyn ConcurrencyProvider>) {}
+
+    fn set_data_partition_provider(&mut self, data_partition_provider: Box<dyn DataPartitionProvider>) {
+        self.data_partition_provider = data_partition_provider;
     }
 
-    fn set_data_partition_provider(
-        &mut self,
-        data_partition_provider: impl DataPartitionProvider + 'static,
-    ) -> &mut Self {
-        self.data_partition_provider = Box::new(data_partition_provider);
-        self
-    }
-
-    fn upload<D: DataSource<<Self::MultiPartsUploader as MultiPartsUploader>::HashAlgorithm> + 'static>(
-        &self,
-        source: D,
-        params: ObjectParams,
-    ) -> ApiResult<Value> {
+    fn upload(&self, source: Box<dyn DataSource<M::HashAlgorithm>>, params: ObjectParams) -> ApiResult<Value> {
         return _upload(self, source, params);
 
-        fn _upload<M: MultiPartsUploader, D: DataSource<M::HashAlgorithm> + 'static>(
+        fn _upload<M: MultiPartsUploader>(
             scheduler: &SerialMultiPartsUploaderScheduler<M>,
-            source: D,
+            source: Box<dyn DataSource<M::HashAlgorithm>>,
             params: ObjectParams,
         ) -> ApiResult<Value> {
             let initialized = scheduler.multi_parts_uploader.initialize_parts(source, params)?;
@@ -131,16 +132,16 @@ impl<M: MultiPartsUploader> MultiPartsUploaderScheduler for SerialMultiPartsUplo
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_upload<D: AsyncDataSource<M::HashAlgorithm> + 'static>(
+    fn async_upload(
         &self,
-        source: D,
+        source: Box<dyn AsyncDataSource<M::HashAlgorithm>>,
         params: ObjectParams,
     ) -> BoxFuture<ApiResult<Value>> {
         return Box::pin(async move { _upload(self, source, params).await });
 
-        async fn _upload<M: MultiPartsUploader, D: AsyncDataSource<M::HashAlgorithm> + 'static>(
+        async fn _upload<M: MultiPartsUploader>(
             scheduler: &SerialMultiPartsUploaderScheduler<M>,
-            source: D,
+            source: Box<dyn AsyncDataSource<M::HashAlgorithm>>,
             params: ObjectParams,
         ) -> ApiResult<Value> {
             let initialized = scheduler

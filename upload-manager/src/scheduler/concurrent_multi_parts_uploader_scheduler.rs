@@ -1,9 +1,9 @@
 use super::{
     super::{
-        Concurrency, ConcurrencyProvider, ConcurrencyProviderFeedback, FixedConcurrencyProvider,
-        FixedDataPartitionProvider, UploadedPart,
+        Concurrency, ConcurrencyProvider, ConcurrencyProviderFeedback, DataPartitionProvider, DataSource,
+        FixedConcurrencyProvider, FixedDataPartitionProvider, MultiPartsUploader, ObjectParams, UploadedPart,
     },
-    DataPartitionProvider, DataSource, MultiPartsUploader, MultiPartsUploaderScheduler, ObjectParams,
+    MultiPartsUploaderScheduler,
 };
 use qiniu_apis::http_client::{ApiResult, ResponseError, ResponseErrorKind};
 use rayon::ThreadPoolBuilder;
@@ -12,7 +12,7 @@ use std::{
     num::{NonZeroU64, NonZeroUsize},
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
-        Arc, Mutex,
+        Mutex,
     },
     time::Instant,
 };
@@ -22,6 +22,7 @@ use {
     super::AsyncDataSource,
     async_std::task::spawn,
     futures::future::{join_all, BoxFuture},
+    std::sync::Arc,
 };
 
 /// 并行分片上传调度器
@@ -89,63 +90,58 @@ use {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug)]
-pub struct ConcurrentMultiPartsUploaderScheduler<M> {
-    data_partition_provider: Arc<dyn DataPartitionProvider>,
-    concurrency_provider: Arc<dyn ConcurrencyProvider>,
-    multi_parts_uploader: Arc<M>,
+#[derive(Debug, Clone)]
+pub struct ConcurrentMultiPartsUploaderScheduler<M: MultiPartsUploader> {
+    data_partition_provider: Box<dyn DataPartitionProvider>,
+    concurrency_provider: Box<dyn ConcurrencyProvider>,
+    multi_parts_uploader: M,
 }
 
-impl<M> Clone for ConcurrentMultiPartsUploaderScheduler<M> {
+impl<M: MultiPartsUploader> ConcurrentMultiPartsUploaderScheduler<M> {
+    /// 创建并行分片上传调度器
     #[inline]
-    fn clone(&self) -> Self {
+    pub fn new(multi_parts_uploader: M) -> Self {
         Self {
-            data_partition_provider: self.data_partition_provider.to_owned(),
-            concurrency_provider: self.concurrency_provider.to_owned(),
-            multi_parts_uploader: self.multi_parts_uploader.to_owned(),
-        }
-    }
-}
-
-impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler for ConcurrentMultiPartsUploaderScheduler<M> {
-    type MultiPartsUploader = M;
-
-    fn new(multi_parts_uploader: Self::MultiPartsUploader) -> Self {
-        Self {
-            data_partition_provider: Arc::new(FixedDataPartitionProvider::new_with_non_zero_part_size(
+            data_partition_provider: Box::new(FixedDataPartitionProvider::new_with_non_zero_part_size(
                 #[allow(unsafe_code)]
                 unsafe {
                     NonZeroU64::new_unchecked(1 << 22)
                 },
             )),
-            concurrency_provider: Arc::new(FixedConcurrencyProvider::new_with_non_zero_concurrency(
+            concurrency_provider: Box::new(FixedConcurrencyProvider::new_with_non_zero_concurrency(
                 #[allow(unsafe_code)]
                 unsafe {
                     NonZeroUsize::new_unchecked(4)
                 },
             )),
-            multi_parts_uploader: Arc::new(multi_parts_uploader),
+            multi_parts_uploader,
         }
     }
 
-    fn set_concurrency_provider(&mut self, concurrency_provider: impl ConcurrencyProvider + 'static) -> &mut Self {
-        self.concurrency_provider = Arc::new(concurrency_provider);
-        self
+    /// 获取并发数提供者
+    pub fn concurrency_provider(&self) -> &dyn ConcurrencyProvider {
+        &self.concurrency_provider
     }
 
-    fn set_data_partition_provider(
-        &mut self,
-        data_partition_provider: impl DataPartitionProvider + 'static,
-    ) -> &mut Self {
-        self.data_partition_provider = Arc::new(data_partition_provider);
-        self
+    /// 获取分片大小提供者
+    #[inline]
+    pub fn data_partition_provider(&self) -> &dyn DataPartitionProvider {
+        &self.data_partition_provider
+    }
+}
+
+impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler<M::HashAlgorithm>
+    for ConcurrentMultiPartsUploaderScheduler<M>
+{
+    fn set_concurrency_provider(&mut self, concurrency_provider: Box<dyn ConcurrencyProvider>) {
+        self.concurrency_provider = concurrency_provider;
     }
 
-    fn upload<D: DataSource<<Self::MultiPartsUploader as MultiPartsUploader>::HashAlgorithm> + 'static>(
-        &self,
-        source: D,
-        params: ObjectParams,
-    ) -> ApiResult<Value> {
+    fn set_data_partition_provider(&mut self, data_partition_provider: Box<dyn DataPartitionProvider>) {
+        self.data_partition_provider = data_partition_provider;
+    }
+
+    fn upload(&self, source: Box<dyn DataSource<M::HashAlgorithm>>, params: ObjectParams) -> ApiResult<Value> {
         let uploaded_size = AtomicU64::new(0);
         let concurrency = self.concurrency_provider.concurrency();
         let begin_at = Instant::now();
@@ -160,9 +156,9 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler for Concurrent
         }
         return result;
 
-        fn _upload<M: MultiPartsUploader, D: DataSource<M::HashAlgorithm> + 'static>(
+        fn _upload<M: MultiPartsUploader>(
             scheduler: &ConcurrentMultiPartsUploaderScheduler<M>,
-            source: D,
+            source: Box<dyn DataSource<M::HashAlgorithm>>,
             params: ObjectParams,
             concurrency: Concurrency,
             uploaded_size: &AtomicU64,
@@ -212,9 +208,9 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler for Concurrent
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_upload<D: AsyncDataSource<<Self::MultiPartsUploader as MultiPartsUploader>::HashAlgorithm> + 'static>(
+    fn async_upload(
         &self,
-        source: D,
+        source: Box<dyn AsyncDataSource<M::HashAlgorithm>>,
         params: ObjectParams,
     ) -> BoxFuture<ApiResult<Value>> {
         return Box::pin(async move {
@@ -233,9 +229,9 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler for Concurrent
             result
         });
 
-        async fn _upload<M: MultiPartsUploader + 'static, D: AsyncDataSource<M::HashAlgorithm> + 'static>(
+        async fn _upload<M: MultiPartsUploader + 'static>(
             scheduler: &ConcurrentMultiPartsUploaderScheduler<M>,
-            source: D,
+            source: Box<dyn AsyncDataSource<M::HashAlgorithm>>,
             params: ObjectParams,
             concurrency: Concurrency,
             uploaded_size: Arc<AtomicU64>,

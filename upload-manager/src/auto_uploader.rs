@@ -202,8 +202,8 @@ macro_rules! with_uploader {
                                 $uploader.callbacks.to_owned(),
                                 $uploader.resumable_recorder.to_owned(),
                             ));
-                        uploader.set_concurrency_provider($uploader.concurrency_provider.to_owned());
-                        uploader.set_data_partition_provider($uploader.data_partition_provider.to_owned());
+                        uploader.set_concurrency_provider(Box::new($uploader.concurrency_provider.to_owned()));
+                        uploader.set_data_partition_provider(Box::new($uploader.data_partition_provider.to_owned()));
                         $wrapper!({uploader.$method($($args),*)})
                     }
                     (MultiPartsUploaderPrefer::V1, MultiPartsUploaderSchedulerPrefer::Serial) => {
@@ -213,8 +213,8 @@ macro_rules! with_uploader {
                                 $uploader.callbacks.to_owned(),
                                 $uploader.resumable_recorder.to_owned(),
                             ));
-                        uploader.set_concurrency_provider($uploader.concurrency_provider.to_owned());
-                        uploader.set_data_partition_provider($uploader.data_partition_provider.to_owned());
+                        uploader.set_concurrency_provider(Box::new($uploader.concurrency_provider.to_owned()));
+                        uploader.set_data_partition_provider(Box::new($uploader.data_partition_provider.to_owned()));
                         $wrapper!({uploader.$method($($args),*)})
                     }
                     (MultiPartsUploaderPrefer::V2, MultiPartsUploaderSchedulerPrefer::Concurrent) => {
@@ -224,8 +224,8 @@ macro_rules! with_uploader {
                                 $uploader.callbacks.to_owned(),
                                 $uploader.resumable_recorder.to_owned(),
                             ));
-                        uploader.set_concurrency_provider($uploader.concurrency_provider.to_owned());
-                        uploader.set_data_partition_provider($uploader.data_partition_provider.to_owned());
+                        uploader.set_concurrency_provider(Box::new($uploader.concurrency_provider.to_owned()));
+                        uploader.set_data_partition_provider(Box::new($uploader.data_partition_provider.to_owned()));
                         $wrapper!({uploader.$method($($args),*)})
                     }
                     (MultiPartsUploaderPrefer::V2, MultiPartsUploaderSchedulerPrefer::Serial) => {
@@ -235,8 +235,8 @@ macro_rules! with_uploader {
                                 $uploader.callbacks.to_owned(),
                                 $uploader.resumable_recorder.to_owned(),
                             ));
-                        uploader.set_concurrency_provider($uploader.concurrency_provider.to_owned());
-                        uploader.set_data_partition_provider($uploader.data_partition_provider.to_owned());
+                        uploader.set_concurrency_provider(Box::new($uploader.concurrency_provider.to_owned()));
+                        uploader.set_data_partition_provider(Box::new($uploader.data_partition_provider.to_owned()));
                         $wrapper!({uploader.$method($($args),*)})
                     }
                 }
