@@ -428,10 +428,10 @@ mod seekable;
 pub use seekable::SeekableSource;
 
 mod unseekable;
-pub(crate) use unseekable::UnseekableDataSource;
+pub use unseekable::UnseekableDataSource;
 
 #[cfg(feature = "async")]
 pub use {file::AsyncFileDataSource, seekable::AsyncSeekableSource};
 
 #[cfg(feature = "async")]
-pub(crate) use unseekable::AsyncUnseekableDataSource;
+pub use unseekable::AsyncUnseekableDataSource;

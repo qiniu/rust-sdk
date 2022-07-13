@@ -7,7 +7,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-pub(crate) struct UnseekableDataSource<R: Read + Debug + Send + Sync + 'static + ?Sized, A: Digest = Sha1>(
+/// 不可寻址的数据源
+///
+/// 基于一个不可寻址的阅读器实现了数据源接口
+pub struct UnseekableDataSource<R: Read + Debug + Send + Sync + 'static + ?Sized, A: Digest = Sha1>(
     Arc<Mutex<UnseekableDataSourceInner<R, A>>>,
 );
 
@@ -33,7 +36,9 @@ struct UnseekableDataSourceInner<R: Read + Debug + Send + Sync + 'static + ?Size
 }
 
 impl<R: Read + Debug + Send + Sync + 'static, A: Digest> UnseekableDataSource<R, A> {
-    pub(crate) fn new(reader: R) -> Self {
+    /// 创建不可寻址的数据源
+    #[inline]
+    pub fn new(reader: R) -> Self {
         Self(Arc::new(Mutex::new(UnseekableDataSourceInner {
             reader,
             current_offset: 0,
@@ -94,10 +99,12 @@ mod async_unseekable {
         AsyncRead, AsyncReadExt,
     };
 
-    pub(crate) struct AsyncUnseekableDataSource<
-        R: AsyncRead + Debug + Unpin + Send + Sync + 'static + ?Sized,
-        A: Digest = Sha1,
-    >(Arc<Mutex<AsyncUnseekableDataSourceInner<R, A>>>);
+    /// 不可寻址的异步数据源
+    ///
+    /// 基于一个不可寻址的异步阅读器实现了异步数据源接口
+    pub struct AsyncUnseekableDataSource<R: AsyncRead + Debug + Unpin + Send + Sync + 'static + ?Sized, A: Digest = Sha1>(
+        Arc<Mutex<AsyncUnseekableDataSourceInner<R, A>>>,
+    );
 
     impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: Digest> Debug for AsyncUnseekableDataSource<R, A> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -120,7 +127,8 @@ mod async_unseekable {
     }
 
     impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: Digest> AsyncUnseekableDataSource<R, A> {
-        pub(crate) fn new(reader: R) -> Self {
+        /// 创建不可寻址的异步数据源
+        pub fn new(reader: R) -> Self {
             Self(Arc::new(Mutex::new(AsyncUnseekableDataSourceInner {
                 reader,
                 current_offset: 0,
@@ -177,4 +185,4 @@ mod async_unseekable {
 }
 
 #[cfg(feature = "async")]
-pub(crate) use async_unseekable::*;
+pub use async_unseekable::*;
