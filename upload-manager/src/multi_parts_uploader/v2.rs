@@ -238,7 +238,7 @@ impl<H: Digest> MultiPartsUploaderWithCallbacks for MultiPartsV2Uploader<H> {
 
 impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV2Uploader<H> {
     type HashAlgorithm = H;
-    type InitializedParts = MultiPartsV2UploaderInitializedObject<Arc<dyn DataSource<H>>>;
+    type InitializedParts = MultiPartsV2UploaderInitializedObject<Box<dyn DataSource<H>>>;
     type UploadedPart = MultiPartsV2UploaderUploadedPart;
 
     #[inline]
@@ -275,7 +275,7 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV2Uploader<H> 
         };
 
         return Ok(Self::InitializedParts {
-            source: Arc::new(source),
+            source: Box::new(source),
             params,
             upload_id,
             recovered_records,
@@ -356,7 +356,7 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV2Uploader<H> 
         };
 
         fn _could_recover<H: Digest>(
-            initialized: &MultiPartsV2UploaderInitializedObject<Arc<dyn DataSource<H>>>,
+            initialized: &MultiPartsV2UploaderInitializedObject<Box<dyn DataSource<H>>>,
             data_reader: &mut DataSourceReader,
             part_size: NonZeroU64,
             uploaded_part_ttl: Duration,
@@ -386,7 +386,7 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV2Uploader<H> 
             mut request: SyncUploadPartRequestBuilder<'a, E>,
             mut body: DataSourceReader,
             content_length: NonZeroU64,
-            initialized: &'a MultiPartsV2UploaderInitializedObject<Arc<dyn DataSource<H>>>,
+            initialized: &'a MultiPartsV2UploaderInitializedObject<Box<dyn DataSource<H>>>,
             progresses_key: &'a ProgressesKey,
             data_partitioner_provider: &'a dyn DataPartitionProvider,
         ) -> ApiResult<MultiPartsV2UploaderUploadedPart> {
@@ -468,7 +468,7 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV2Uploader<H> 
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    type AsyncInitializedParts = MultiPartsV2UploaderInitializedObject<Arc<dyn AsyncDataSource<H>>>;
+    type AsyncInitializedParts = MultiPartsV2UploaderInitializedObject<Box<dyn AsyncDataSource<H>>>;
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
@@ -503,7 +503,7 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV2Uploader<H> 
             };
 
             Ok(Self::AsyncInitializedParts {
-                source: Arc::new(source),
+                source: Box::new(source),
                 params,
                 upload_id,
                 recovered_records,
@@ -595,7 +595,7 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV2Uploader<H> 
         });
 
         async fn _could_recover<H: Digest>(
-            initialized: &MultiPartsV2UploaderInitializedObject<Arc<dyn AsyncDataSource<H>>>,
+            initialized: &MultiPartsV2UploaderInitializedObject<Box<dyn AsyncDataSource<H>>>,
             data_reader: &mut AsyncDataSourceReader,
             part_size: NonZeroU64,
             uploaded_part_ttl: Duration,
@@ -627,7 +627,7 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV2Uploader<H> 
             mut request: AsyncUploadPartRequestBuilder<'a, E>,
             mut body: AsyncDataSourceReader,
             content_length: NonZeroU64,
-            initialized: &'a MultiPartsV2UploaderInitializedObject<Arc<dyn AsyncDataSource<H>>>,
+            initialized: &'a MultiPartsV2UploaderInitializedObject<Box<dyn AsyncDataSource<H>>>,
             progresses_key: &'a ProgressesKey,
             data_partitioner_provider: &'a dyn DataPartitionProvider,
         ) -> ApiResult<MultiPartsV2UploaderUploadedPart> {

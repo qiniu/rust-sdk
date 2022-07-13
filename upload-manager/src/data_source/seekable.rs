@@ -14,10 +14,10 @@ struct SourceOffset {
     part_number: NonZeroUsize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct SeekableDataSource {
     source: SeekableSource,
-    current: Mutex<SourceOffset>,
+    current: Arc<Mutex<SourceOffset>>,
     size: u64,
 }
 
@@ -25,11 +25,11 @@ impl SeekableDataSource {
     pub(crate) fn new(mut source: impl Read + Seek + Debug + Send + Sync + 'static, size: u64) -> IoResult<Self> {
         Ok(Self {
             size,
-            current: Mutex::new(SourceOffset {
+            current: Arc::new(Mutex::new(SourceOffset {
                 offset: source.stream_position()?,
                 #[allow(unsafe_code)]
                 part_number: unsafe { NonZeroUsize::new_unchecked(1) },
-            }),
+            })),
             source: SeekableSource::new(source, 0, 0),
         })
     }

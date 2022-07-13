@@ -8,6 +8,7 @@ use std::{
     fs::File,
     io::Result as IoResult,
     path::PathBuf,
+    sync::Arc,
 };
 
 #[cfg(feature = "async")]
@@ -39,8 +40,8 @@ impl<A: Digest> Debug for Source<A> {
 /// 基于一个文件实现了数据源接口
 pub struct FileDataSource<A: Digest = Sha1> {
     path: PathBuf,
-    canonicalized_path: OnceCell<PathBuf>,
-    source: OnceCell<Source<A>>,
+    canonicalized_path: Arc<OnceCell<PathBuf>>,
+    source: Arc<OnceCell<Source<A>>>,
 }
 
 impl<A: Digest> FileDataSource<A> {
@@ -111,6 +112,17 @@ impl<A: Digest> Debug for FileDataSource<A> {
     }
 }
 
+impl<A: Digest> Clone for FileDataSource<A> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self {
+            path: self.path.clone(),
+            canonicalized_path: self.canonicalized_path.clone(),
+            source: self.source.clone(),
+        }
+    }
+}
+
 #[cfg(feature = "async")]
 mod async_reader {
     use super::{super::AsyncDataSource, *};
@@ -120,8 +132,8 @@ mod async_reader {
     /// 基于一个文件实现了数据源接口
     pub struct AsyncFileDataSource<A: Digest> {
         path: PathBuf,
-        canonicalized_path: AsyncOnceCell<AsyncPathBuf>,
-        source: AsyncOnceCell<AsyncSource<A>>,
+        canonicalized_path: Arc<AsyncOnceCell<AsyncPathBuf>>,
+        source: Arc<AsyncOnceCell<AsyncSource<A>>>,
     }
 
     impl<A: Digest> AsyncFileDataSource<A> {
@@ -129,8 +141,8 @@ mod async_reader {
         pub fn new(path: impl Into<PathBuf>) -> Self {
             Self {
                 path: path.into(),
-                canonicalized_path: AsyncOnceCell::new(),
-                source: AsyncOnceCell::new(),
+                canonicalized_path: Arc::new(AsyncOnceCell::new()),
+                source: Arc::new(AsyncOnceCell::new()),
             }
         }
 
@@ -222,6 +234,17 @@ mod async_reader {
                 .field("canonicalized_path", &self.canonicalized_path)
                 .field("source", &self.source)
                 .finish()
+        }
+    }
+
+    impl<A: Digest> Clone for AsyncFileDataSource<A> {
+        #[inline]
+        fn clone(&self) -> Self {
+            Self {
+                path: self.path.clone(),
+                canonicalized_path: self.canonicalized_path.clone(),
+                source: self.source.clone(),
+            }
         }
     }
 

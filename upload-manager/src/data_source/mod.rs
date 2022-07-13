@@ -1,6 +1,7 @@
 use super::PartSize;
 use auto_impl::auto_impl;
 use digest::{Digest, Output as DigestOutput};
+use dyn_clonable::clonable;
 use qiniu_apis::http::Reset;
 use std::{
     fmt::Debug,
@@ -13,8 +14,9 @@ use std::{
 /// 提供上传所用的数据源
 ///
 /// 该 Trait 的异步版本为 [`Self::AsyncDataSource`]。
+#[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait DataSource<A: Digest>: Debug + Sync + Send {
+pub trait DataSource<A: Digest>: Clone + Debug + Sync + Send {
     /// 数据源切片
     ///
     /// 该方法的异步版本为 [`Self::async_slice`]。
@@ -157,8 +159,9 @@ mod async_reader {
     ///
     /// 提供上传所用的数据源
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[clonable]
     #[auto_impl(&, &mut, Box, Rc, Arc)]
-    pub trait AsyncDataSource<A: Digest>: Debug + Sync + Send {
+    pub trait AsyncDataSource<A: Digest>: Clone + Debug + Sync + Send {
         /// 异步数据源切片
         fn slice(&self, size: PartSize) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>>;
 

@@ -4,16 +4,24 @@ use std::{
     fmt::{self, Debug},
     io::{Read, Result as IoResult},
     num::NonZeroUsize,
-    sync::Mutex,
+    sync::{Arc, Mutex},
 };
 
 pub(crate) struct UnseekableDataSource<R: Read + Debug + Send + Sync + 'static + ?Sized, A: Digest = Sha1>(
-    Mutex<UnseekableDataSourceInner<R, A>>,
+    Arc<Mutex<UnseekableDataSourceInner<R, A>>>,
 );
 
 impl<R: Read + Debug + Send + Sync + 'static, A: Digest> Debug for UnseekableDataSource<R, A> {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("UnseekableDataSource").field(&self.0).finish()
+    }
+}
+
+impl<R: Read + Debug + Send + Sync + 'static, A: Digest> Clone for UnseekableDataSource<R, A> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
     }
 }
 
@@ -26,13 +34,13 @@ struct UnseekableDataSourceInner<R: Read + Debug + Send + Sync + 'static + ?Size
 
 impl<R: Read + Debug + Send + Sync + 'static, A: Digest> UnseekableDataSource<R, A> {
     pub(crate) fn new(reader: R) -> Self {
-        Self(Mutex::new(UnseekableDataSourceInner {
+        Self(Arc::new(Mutex::new(UnseekableDataSourceInner {
             reader,
             current_offset: 0,
             #[allow(unsafe_code)]
             current_part_number: unsafe { NonZeroUsize::new_unchecked(1) },
             source_key: None,
-        }))
+        })))
     }
 }
 
@@ -89,11 +97,18 @@ mod async_unseekable {
     pub(crate) struct AsyncUnseekableDataSource<
         R: AsyncRead + Debug + Unpin + Send + Sync + 'static + ?Sized,
         A: Digest = Sha1,
-    >(Mutex<AsyncUnseekableDataSourceInner<R, A>>);
+    >(Arc<Mutex<AsyncUnseekableDataSourceInner<R, A>>>);
 
     impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: Digest> Debug for AsyncUnseekableDataSource<R, A> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             f.debug_tuple("AsyncUnseekableDataSource").field(&self.0).finish()
+        }
+    }
+
+    impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: Digest> Clone for AsyncUnseekableDataSource<R, A> {
+        #[inline]
+        fn clone(&self) -> Self {
+            Self(self.0.clone())
         }
     }
 
@@ -106,13 +121,13 @@ mod async_unseekable {
 
     impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: Digest> AsyncUnseekableDataSource<R, A> {
         pub(crate) fn new(reader: R) -> Self {
-            Self(Mutex::new(AsyncUnseekableDataSourceInner {
+            Self(Arc::new(Mutex::new(AsyncUnseekableDataSourceInner {
                 reader,
                 current_offset: 0,
                 #[allow(unsafe_code)]
                 current_part_number: unsafe { NonZeroUsize::new_unchecked(1) },
                 source_key: None,
-            }))
+            })))
         }
     }
 
@@ -149,6 +164,7 @@ mod async_unseekable {
     }
 
     impl<R: AsyncRead + Debug + Unpin + Send + Sync + 'static, A: Digest> Debug for AsyncUnseekableDataSourceInner<R, A> {
+        #[inline]
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             f.debug_struct("AsyncUnseekableDataSourceInner")
                 .field("reader", &self.reader)
