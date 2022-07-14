@@ -304,19 +304,6 @@ impl ResponseParts {
     pub fn metrics_mut(&mut self) -> &mut Option<Metrics> {
         self.info.metrics_mut()
     }
-
-    /// 复制 HTTP 响应信息，但不包含扩展信息
-    #[inline]
-    pub fn clone_without_extensions(&self) -> Self {
-        let (mut parts, _) = http::response::Response::new(()).into_parts();
-        parts.status = self.inner.status;
-        parts.version = self.inner.version;
-        parts.headers = self.inner.headers.to_owned();
-        Self {
-            inner: parts,
-            info: self.info.to_owned(),
-        }
-    }
 }
 
 impl Default for ResponseParts {
