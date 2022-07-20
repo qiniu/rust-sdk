@@ -15,6 +15,7 @@ test:
 clean:
 	cargo clean
 clippy:
+	cargo +nightly clippy --examples -- -D warnings --no-deps
 	cargo +nightly clippy --examples --tests --all-features -- --no-deps
 reset_apis:
 	rm -rf ../apis/src

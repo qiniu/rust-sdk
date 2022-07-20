@@ -32,6 +32,7 @@ test:
 clean:
 	cargo clean
 clippy:
+	cargo +nightly clippy --examples -- -D warnings --no-deps
 	cargo +nightly clippy --examples --tests --all-features -- -D warnings --no-deps
 publish:
 	set -e; \
