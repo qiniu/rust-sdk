@@ -3,7 +3,7 @@ use mime::Mime;
 use once_cell::sync::Lazy;
 use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 use qiniu_http::{
-    header::{IntoHeaderName, CONTENT_TYPE},
+    header::{HeaderName, IntoHeaderName, CONTENT_TYPE},
     HeaderMap, HeaderValue,
 };
 use qiniu_utils::{smallstr::SmallString, wrap_smallstr};
@@ -177,6 +177,20 @@ impl PartMetadata {
     pub fn file_name(mut self, file_name: impl Into<FileName>) -> Self {
         self.file_name = Some(file_name.into());
         self
+    }
+}
+
+impl Extend<(HeaderName, HeaderValue)> for PartMetadata {
+    #[inline]
+    fn extend<T: IntoIterator<Item = (HeaderName, HeaderValue)>>(&mut self, iter: T) {
+        self.headers.extend(iter)
+    }
+}
+
+impl Extend<(Option<HeaderName>, HeaderValue)> for PartMetadata {
+    #[inline]
+    fn extend<T: IntoIterator<Item = (Option<HeaderName>, HeaderValue)>>(&mut self, iter: T) {
+        self.headers.extend(iter)
     }
 }
 

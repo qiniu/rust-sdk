@@ -102,12 +102,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_trust_dns_resolver() -> Result<(), Box<dyn Error>> {
+        let mut opts = ResolverOpts::default();
+        opts.ip_strategy = LookupIpStrategy::Ipv4AndIpv6;
         let resolver = TrustDnsResolver::new(
             ResolverConfig::from_parts(None, vec![], NameServerConfigGroup::from_ips_clear(IPS, 53, true)),
-            ResolverOpts {
-                ip_strategy: LookupIpStrategy::Ipv4AndIpv6,
-                ..Default::default()
-            },
+            opts,
         )
         .await?;
         let ips = resolver.async_resolve(DOMAIN, Default::default()).await?;

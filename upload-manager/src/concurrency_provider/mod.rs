@@ -102,7 +102,7 @@ impl DerefMut for Concurrency {
 /// 并发数提供者反馈
 ///
 /// 反馈给提供者并发的效果，包含对象大小，花费时间，以及错误信息。
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ConcurrencyProviderFeedback<'f> {
     concurrency: Concurrency,
     object_size: NonZeroU64,
@@ -111,18 +111,14 @@ pub struct ConcurrencyProviderFeedback<'f> {
 }
 
 impl<'f> ConcurrencyProviderFeedback<'f> {
-    pub(super) fn new(
+    /// 创建并发数提供者反馈构建器
+    #[inline]
+    pub fn builder(
         concurrency: Concurrency,
         object_size: NonZeroU64,
         elapsed: Duration,
-        error: Option<&'f ResponseError>,
-    ) -> Self {
-        Self {
-            concurrency,
-            object_size,
-            elapsed,
-            error,
-        }
+    ) -> ConcurrencyProviderFeedbackBuilder<'f> {
+        ConcurrencyProviderFeedbackBuilder::new(concurrency, object_size, elapsed)
     }
 
     /// 获取并发数
@@ -147,6 +143,36 @@ impl<'f> ConcurrencyProviderFeedback<'f> {
     #[inline]
     pub fn error(&self) -> Option<&'f ResponseError> {
         self.error
+    }
+}
+
+/// 并发数提供者反馈构建器
+#[derive(Debug, Clone)]
+pub struct ConcurrencyProviderFeedbackBuilder<'f>(ConcurrencyProviderFeedback<'f>);
+
+impl<'f> ConcurrencyProviderFeedbackBuilder<'f> {
+    /// 创建并发数提供者反馈构建器
+    #[inline]
+    pub fn new(concurrency: Concurrency, object_size: NonZeroU64, elapsed: Duration) -> Self {
+        Self(ConcurrencyProviderFeedback {
+            concurrency,
+            object_size,
+            elapsed,
+            error: None,
+        })
+    }
+
+    /// 设置错误信息
+    #[inline]
+    pub fn error(&mut self, error: &'f ResponseError) -> &mut Self {
+        self.0.error = Some(error);
+        self
+    }
+
+    /// 构建并发数提供者反馈
+    #[inline]
+    pub fn build(&self) -> ConcurrencyProviderFeedback<'f> {
+        self.0.to_owned()
     }
 }
 

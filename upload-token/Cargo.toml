@@ -21,7 +21,7 @@ tap = "1.0.1"
 dyn-clonable = "0.9.0"
 smart-default = "0.6.0"
 serde = { version = "1.0.130", features = ["derive"] }
-auto_impl = { package = "bachue-auto_impl", version = "0.5.1" }
+auto_impl = "1.0.0"
 futures = { version = "0.3.16", optional = true }
 
 qiniu-credential = { version = "0.1.2", path = "../credential" }

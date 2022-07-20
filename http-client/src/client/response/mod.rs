@@ -18,13 +18,13 @@ pub use error::{Error as ResponseError, ErrorKind as ResponseErrorKind};
 /// API 响应结果
 pub type ApiResult<T> = Result<T, ResponseError>;
 
-pub use qiniu_http::SyncResponseBody;
+use qiniu_http::SyncResponseBody;
 
 #[cfg(feature = "async")]
 use futures::io::copy as async_io_copy;
 
 #[cfg(feature = "async")]
-pub use qiniu_http::AsyncResponseBody;
+use qiniu_http::AsyncResponseBody;
 
 const X_REQ_ID_HEADER_NAME: &str = "x-reqid";
 const X_LOG_HEADER_NAME: &str = "x-log";
@@ -34,10 +34,6 @@ const X_LOG_HEADER_NAME: &str = "x-log";
 pub struct Response<B>(HttpResponse<B>);
 
 impl<B> Response<B> {
-    pub(super) fn new(inner: HttpResponse<B>) -> Self {
-        Self(inner)
-    }
-
     /// 转换为 HTTP 响应体
     #[inline]
     pub fn into_body(self) -> B {
@@ -69,6 +65,20 @@ impl<B> Response<B> {
     }
 }
 
+impl<B> From<HttpResponse<B>> for Response<B> {
+    #[inline]
+    fn from(response: HttpResponse<B>) -> Self {
+        Self(response)
+    }
+}
+
+impl<B> From<Response<B>> for HttpResponse<B> {
+    #[inline]
+    fn from(response: Response<B>) -> Self {
+        response.0
+    }
+}
+
 impl<B> Deref for Response<B> {
     type Target = HttpResponse<B>;
 
@@ -94,7 +104,7 @@ impl<B: Sync + Send> Response<B> {
 }
 
 impl Response<SyncResponseBody> {
-    /// JSON 序列化响应体
+    /// 解析 JSON 响应体
     pub fn parse_json<T: DeserializeOwned>(self) -> ApiResult<Response<T>> {
         let x_headers = XHeaders::from(self.parts());
         let mut got_body = Vec::new();
@@ -109,7 +119,7 @@ impl Response<SyncResponseBody> {
                 )
                 .set_response_body_sample(got_body)
             })?;
-        Ok(Response::new(json_response))
+        Ok(Response::from(json_response))
     }
 
     pub(super) fn fulfill(self) -> ApiResult<HttpResponse<Vec<u8>>> {
@@ -131,7 +141,7 @@ impl Response<SyncResponseBody> {
 
 #[cfg(feature = "async")]
 impl Response<AsyncResponseBody> {
-    /// 异步 JSON 序列化响应体
+    /// 异步解析 JSON 响应体
     pub async fn parse_json<T: DeserializeOwned>(self) -> ApiResult<Response<T>> {
         let x_headers = XHeaders::from(self.parts());
         let mut got_body = Vec::new();
@@ -147,7 +157,7 @@ impl Response<AsyncResponseBody> {
                 )
                 .set_response_body_sample(got_body)
             })?;
-        Ok(Response::new(json_response))
+        Ok(Response::from(json_response))
     }
 
     pub(super) async fn fulfill(self) -> ApiResult<HttpResponse<Vec<u8>>> {

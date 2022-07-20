@@ -16,6 +16,7 @@
     trivial_casts,
     trivial_numeric_casts,
     unsafe_code,
+    unreachable_pub,
     unused_crate_dependencies,
     unused_extern_crates,
     unused_import_braces,
@@ -44,7 +45,7 @@ pub use error::{
 };
 pub use http::{
     header::{self, HeaderMap, HeaderName, HeaderValue, InvalidHeaderName, InvalidHeaderValue},
-    method::Method,
+    method::{InvalidMethod, Method},
     status::{InvalidStatusCode, StatusCode},
     uri::{self, Uri},
     Extensions, Version,

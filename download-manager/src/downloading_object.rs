@@ -287,7 +287,7 @@ impl DownloadingObject {
     ///
     /// 但注意，由于 [`Read`] 接口的限制，错误信息会被 [`IoError`] 封装
     ///
-    /// 该方法的异步版本为 [`Self::into_async_reader`]。
+    /// 该方法的异步版本为 [`Self::into_async_read`]。
     ///
     /// ### 代码示例
     ///

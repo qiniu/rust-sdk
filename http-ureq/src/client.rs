@@ -265,6 +265,7 @@ fn from_ureq_error(
         UreqErrorKind::ProxyConnect => ResponseErrorKind::ProxyError,
         UreqErrorKind::ProxyUnauthorized => ResponseErrorKind::ProxyError,
         UreqErrorKind::HTTP => ResponseErrorKind::InvalidRequestResponse,
+        UreqErrorKind::InsecureRequestHttpsOnly => ResponseErrorKind::SslError,
     };
     ResponseError::builder(response_error_kind, err)
         .uri(request.url())

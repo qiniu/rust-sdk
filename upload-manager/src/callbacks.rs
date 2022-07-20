@@ -160,7 +160,7 @@ impl Debug for Callbacks<'_> {
 }
 
 /// 上传进度信息
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct UploadingProgressInfo {
     transferred_bytes: u64,
     total_bytes: Option<u64>,

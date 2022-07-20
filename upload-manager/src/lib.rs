@@ -14,6 +14,7 @@
     non_ascii_idents,
     indirect_structural_match,
     trivial_numeric_casts,
+    unreachable_pub,
     unsafe_code,
     unused_extern_crates,
     unused_import_braces,
@@ -138,11 +139,12 @@ pub use auto_uploader::{
 };
 pub use callbacks::{MultiPartsUploaderWithCallbacks, UploaderWithCallbacks, UploadingProgressInfo};
 pub use concurrency_provider::{
-    Concurrency, ConcurrencyProvider, ConcurrencyProviderFeedback, FixedConcurrencyProvider,
+    Concurrency, ConcurrencyProvider, ConcurrencyProviderFeedback, ConcurrencyProviderFeedbackBuilder,
+    FixedConcurrencyProvider,
 };
 pub use data_partition_provider::{
-    DataPartitionProvider, DataPartitionProviderFeedback, FixedDataPartitionProvider, LimitedDataPartitionProvider,
-    MultiplyDataPartitionProvider, PartSize,
+    DataPartitionProvider, DataPartitionProviderFeedback, DataPartitionProviderFeedbackBuilder,
+    FixedDataPartitionProvider, LimitedDataPartitionProvider, MultiplyDataPartitionProvider, PartSize,
 };
 pub use data_source::{DataSource, DataSourceReader, FileDataSource, SeekableSource, SourceKey};
 pub use multi_parts_uploader::{

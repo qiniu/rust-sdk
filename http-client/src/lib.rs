@@ -13,6 +13,7 @@
     non_ascii_idents,
     indirect_structural_match,
     trivial_numeric_casts,
+    unreachable_pub,
     unsafe_code,
     unused_extern_crates,
     unused_import_braces,
@@ -303,7 +304,7 @@
 //! # }
 //! ```
 
-pub use mime;
+pub use {mime, typenum};
 
 mod cache;
 mod client;
@@ -336,17 +337,17 @@ pub use futures::io::AsyncRead;
 pub use client::{
     global_disable_timestamp_signature, global_enable_timestamp_signature, ApiResult, Authorization,
     AuthorizationError, AuthorizationProvider, AuthorizationResult, Backoff, BackoffOptions, CachedResolver,
-    CallbackContext, ChainedResolver, ChainedResolverBuilder, ChooseOptions, ChooseOptionsBuilder, Chooser,
-    ChooserFeedback, CredentialAuthorizationV1, CredentialAuthorizationV2, DirectChooser,
-    DownloadUrlCredentialAuthorization, ErrorRetrier, ExponentialBackoff, ExtendedCallbackContext, FieldName, FileName,
-    FixedBackoff, GotBackoffDuration, HttpClient, HttpClientBuilder, Idempotent, IpChooser, IpChooserBuilder,
-    LimitedBackoff, LimitedRetrier, Multipart, NeverEmptyHandedChooser, NeverRetrier, Part, PartMetadata, QueryPair,
-    QueryPairKey, QueryPairValue, RandomizedBackoff, Ratio, RequestBuilder, RequestBuilderParts, RequestParts,
-    RequestRetrier, RequestRetrierOptions, ResolveAnswers, ResolveOptions, ResolveResult, Resolver, Response,
-    ResponseError, ResponseErrorKind, RetriedStatsInfo, RetryDecision, RetryResult, ShuffledChooser, ShuffledResolver,
-    SimpleResolver, SimplifiedCallbackContext, SubnetChooser, SubnetChooserBuilder, SyncMultipart, SyncPart,
-    SyncPartBody, SyncRequestBody, SyncRequestBuilder, SyncResponse, TimeoutResolver, UploadTokenAuthorization,
-    NO_BACKOFF,
+    CachedResolverBuilder, CallbackContext, ChainedResolver, ChainedResolverBuilder, ChooseOptions,
+    ChooseOptionsBuilder, Chooser, ChooserFeedback, ChosenResults, CredentialAuthorizationV1,
+    CredentialAuthorizationV2, DirectChooser, DownloadUrlCredentialAuthorization, ErrorRetrier, ExponentialBackoff,
+    ExtendedCallbackContext, FieldName, FileName, FixedBackoff, GotBackoffDuration, HttpClient, HttpClientBuilder,
+    Idempotent, IpChooser, IpChooserBuilder, LimitedBackoff, LimitedRetrier, Multipart, NeverEmptyHandedChooser,
+    NeverRetrier, Part, PartMetadata, QueryPair, QueryPairKey, QueryPairValue, RandomizedBackoff, Ratio,
+    RequestBuilder, RequestBuilderParts, RequestParts, RequestRetrier, RequestRetrierOptions, ResolveAnswers,
+    ResolveOptions, ResolveResult, Resolver, Response, ResponseError, ResponseErrorKind, RetriedStatsInfo,
+    RetryDecision, RetryResult, ShuffledChooser, ShuffledResolver, SimpleResolver, SimplifiedCallbackContext,
+    SubnetChooser, SubnetChooserBuilder, SyncMultipart, SyncPart, SyncPartBody, SyncRequestBody, SyncRequestBuilder,
+    SyncResponse, TimeoutResolver, UploadTokenAuthorization, NO_BACKOFF,
 };
 pub use http::{CallbackResult, SyncResponseBody};
 pub use regions::{
@@ -366,6 +367,8 @@ pub use client::{c_ares, c_ares_resolver, CAresResolver};
 #[cfg(all(feature = "trust_dns", feature = "async"))]
 #[cfg_attr(feature = "docs", doc(cfg(all(feature = "trust_dns", feature = "async"))))]
 pub use client::{trust_dns_resolver, TrustDnsResolver};
+
+pub use ipnet::PrefixLenError;
 
 #[cfg(feature = "async")]
 pub use {

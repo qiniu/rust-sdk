@@ -313,7 +313,7 @@ impl FormUploader {
     #[cfg(feature = "async")]
     async fn make_async_request_body_from_path<'a>(
         &'a self,
-        path: &Path,
+        path: &'a Path,
         token: &'a (dyn UploadTokenProvider + 'a),
         mut params: ObjectParams,
     ) -> ApiResult<AsyncRequestBody<'a>> {

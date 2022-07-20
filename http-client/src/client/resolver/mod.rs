@@ -63,7 +63,7 @@ pub struct ResolveOptionsBuilder<'a>(ResolveOptions<'a>);
 impl<'a> ResolveOptionsBuilder<'a> {
     /// 设置重试统计信息
     #[inline]
-    pub fn retried(&'a mut self, retried: &'a RetriedStatsInfo) -> &mut Self {
+    pub fn retried(&mut self, retried: &'a RetriedStatsInfo) -> &mut Self {
         self.0.retried = Some(retried);
         self
     }
@@ -191,7 +191,7 @@ impl DerefMut for ResolveAnswers {
 /// 域名解析结果
 pub type ResolveResult = ApiResult<ResolveAnswers>;
 
-pub use cache::CachedResolver;
+pub use cache::{CachedResolver, CachedResolverBuilder};
 pub use chained::{ChainedResolver, ChainedResolverBuilder};
 pub use shuffled::ShuffledResolver;
 pub use simple::SimpleResolver;

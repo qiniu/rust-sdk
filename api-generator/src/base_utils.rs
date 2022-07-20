@@ -1,11 +1,7 @@
 use std::borrow::Cow;
 
 #[allow(dead_code)]
-pub(crate) fn join_path(
-    base_path: &str,
-    path_suffix: &str,
-    path_params: Vec<Cow<'static, str>>,
-) -> String {
+pub(crate) fn join_path(base_path: &str, path_suffix: &str, path_params: Vec<Cow<'static, str>>) -> String {
     let base_path_segments = base_path.split('/').filter(|seg| !seg.is_empty());
     let path_suffix_segments = path_suffix.split('/').filter(|seg| !seg.is_empty());
 

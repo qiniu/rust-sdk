@@ -27,6 +27,7 @@ pub async fn etag_to_buf(reader: impl AsyncRead + Unpin, array: &mut [u8; ETAG_S
     Ok(())
 }
 
+#[allow(clippy::read_zero_byte_vec)]
 async fn _etag_of_reader_with_parts(
     mut reader: impl AsyncRead + Unpin,
     parts: &[usize],

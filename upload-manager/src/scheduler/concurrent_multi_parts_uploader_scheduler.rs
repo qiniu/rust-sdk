@@ -144,12 +144,11 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler for Concurrent
         let result = _upload(self, source, params, concurrency, &uploaded_size);
         let elapsed = begin_at.elapsed();
         if let Some(uploaded_size) = NonZeroU64::new(uploaded_size.load(Ordering::SeqCst)) {
-            self.concurrency_provider.feedback(ConcurrencyProviderFeedback::new(
-                concurrency,
-                uploaded_size,
-                elapsed,
-                result.as_ref().err(),
-            ))
+            let mut builder = ConcurrencyProviderFeedback::builder(concurrency, uploaded_size, elapsed);
+            if let Some(err) = result.as_ref().err() {
+                builder.error(err);
+            }
+            self.concurrency_provider.feedback(builder.build())
         }
         return result;
 
@@ -220,12 +219,11 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler for Concurrent
             let result = _upload(self, source, params, concurrency, uploaded_size.to_owned()).await;
             let elapsed = begin_at.elapsed();
             if let Some(uploaded_size) = NonZeroU64::new(uploaded_size.load(Ordering::SeqCst)) {
-                self.concurrency_provider.feedback(ConcurrencyProviderFeedback::new(
-                    concurrency,
-                    uploaded_size,
-                    elapsed,
-                    result.as_ref().err(),
-                ))
+                let mut builder = ConcurrencyProviderFeedback::builder(concurrency, uploaded_size, elapsed);
+                if let Some(err) = result.as_ref().err() {
+                    builder.error(err);
+                }
+                self.concurrency_provider.feedback(builder.build())
             }
             result
         });

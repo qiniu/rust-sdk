@@ -321,6 +321,8 @@ impl<'r> RequestBuilderParts<'r> {
 }
 
 /// 请求构建器
+///
+/// 通过 [`HttpClient::get`]， [`HttpClient::post`] 等方法创建请求构建器
 #[derive(Debug)]
 pub struct RequestBuilder<'r, B: 'r, E: 'r> {
     http_client: &'r HttpClient,

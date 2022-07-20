@@ -108,6 +108,7 @@ pub fn etag_to_buf(reader: impl Read, array: &mut [u8; ETAG_SIZE]) -> Result<()>
     Ok(())
 }
 
+#[allow(clippy::read_zero_byte_vec)]
 fn _etag_of_reader_with_parts(mut reader: impl Read, parts: &[usize], out: &mut GenericArray<u8, U28>) -> Result<()> {
     if can_use_etag_v1(parts) {
         return _etag_of_reader(reader, out);

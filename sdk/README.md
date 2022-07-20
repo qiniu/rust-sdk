@@ -40,13 +40,17 @@
 
 允许通过 `qiniu_sdk::apis` 来访问 `qiniu-apis`。
 
-#### `objects-manager`
+#### `objects`
 
 允许通过 `qiniu_sdk::objects` 来访问 `qiniu-objects-manager`。
 
-#### `upload-manager`
+#### `upload`
 
 允许通过 `qiniu_sdk::upload` 来访问 `qiniu-upload-manager`。
+
+#### `download`
+
+允许通过 `qiniu_sdk::download` 来访问 `qiniu-download-manager`。
 
 #### `async`
 

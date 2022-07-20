@@ -180,8 +180,7 @@ impl<'a> BatchOperationsIterator<'a> {
         if let Some(request_body) = self.generate_request_body() {
             let request = self.make_request()?;
             let response = self.call_request(request, request_body)?;
-            self.handle_response(response.into_body())
-                .map_or(Ok(None), |v| v.map(Some))
+            self.handle_response(response.into_body()).transpose()
         } else {
             Ok(None)
         }

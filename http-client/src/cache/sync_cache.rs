@@ -213,7 +213,7 @@ impl<
     #[inline]
     fn drop(&mut self) {
         if let Ok(mut locked_data) = self.locked_data.lock() {
-            do_some_work_with_locked_data(self, &mut *locked_data);
+            do_some_work_with_locked_data(self, &mut locked_data);
         }
     }
 }
@@ -284,7 +284,7 @@ fn do_some_work_async<
     let mut need_to_persistent = false;
     let inner = inner.to_owned();
     let need_to_shrink = if let Ok(mut locked_data) = inner.locked_data.try_lock() {
-        is_time_to_shrink(&inner, &mut *locked_data, false)
+        is_time_to_shrink(&inner, &mut locked_data, false)
     } else {
         // Looks like some work is being done, we don't want to spawn another thread
         info!("Cache has hired someone to do the housework, so we don't hire another now");
@@ -299,7 +299,7 @@ fn do_some_work_async<
         if let Err(err) = spawn("qiniu.rust-sdk.http-client.cache.Cache".into(), move || {
             if let Ok(mut locked_data) = inner.locked_data.try_lock() {
                 info!("Cache spawns thread to do some housework");
-                do_some_work_with_locked_data(&inner, &mut *locked_data);
+                do_some_work_with_locked_data(&inner, &mut locked_data);
             }
         }) {
             warn!(
