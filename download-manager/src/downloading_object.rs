@@ -1008,7 +1008,7 @@ mod tests {
 
         return Ok(());
 
-        fn get_download_manager() -> DownloadManager<UrlsSigner<Credential, StaticDomainsUrlsGenerator>> {
+        fn get_download_manager() -> DownloadManager {
             DownloadManager::builder(UrlsSigner::new(
                 get_credential(),
                 StaticDomainsUrlsGenerator::new(Endpoint::new_from_ip_addr(IpAddr::V4(Ipv4Addr::LOCALHOST))),
@@ -1129,7 +1129,7 @@ mod tests {
 
         return Ok(());
 
-        fn get_download_manager() -> DownloadManager<UrlsSigner<Credential, StaticDomainsUrlsGenerator>> {
+        fn get_download_manager() -> DownloadManager {
             DownloadManager::builder(UrlsSigner::new(
                 get_credential(),
                 StaticDomainsUrlsGenerator::new(Endpoint::new_from_ip_addr(IpAddr::V4(Ipv4Addr::LOCALHOST))),
@@ -1225,7 +1225,7 @@ mod tests {
 
         return Ok(());
 
-        fn get_download_manager() -> DownloadManager<UrlsSigner<Credential, StaticDomainsUrlsGenerator>> {
+        fn get_download_manager() -> DownloadManager {
             DownloadManager::builder(UrlsSigner::new(
                 get_credential(),
                 StaticDomainsUrlsGenerator::builder(Endpoint::new_from_ip_addr(IpAddr::V4(Ipv4Addr::new(
@@ -1316,7 +1316,7 @@ mod tests {
 
         return Ok(());
 
-        fn get_download_manager() -> DownloadManager<UrlsSigner<Credential, StaticDomainsUrlsGenerator>> {
+        fn get_download_manager() -> DownloadManager {
             DownloadManager::builder(UrlsSigner::new(
                 get_credential(),
                 StaticDomainsUrlsGenerator::builder(Endpoint::new_from_ip_addr(IpAddr::V4(Ipv4Addr::new(
@@ -1411,7 +1411,7 @@ mod tests {
 
         return Ok(());
 
-        fn get_download_manager() -> DownloadManager<UrlsSigner<Credential, StaticDomainsUrlsGenerator>> {
+        fn get_download_manager() -> DownloadManager {
             DownloadManager::builder(UrlsSigner::new(
                 get_credential(),
                 StaticDomainsUrlsGenerator::builder(Endpoint::new_from_ip_addr(IpAddr::V4(Ipv4Addr::new(
@@ -1514,7 +1514,7 @@ mod tests {
 
         return Ok(());
 
-        fn get_download_manager() -> DownloadManager<UrlsSigner<Credential, StaticDomainsUrlsGenerator>> {
+        fn get_download_manager() -> DownloadManager {
             DownloadManager::builder(UrlsSigner::new(
                 get_credential(),
                 StaticDomainsUrlsGenerator::new(Endpoint::new_from_ip_addr(IpAddr::V4(Ipv4Addr::LOCALHOST))),
@@ -1604,7 +1604,7 @@ mod tests {
 
         return Ok(());
 
-        fn get_download_manager(bytes: Vec<u8>) -> DownloadManager<UrlsSigner<Credential, StaticDomainsUrlsGenerator>> {
+        fn get_download_manager(bytes: Vec<u8>) -> DownloadManager {
             DownloadManager::builder(UrlsSigner::new(
                 get_credential(),
                 StaticDomainsUrlsGenerator::new(Endpoint::new_from_ip_addr(IpAddr::V4(Ipv4Addr::LOCALHOST))),

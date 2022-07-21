@@ -4,44 +4,34 @@ use qiniu_apis::http_client::{ApiResult, HttpClient};
 use std::sync::Arc;
 
 /// 下载管理器
-#[derive(Debug)]
-pub struct DownloadManager<G> {
-    urls_generator: Arc<G>,
+#[derive(Debug, Clone)]
+pub struct DownloadManager {
+    urls_generator: Arc<dyn DownloadUrlsGenerator>,
     http_client: HttpClient,
 }
 
 /// 下载管理构建器
-#[derive(Debug)]
-pub struct DownloadManagerBuilder<G> {
+#[derive(Debug, Clone)]
+pub struct DownloadManagerBuilder {
     http_client: Option<HttpClient>,
-    urls_generator: G,
+    urls_generator: Arc<dyn DownloadUrlsGenerator>,
 }
 
-impl<G> Clone for DownloadManager<G> {
-    #[inline]
-    fn clone(&self) -> Self {
-        Self {
-            urls_generator: self.urls_generator.to_owned(),
-            http_client: self.http_client.to_owned(),
-        }
-    }
-}
-
-impl<G> DownloadManager<G> {
+impl DownloadManager {
     /// 创建下载管理构建器
     #[inline]
-    pub fn builder(urls_generator: G) -> DownloadManagerBuilder<G> {
+    pub fn builder(urls_generator: impl DownloadUrlsGenerator + 'static) -> DownloadManagerBuilder {
         DownloadManagerBuilder::new(urls_generator)
     }
 
     /// 创建下载管理器
     #[inline]
-    pub fn new(urls_generator: G) -> Self {
+    pub fn new(urls_generator: impl DownloadUrlsGenerator + 'static) -> Self {
         Self::builder(urls_generator).build()
     }
 }
 
-impl<G: DownloadUrlsGenerator> DownloadManager<G> {
+impl DownloadManager {
     /// 获取下载输出流
     pub fn download(&self, object_name: impl AsRef<str>) -> ApiResult<DownloadingObject> {
         let urls = self.urls_generator.generate(object_name.as_ref(), Default::default())?;
@@ -60,7 +50,7 @@ impl<G: DownloadUrlsGenerator> DownloadManager<G> {
     }
 }
 
-impl<G: Send + Sync> DownloadManager<G> {
+impl DownloadManager {
     #[allow(dead_code)]
     fn assert() {
         assert_impl!(Send: Self);
@@ -68,18 +58,18 @@ impl<G: Send + Sync> DownloadManager<G> {
     }
 }
 
-impl<G> DownloadManagerBuilder<G> {
+impl DownloadManagerBuilder {
     /// 创建下载管理构建器
     #[inline]
-    pub fn new(urls_generator: G) -> Self {
+    pub fn new(urls_generator: impl DownloadUrlsGenerator + 'static) -> Self {
         Self {
             http_client: None,
-            urls_generator,
+            urls_generator: Arc::new(urls_generator),
         }
     }
 
     /// 设置 HTTP 客户端
-    pub fn http_client(mut self, http_client: HttpClient) -> Self {
+    pub fn http_client(&mut self, http_client: HttpClient) -> &mut Self {
         self.http_client = Some(http_client);
         self
     }
@@ -87,20 +77,20 @@ impl<G> DownloadManagerBuilder<G> {
     /// 是否启用 HTTPS 协议
     ///
     /// 默认为 HTTPS 协议
-    pub fn use_https(self, use_https: bool) -> Self {
+    pub fn use_https(&mut self, use_https: bool) -> &mut Self {
         self.http_client(HttpClient::build_default().use_https(use_https).build())
     }
 
     /// 构建下载管理器
-    pub fn build(self) -> DownloadManager<G> {
+    pub fn build(&self) -> DownloadManager {
         DownloadManager {
-            urls_generator: Arc::new(self.urls_generator),
-            http_client: self.http_client.unwrap_or_default(),
+            urls_generator: self.urls_generator.to_owned(),
+            http_client: self.http_client.to_owned().unwrap_or_default(),
         }
     }
 }
 
-impl<G: Send + Sync> DownloadManagerBuilder<G> {
+impl DownloadManagerBuilder {
     #[allow(dead_code)]
     fn assert() {
         assert_impl!(Send: Self);

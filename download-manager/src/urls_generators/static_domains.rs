@@ -8,7 +8,7 @@ use futures::future::BoxFuture;
 
 /// 静态公开空间域名下载 URL 列表生成器
 #[derive(Debug, Clone)]
-pub struct StaticDomainsUrlsGenerator(EndpointsUrlGenerator<Endpoints>);
+pub struct StaticDomainsUrlsGenerator(EndpointsUrlGenerator);
 
 impl StaticDomainsUrlsGenerator {
     /// 创建静态公开空间域名下载 URL 列表生成构建器
