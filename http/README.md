@@ -19,14 +19,14 @@
 
 ```toml
 [dependencies]
-qiniu-http = "0.1.2"
+qiniu-http = "0.1.3"
 ```
 
 ### 启用异步接口
 
 ```toml
 [dependencies]
-qiniu-http = { version = "0.1.2", features = ["async"] }
+qiniu-http = { version = "0.1.3", features = ["async"] }
 ```
 
 ## 最低支持的 Rust 版本（MSRV）

@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-http-client"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2021"
 rust-version = "1.60.0"
@@ -55,13 +55,13 @@ trust-dns-resolver = { version = "0.21.2", optional = true }
 async-std-resolver = { version = "0.21.2", optional = true }
 async-once-cell = { version = "0.3.0", optional = true }
 
-qiniu-http = { version = "0.1.2", path = "../http" }
-qiniu-credential = { version = "0.1.2", path = "../credential" }
-qiniu-upload-token = { version = "0.1.2", path = "../upload-token" }
-qiniu-reqwest = { version = "0.1.2", path = "../http-reqwest", optional = true }
-qiniu-isahc = { version = "0.1.2", path = "../http-isahc", optional = true }
-qiniu-ureq = { version = "0.1.2", path = "../http-ureq", optional = true }
-qiniu-utils = { version = "0.1.2", path = "../utils" }
+qiniu-http = { version = "0.1.3", path = "../http" }
+qiniu-credential = { version = "0.1.3", path = "../credential" }
+qiniu-upload-token = { version = "0.1.3", path = "../upload-token" }
+qiniu-reqwest = { version = "0.1.3", path = "../http-reqwest", optional = true }
+qiniu-isahc = { version = "0.1.3", path = "../http-isahc", optional = true }
+qiniu-ureq = { version = "0.1.3", path = "../http-ureq", optional = true }
+qiniu-utils = { version = "0.1.3", path = "../utils" }
 
 [dev-dependencies]
 async-std = { version = "1.9.0", features = ["attributes"] }
