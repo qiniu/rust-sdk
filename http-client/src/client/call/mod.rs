@@ -1,5 +1,6 @@
 mod domain_or_ip_addr;
 mod error;
+mod ip_addrs;
 mod ip_addrs_set;
 mod request_call;
 mod send_http_request;

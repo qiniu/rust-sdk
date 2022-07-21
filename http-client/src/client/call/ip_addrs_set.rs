@@ -1,7 +1,10 @@
 use super::super::super::IpAddrWithPort;
-use std::collections::HashSet;
+use std::{
+    collections::HashSet,
+    fmt::{self, Display},
+};
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub(super) struct IpAddrsSet {
     set: HashSet<IpAddrWithPort>,
     ordered: Vec<IpAddrWithPort>,
@@ -48,5 +51,19 @@ impl IpAddrsSet {
             .copied()
             .filter(|ip| self.set.contains(ip))
             .collect()
+    }
+}
+
+impl Display for IpAddrsSet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[")?;
+        for (i, ip) in self.ordered.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{}", ip)?;
+        }
+        write!(f, "]")?;
+        Ok(())
     }
 }

@@ -8,6 +8,7 @@ use super::{
     ip_addrs_set::IpAddrsSet,
     try_endpoints::try_endpoints,
 };
+use log::debug;
 use qiniu_http::Extensions;
 
 pub(in super::super) fn request_call<E: EndpointsProvider>(
@@ -34,6 +35,7 @@ pub(in super::super) fn request_call<E: EndpointsProvider>(
         {
             let (_, extensions) = err.split();
             retried.switch_to_alternative_endpoints();
+            debug!("Switch to alternative endpoints");
             try_alternative_endpoints(
                 endpoints.alternative(),
                 &parts,
@@ -103,6 +105,7 @@ pub(in super::super) async fn async_request_call<E: EndpointsProvider>(
         {
             let (_, extensions) = err.split();
             retried.switch_to_alternative_endpoints();
+            debug!("Switch to alternative endpoints");
             try_alternative_endpoints(
                 endpoints.alternative(),
                 &parts,

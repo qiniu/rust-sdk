@@ -5,10 +5,12 @@ use super::{
     },
     domain_or_ip_addr::DomainOrIpAddr,
     error::{TryError, TryErrorWithExtensions},
+    ip_addrs::IpAddrs,
     ip_addrs_set::IpAddrsSet,
     try_domain_or_ip_addr::try_domain_or_ip_addr,
     utils::{choose, find_domains_with_port, find_ip_addr_with_port, resolve},
 };
+use log::debug;
 use qiniu_http::{Extensions, SyncRequestBody};
 use std::mem::take;
 use tap::TapFallible;
@@ -25,6 +27,7 @@ pub(super) fn try_endpoints(
     let mut last_error: Option<TryError> = None;
 
     for domain_with_port in find_domains_with_port(endpoints) {
+        debug!("Try domain with port: {}", domain_with_port);
         match try_domain_with_port(
             domain_with_port,
             tried_ips,
@@ -49,6 +52,7 @@ pub(super) fn try_endpoints(
 
     let ips = find_ip_addr_with_port(endpoints).copied().collect::<Vec<_>>();
     if !ips.is_empty() {
+        debug!("Try IPs with port: {:?}", ips);
         match try_ips(
             &ips,
             tried_ips,
@@ -86,6 +90,7 @@ pub(super) fn try_endpoints(
     ) -> Result<SyncResponse, ControlFlow<TryErrorWithExtensions>> {
         retried.switch_endpoint();
         return if parts.http_client().http_caller().is_resolved_ip_addrs_supported() {
+            debug!("Try domain with resolver: {}", domain_with_port);
             with_resolver(
                 domain_with_port,
                 tried_ips,
@@ -96,6 +101,7 @@ pub(super) fn try_endpoints(
                 is_endpoints_alternative,
             )
         } else {
+            debug!("Try domain without resolver: {}", domain_with_port);
             without_resolver(
                 domain_with_port,
                 parts,
@@ -211,8 +217,10 @@ pub(super) fn try_endpoints(
                 remaining_ips.difference_slice(&chosen_ips);
                 tried_ips.union_slice(&chosen_ips);
                 retried.switch_ips();
+                let chosen_ips = IpAddrs::from(chosen_ips);
+                debug!("Try domain with IPs: {}({})", domain_with_port, chosen_ips);
                 match try_domain_or_single_ip(
-                    &DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), chosen_ips),
+                    &DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), chosen_ips.into()),
                     parts,
                     body,
                     take(extensions),
@@ -244,6 +252,7 @@ pub(super) fn try_endpoints(
             ips
         };
         loop {
+            debug!("Try IPs: {}", remaining_ips);
             match try_remaining_ips(
                 &mut remaining_ips,
                 tried_ips,
@@ -293,6 +302,7 @@ pub(super) fn try_endpoints(
                 tried_ips.union_slice(&chosen_ips);
                 for chosen_ip in chosen_ips.into_iter() {
                     retried.switch_endpoint();
+                    debug!("Try single IP: {}", chosen_ip);
                     match try_single_ip(chosen_ip, parts, body, extensions, retried, is_endpoints_alternative) {
                         Ok(response) => return Ok(response),
                         Err(SingleTryFlow::TryAgain(err)) => {
@@ -379,6 +389,7 @@ pub(super) async fn async_try_endpoints(
     let mut last_error: Option<TryError> = None;
 
     for domain_with_port in find_domains_with_port(endpoints) {
+        debug!("Try domain with port: {}", domain_with_port);
         match try_domain_with_port(
             domain_with_port,
             tried_ips,
@@ -405,6 +416,7 @@ pub(super) async fn async_try_endpoints(
 
     let ips = find_ip_addr_with_port(endpoints).copied().collect::<Vec<_>>();
     if !ips.is_empty() {
+        debug!("Try IPs with port: {:?}", ips);
         match try_ips(
             &ips,
             tried_ips,
@@ -444,6 +456,7 @@ pub(super) async fn async_try_endpoints(
     ) -> Result<AsyncResponse, ControlFlow<TryErrorWithExtensions>> {
         retried.switch_endpoint();
         return if parts.http_client().http_caller().is_resolved_ip_addrs_supported() {
+            debug!("Try domain with resolver: {}", domain_with_port);
             with_resolver(
                 domain_with_port,
                 tried_ips,
@@ -455,6 +468,7 @@ pub(super) async fn async_try_endpoints(
             )
             .await
         } else {
+            debug!("Try domain without resolver: {}", domain_with_port);
             without_resolver(
                 domain_with_port,
                 parts,
@@ -575,8 +589,10 @@ pub(super) async fn async_try_endpoints(
                 remaining_ips.difference_slice(&chosen_ips);
                 tried_ips.union_slice(&chosen_ips);
                 retried.switch_ips();
+                let chosen_ips = IpAddrs::from(chosen_ips);
+                debug!("Try domain with IPs: {}({})", domain_with_port, chosen_ips);
                 match try_domain_or_single_ip(
-                    &DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), chosen_ips),
+                    &DomainOrIpAddr::new_from_domain(domain_with_port.to_owned(), chosen_ips.into()),
                     parts,
                     body,
                     take(extensions),
@@ -610,6 +626,7 @@ pub(super) async fn async_try_endpoints(
             ips
         };
         loop {
+            debug!("Try IPs: {}", remaining_ips);
             match try_remaining_ips(
                 &mut remaining_ips,
                 tried_ips,
@@ -662,6 +679,7 @@ pub(super) async fn async_try_endpoints(
                 tried_ips.union_slice(&chosen_ips);
                 for chosen_ip in chosen_ips.into_iter() {
                     retried.switch_endpoint();
+                    debug!("Try single IP: {}", chosen_ip);
                     match try_single_ip(chosen_ip, parts, body, extensions, retried, is_endpoints_alternative).await {
                         Ok(response) => return Ok(response),
                         Err(SingleTryFlow::TryAgain(err)) => {
