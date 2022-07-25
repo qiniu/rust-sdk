@@ -271,7 +271,7 @@ impl DownloadingObject {
     /// ```
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    pub async fn to_async_writer(self, writer: &mut (dyn AsyncWrite + Unpin)) -> DownloadResult<()> {
+    pub async fn to_async_writer(self, writer: &mut (dyn AsyncWrite + Send + Sync + Unpin)) -> DownloadResult<()> {
         let mut buf = [0u8; 1 << 15];
         let mut reader = self.into_inner_reader();
         loop {
@@ -357,6 +357,12 @@ impl DownloadingObject {
             etag: None,
             response: None,
         }
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 
