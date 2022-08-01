@@ -588,62 +588,42 @@ mod tests {
 
     #[test]
     fn test_from_str_to_ip_addr_with_port() -> Result<(), Box<dyn Error>> {
-        let mut result: Result<IpAddrWithPort, IpAddrWithPortParseError> = "".parse();
-        assert!(result.is_err());
-
-        result = "/".parse();
-        assert!(result.is_err());
-
-        result = ":".parse();
-        assert!(result.is_err());
-
-        result = ":8080".parse();
-        assert!(result.is_err());
-
-        result = "127.0.0.1:8080".parse();
+        "".parse::<IpAddrWithPort>().unwrap_err();
+        "/".parse::<IpAddrWithPort>().unwrap_err();
+        ":".parse::<IpAddrWithPort>().unwrap_err();
+        ":8080".parse::<IpAddrWithPort>().unwrap_err();
+        let ip = "127.0.0.1:8080".parse::<IpAddrWithPort>()?;
         assert_eq!(
-            result.unwrap(),
+            ip,
             IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), NonZeroU16::new(8080)),
         );
 
-        result = "127.0.0.1:65536".parse();
-        assert!(result.is_err());
+        "127.0.0.1:65536".parse::<IpAddrWithPort>().unwrap_err();
 
-        result = "fe80::e31c:b4e6:5919:728f".parse();
+        let ip = "fe80::e31c:b4e6:5919:728f".parse::<IpAddrWithPort>()?;
         assert_eq!(
-            result.unwrap(),
+            ip,
             IpAddrWithPort::new(
                 IpAddr::V6(Ipv6Addr::new(0xfe80, 0, 0, 0, 0xe31c, 0xb4e6, 0x5919, 0x728f,)),
                 None
             ),
         );
 
-        result = "[fe80::e31c:b4e6:5919:728f]:8080".parse();
+        let ip = "[fe80::e31c:b4e6:5919:728f]:8080".parse::<IpAddrWithPort>()?;
         assert_eq!(
-            result.unwrap(),
+            ip,
             IpAddrWithPort::new(
                 IpAddr::V6(Ipv6Addr::new(0xfe80, 0, 0, 0, 0xe31c, 0xb4e6, 0x5919, 0x728f,)),
                 NonZeroU16::new(8080)
             ),
         );
 
-        result = "[127.0.0.1]:8080".parse();
-        assert!(result.is_err());
-
-        result = "8080:8080".parse();
-        assert!(result.is_err());
-
-        result = "8080".parse();
-        assert!(result.is_err());
-
-        result = "8080:".parse();
-        assert!(result.is_err());
-
-        result = "domain:".parse();
-        assert!(result.is_err());
-
-        result = "domain:8080".parse();
-        assert!(result.is_err());
+        "[127.0.0.1]:8080".parse::<IpAddrWithPort>().unwrap_err();
+        "8080:8080".parse::<IpAddrWithPort>().unwrap_err();
+        "8080".parse::<IpAddrWithPort>().unwrap_err();
+        "8080:".parse::<IpAddrWithPort>().unwrap_err();
+        "domain:".parse::<IpAddrWithPort>().unwrap_err();
+        "domain:8080".parse::<IpAddrWithPort>().unwrap_err();
 
         Ok(())
     }
