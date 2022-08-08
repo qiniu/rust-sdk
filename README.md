@@ -232,8 +232,8 @@ let mut uploader: AutoUploader = upload_manager.auto_uploader();
 let params = AutoUploaderObjectParams::builder()
     .object_name(object_name)
     .file_name(object_name)
-    .insert_metadata("x:fname", "123.jpg")
-    .insert_metadata("x:age", "20")
+    .insert_custom_var("fname", "123.jpg")
+    .insert_custom_var("age", "20")
     .build();
 uploader.upload_path("/home/qiniu/test.mp4", params)?;
 ```
