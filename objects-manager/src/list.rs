@@ -135,6 +135,13 @@ pub struct ListIter<'a> {
     callbacks: Callbacks<'a>,
 }
 
+impl ListIter<'_> {
+    /// 获取上一次列举返回的位置标记
+    pub fn marker(&self) -> Option<&str> {
+        self.params.marker.as_ref()
+    }
+}
+
 impl Debug for ListIter<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -458,10 +465,7 @@ impl Iterator for ListIter<'_> {
 #[cfg(feature = "async")]
 mod async_list_stream {
     use super::*;
-    use futures::{
-        future::BoxFuture, io::Lines as AsyncLines, ready, stream::BoxStream, AsyncBufReadExt, FutureExt, Stream,
-        StreamExt,
-    };
+    use futures::{future::BoxFuture, io::Lines as AsyncLines, ready, AsyncBufReadExt, FutureExt, Stream, StreamExt};
     use std::{
         fmt::{self, Debug},
         io::Result as IOResult,
@@ -510,7 +514,11 @@ mod async_list_stream {
         }
     }
 
-    type ListedObjectEntryResultStream<'a> = BoxStream<'a, ApiResult<ListedObjectEntry>>;
+    trait StreamWithMarker: Stream {
+        fn marker(&self) -> Option<&str>;
+    }
+    type BoxStreamWithMarker<'a, T> = Pin<Box<dyn StreamWithMarker<Item = T> + Send + 'a>>;
+    type ListedObjectEntryResultStream<'a> = BoxStreamWithMarker<'a, ApiResult<ListedObjectEntry>>;
 
     /// 对象列举流
     ///
@@ -542,6 +550,11 @@ mod async_list_stream {
         fn assert() {
             assert_impl!(Send: Self);
             // assert_impl!(Sync: Self);
+        }
+
+        /// 获取上一次列举返回的位置标记
+        pub fn marker(&self) -> Option<&str> {
+            self.0.marker()
         }
     }
 
@@ -583,12 +596,11 @@ mod async_list_stream {
             limit: Limit::new(limit, ListVersion::V1),
             marker: Marker::new(marker),
         };
-        ListV1Stream {
+        Box::pin(ListV1Stream {
             params,
             callbacks,
             current_step: Default::default(),
-        }
-        .boxed()
+        })
     }
 
     impl Stream for ListV1Stream<'_> {
@@ -602,6 +614,12 @@ mod async_list_stream {
                 AsyncListV1Step::WaitForRegionProvider { .. } => self.wait_for_region(cx),
                 AsyncListV1Step::Done => Poll::Ready(None),
             }
+        }
+    }
+
+    impl StreamWithMarker for ListV1Stream<'_> {
+        fn marker(&self) -> Option<&str> {
+            self.params.marker.as_ref()
         }
     }
 
@@ -730,12 +748,11 @@ mod async_list_stream {
             limit: Limit::new(limit, ListVersion::V2),
             marker: Marker::new(marker),
         };
-        ListV2Stream {
+        Box::pin(ListV2Stream {
             params,
             callbacks,
             current_step: Default::default(),
-        }
-        .boxed()
+        })
     }
 
     impl Stream for ListV2Stream<'_> {
@@ -750,6 +767,12 @@ mod async_list_stream {
                 AsyncListV2Step::WaitForEntries { .. } => self.wait_for_entries(cx),
                 AsyncListV2Step::Done => Poll::Ready(None),
             }
+        }
+    }
+
+    impl StreamWithMarker for ListV2Stream<'_> {
+        fn marker(&self) -> Option<&str> {
+            self.params.marker.as_ref()
         }
     }
 
@@ -977,18 +1000,16 @@ mod tests {
         }
 
         let mut counter = 0usize;
-        for (i, entry) in get_bucket(FakeHttpCaller::default())
-            .list()
-            .version(ListVersion::V1)
-            .iter()
-            .enumerate()
-        {
+        let bucket = get_bucket(FakeHttpCaller::default());
+        let mut iter = bucket.list().version(ListVersion::V1).iter();
+        for (i, entry) in (&mut iter).enumerate() {
             counter += 1;
             let entry = entry?;
             assert_eq!(entry.get_key_as_str(), &format!("fakeobj{}", i + 1));
             assert_eq!(entry.get_hash_as_str(), &format!("fakeobj{}hash", i + 1));
             assert_eq!(entry.get_size_as_u64(), i as u64 + 1);
         }
+        assert_eq!(iter.marker(), Some(""));
         assert_eq!(counter, 4usize);
 
         Ok(())
@@ -1110,6 +1131,7 @@ mod tests {
             ResponseErrorKind::StatusCodeError(StatusCode::from_u16(599)?)
         );
         assert!(iter.next().is_none());
+        assert_eq!(iter.marker(), Some("fakemarker"));
         assert_eq!(before_request_callback_counter.load(Ordering::Relaxed), 2usize);
         assert_eq!(after_response_ok_callback_counter.load(Ordering::Relaxed), 1usize);
         assert_eq!(after_response_error_callback_counter.load(Ordering::Relaxed), 1usize);
@@ -1190,20 +1212,16 @@ mod tests {
         }
 
         let mut counter = 0usize;
-        for (i, entry) in get_bucket(FakeHttpCaller::default())
-            .list()
-            .version(ListVersion::V1)
-            .prefix("fakeobj")
-            .limit(3)
-            .iter()
-            .enumerate()
-        {
+        let bucket = get_bucket(FakeHttpCaller::default());
+        let mut iter = bucket.list().version(ListVersion::V1).prefix("fakeobj").limit(3).iter();
+        for (i, entry) in (&mut iter).enumerate() {
             counter += 1;
             let entry = entry?;
             assert_eq!(entry.get_key_as_str(), &format!("fakeobj{}", i + 1));
             assert_eq!(entry.get_hash_as_str(), &format!("fakeobj{}hash", i + 1));
             assert_eq!(entry.get_size_as_u64(), i as u64 + 1);
         }
+        assert_eq!(iter.marker(), Some(""));
         assert_eq!(counter, 3usize);
 
         Ok(())
@@ -1262,35 +1280,41 @@ mod tests {
             }
         }
 
-        let counter = AtomicUsize::new(0);
-        for (i, entry) in get_bucket(FakeHttpCaller::default())
-            .list()
-            .version(ListVersion::V1)
-            .before_request_callback(|_| {
-                if counter.load(Ordering::Relaxed) > 0 {
-                    CallbackResult::Cancel
-                } else {
-                    CallbackResult::Continue
-                }
-            })
-            .iter()
-            .enumerate()
+        let counter = Arc::new(AtomicUsize::new(0));
+        let bucket = get_bucket(FakeHttpCaller::default());
         {
-            if counter.fetch_add(1, Ordering::Relaxed) < 2 {
-                let entry = entry?;
-                assert_eq!(entry.get_key_as_str(), &format!("fakeobj{}", i + 1));
-                assert_eq!(entry.get_hash_as_str(), &format!("fakeobj{}hash", i + 1));
-                assert_eq!(entry.get_size_as_u64(), i as u64 + 1);
-            } else {
-                let err = entry.unwrap_err();
-                assert!(matches!(
-                    err.kind(),
-                    ResponseErrorKind::HttpError(HttpResponseErrorKind::UserCanceled { .. })
-                ));
-                break;
+            let mut iter = bucket
+                .list()
+                .version(ListVersion::V1)
+                .before_request_callback({
+                    let counter = counter.to_owned();
+                    move |_| {
+                        if counter.load(Ordering::Relaxed) > 0 {
+                            CallbackResult::Cancel
+                        } else {
+                            CallbackResult::Continue
+                        }
+                    }
+                })
+                .iter();
+            for (i, entry) in (&mut iter).enumerate() {
+                if counter.fetch_add(1, Ordering::Relaxed) < 2 {
+                    let entry = entry?;
+                    assert_eq!(entry.get_key_as_str(), &format!("fakeobj{}", i + 1));
+                    assert_eq!(entry.get_hash_as_str(), &format!("fakeobj{}hash", i + 1));
+                    assert_eq!(entry.get_size_as_u64(), i as u64 + 1);
+                } else {
+                    let err = entry.unwrap_err();
+                    assert!(matches!(
+                        err.kind(),
+                        ResponseErrorKind::HttpError(HttpResponseErrorKind::UserCanceled { .. })
+                    ));
+                    break;
+                }
             }
+            assert_eq!(iter.marker(), Some("fakemarker"));
         }
-        assert_eq!(counter.into_inner(), 3usize);
+        assert_eq!(Arc::try_unwrap(counter).unwrap().into_inner(), 3usize);
 
         Ok(())
     }
@@ -1391,12 +1415,9 @@ mod tests {
         }
 
         let mut counter = 0usize;
-        for (i, entry) in get_bucket(FakeHttpCaller::default())
-            .list()
-            .version(ListVersion::V2)
-            .iter()
-            .enumerate()
-        {
+        let bucket = get_bucket(FakeHttpCaller::default());
+        let mut iter = bucket.list().version(ListVersion::V2).iter();
+        for (i, entry) in (&mut iter).enumerate() {
             counter += 1;
             let entry = entry?;
             assert_eq!(entry.get_key_as_str(), &format!("fakeobj{}", i + 1));
@@ -1404,6 +1425,7 @@ mod tests {
             assert_eq!(entry.get_size_as_u64(), i as u64 + 1);
         }
         assert_eq!(counter, 4usize);
+        assert_eq!(iter.marker(), Some(""));
 
         Ok(())
     }
@@ -1531,6 +1553,7 @@ mod tests {
             ResponseErrorKind::StatusCodeError(StatusCode::from_u16(599)?)
         );
         assert!(iter.next().is_none());
+        assert_eq!(iter.marker(), Some("fakemarkerobj2"));
         assert_eq!(before_request_callback_counter.load(Ordering::Relaxed), 2usize);
         assert_eq!(after_response_ok_callback_counter.load(Ordering::Relaxed), 1usize);
         assert_eq!(after_response_error_callback_counter.load(Ordering::Relaxed), 1usize);
@@ -1598,35 +1621,41 @@ mod tests {
             }
         }
 
-        let counter = AtomicUsize::new(0);
-        for (i, entry) in get_bucket(FakeHttpCaller::default())
-            .list()
-            .version(ListVersion::V2)
-            .before_request_callback(|_| {
-                if counter.load(Ordering::Relaxed) > 0 {
-                    CallbackResult::Cancel
-                } else {
-                    CallbackResult::Continue
-                }
-            })
-            .iter()
-            .enumerate()
+        let counter = Arc::new(AtomicUsize::new(0));
+        let bucket = get_bucket(FakeHttpCaller::default());
         {
-            if counter.fetch_add(1, Ordering::Relaxed) < 2 {
-                let entry = entry?;
-                assert_eq!(entry.get_key_as_str(), &format!("fakeobj{}", i + 1));
-                assert_eq!(entry.get_hash_as_str(), &format!("fakeobj{}hash", i + 1));
-                assert_eq!(entry.get_size_as_u64(), i as u64 + 1);
-            } else {
-                let err = entry.unwrap_err();
-                assert!(matches!(
-                    err.kind(),
-                    ResponseErrorKind::HttpError(HttpResponseErrorKind::UserCanceled { .. })
-                ));
-                break;
+            let mut iter = bucket
+                .list()
+                .version(ListVersion::V2)
+                .before_request_callback({
+                    let counter = counter.to_owned();
+                    move |_| {
+                        if counter.load(Ordering::Relaxed) > 0 {
+                            CallbackResult::Cancel
+                        } else {
+                            CallbackResult::Continue
+                        }
+                    }
+                })
+                .iter();
+            for (i, entry) in (&mut iter).enumerate() {
+                if counter.fetch_add(1, Ordering::Relaxed) < 2 {
+                    let entry = entry?;
+                    assert_eq!(entry.get_key_as_str(), &format!("fakeobj{}", i + 1));
+                    assert_eq!(entry.get_hash_as_str(), &format!("fakeobj{}hash", i + 1));
+                    assert_eq!(entry.get_size_as_u64(), i as u64 + 1);
+                } else {
+                    let err = entry.unwrap_err();
+                    assert!(matches!(
+                        err.kind(),
+                        ResponseErrorKind::HttpError(HttpResponseErrorKind::UserCanceled { .. })
+                    ));
+                    break;
+                }
             }
+            assert_eq!(iter.marker(), Some("fakemarkerobj2"));
         }
-        assert_eq!(counter.into_inner(), 3usize);
+        assert_eq!(Arc::try_unwrap(counter).unwrap().into_inner(), 3usize);
 
         Ok(())
     }
@@ -1713,14 +1742,16 @@ mod tests {
 
         let mut counter = 0usize;
         let bucket = get_bucket(FakeHttpCaller::default());
-        let mut stream = bucket.list().version(ListVersion::V1).stream().enumerate();
-        while let Some((i, entry)) = stream.next().await {
+        let mut stream = bucket.list().version(ListVersion::V1).stream();
+        let mut iter = (&mut stream).enumerate();
+        while let Some((i, entry)) = iter.next().await {
             counter += 1;
             let entry = entry?;
             assert_eq!(entry.get_key_as_str(), &format!("fakeobj{}", i + 1));
             assert_eq!(entry.get_hash_as_str(), &format!("fakeobj{}hash", i + 1));
             assert_eq!(entry.get_size_as_u64(), i as u64 + 1);
         }
+        assert_eq!(stream.marker(), Some(""));
         assert_eq!(counter, 4usize);
 
         Ok(())
@@ -1844,6 +1875,7 @@ mod tests {
             ResponseErrorKind::StatusCodeError(StatusCode::from_u16(599)?)
         );
         assert!(iter.try_next().await?.is_none());
+        assert_eq!(iter.marker(), Some("fakemarker"));
         assert_eq!(before_request_callback_counter.load(Ordering::Relaxed), 2usize);
         assert_eq!(after_response_ok_callback_counter.load(Ordering::Relaxed), 1usize);
         assert_eq!(after_response_error_callback_counter.load(Ordering::Relaxed), 1usize);
@@ -1932,15 +1964,16 @@ mod tests {
             .version(ListVersion::V1)
             .prefix("fakeobj")
             .limit(3)
-            .stream()
-            .enumerate();
-        while let Some((i, entry)) = stream.next().await {
+            .stream();
+        let mut iter = (&mut stream).enumerate();
+        while let Some((i, entry)) = iter.next().await {
             counter += 1;
             let entry = entry?;
             assert_eq!(entry.get_key_as_str(), &format!("fakeobj{}", i + 1));
             assert_eq!(entry.get_hash_as_str(), &format!("fakeobj{}hash", i + 1));
             assert_eq!(entry.get_size_as_u64(), i as u64 + 1);
         }
+        assert_eq!(stream.marker(), Some(""));
         assert_eq!(counter, 3usize);
 
         Ok(())
@@ -2017,9 +2050,9 @@ mod tests {
                         }
                     }
                 })
-                .stream()
-                .enumerate();
-            while let Some((i, entry)) = stream.next().await {
+                .stream();
+            let mut iter = (&mut stream).enumerate();
+            while let Some((i, entry)) = iter.next().await {
                 if counter.fetch_add(1, Ordering::Relaxed) < 2 {
                     let entry = entry?;
                     assert_eq!(entry.get_key_as_str(), &format!("fakeobj{}", i + 1));
@@ -2034,6 +2067,7 @@ mod tests {
                     break;
                 }
             }
+            assert_eq!(stream.marker(), Some("fakemarker"));
         }
         assert_eq!(Arc::try_unwrap(counter).unwrap().into_inner(), 3usize);
 
@@ -2139,14 +2173,16 @@ mod tests {
 
         let mut counter = 0usize;
         let bucket = get_bucket(FakeHttpCaller::default());
-        let mut stream = bucket.list().version(ListVersion::V2).stream().enumerate();
-        while let Some((i, entry)) = stream.next().await {
+        let mut stream = bucket.list().version(ListVersion::V2).stream();
+        let mut iter = (&mut stream).enumerate();
+        while let Some((i, entry)) = iter.next().await {
             counter += 1;
             let entry = entry?;
             assert_eq!(entry.get_key_as_str(), &format!("fakeobj{}", i + 1));
             assert_eq!(entry.get_hash_as_str(), &format!("fakeobj{}hash", i + 1));
             assert_eq!(entry.get_size_as_u64(), i as u64 + 1);
         }
+        assert_eq!(stream.marker(), Some(""));
         assert_eq!(counter, 4usize);
 
         Ok(())
@@ -2277,6 +2313,7 @@ mod tests {
             ResponseErrorKind::StatusCodeError(StatusCode::from_u16(599)?)
         );
         assert!(stream.try_next().await?.is_none());
+        assert_eq!(stream.marker(), Some("fakemarkerobj2"));
         assert_eq!(before_request_callback_counter.load(Ordering::Relaxed), 2usize);
         assert_eq!(after_response_ok_callback_counter.load(Ordering::Relaxed), 1usize);
         assert_eq!(after_response_error_callback_counter.load(Ordering::Relaxed), 1usize);
@@ -2362,9 +2399,9 @@ mod tests {
                         }
                     }
                 })
-                .stream()
-                .enumerate();
-            while let Some((i, entry)) = stream.next().await {
+                .stream();
+            let mut iter = (&mut stream).enumerate();
+            while let Some((i, entry)) = iter.next().await {
                 if counter.fetch_add(1, Ordering::Relaxed) < 2 {
                     let entry = entry?;
                     assert_eq!(entry.get_key_as_str(), &format!("fakeobj{}", i + 1));
@@ -2379,6 +2416,7 @@ mod tests {
                     break;
                 }
             }
+            assert_eq!(stream.marker(), Some("fakemarkerobj2"));
         }
         assert_eq!(Arc::try_unwrap(counter).unwrap().into_inner(), 3usize);
 
