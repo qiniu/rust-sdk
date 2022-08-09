@@ -125,7 +125,9 @@ mod download_manager;
 pub use download_manager::{DownloadManager, DownloadManagerBuilder};
 
 mod downloading_object;
-pub use downloading_object::{DownloadError, DownloadResult, DownloadingObject, DownloadingObjectReader};
+pub use downloading_object::{
+    DownloadError, DownloadResult, DownloadingObject, DownloadingObjectReader, DownloadingProgressInfo,
+};
 
 mod download_callbacks;
 mod download_retrier;
