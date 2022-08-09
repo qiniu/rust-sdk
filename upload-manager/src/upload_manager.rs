@@ -146,14 +146,9 @@ impl UploadManagerBuilder {
     /// 设置 HTTP 客户端
     pub fn http_client(&mut self, http_client: HttpClient) -> &mut Self {
         self.http_client = Some(http_client.to_owned());
-        if let Some(queryer_builder) = self.queryer_builder.as_mut() {
+        self.with_queryer_builder(|queryer_builder| {
             queryer_builder.http_client(http_client);
-        } else {
-            let mut queryer_builder = BucketRegionsQueryer::builder();
-            queryer_builder.http_client(http_client);
-            self.queryer_builder = Some(queryer_builder);
-        }
-        self
+        })
     }
 
     /// 是否启用 HTTPS 协议
@@ -161,6 +156,9 @@ impl UploadManagerBuilder {
     /// 默认为 HTTPS 协议
     pub fn use_https(&mut self, use_https: bool) -> &mut Self {
         self.http_client(HttpClient::build_default().use_https(use_https).build())
+            .with_queryer_builder(|queryer_builder| {
+                queryer_builder.use_https(use_https);
+            })
     }
 
     /// 设置存储空间相关区域查询器
@@ -172,11 +170,17 @@ impl UploadManagerBuilder {
 
     /// 设置存储空间管理终端地址
     pub fn uc_endpoints(&mut self, endpoints: impl Into<Endpoints>) -> &mut Self {
-        if let Some(queryer_builder) = self.queryer_builder.as_mut() {
+        self.with_queryer_builder(|queryer_builder| {
             queryer_builder.uc_endpoints(endpoints);
+        })
+    }
+
+    fn with_queryer_builder(&mut self, f: impl FnOnce(&mut BucketRegionsQueryerBuilder)) -> &mut Self {
+        if let Some(queryer_builder) = self.queryer_builder.as_mut() {
+            f(queryer_builder);
         } else {
             let mut queryer_builder = BucketRegionsQueryer::builder();
-            queryer_builder.uc_endpoints(endpoints);
+            f(&mut queryer_builder);
             self.queryer_builder = Some(queryer_builder);
         }
         self
