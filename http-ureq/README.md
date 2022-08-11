@@ -14,7 +14,7 @@
 
 ```toml
 [dependencies]
-qiniu-ureq = "0.1.3"
+qiniu-ureq = "0.1.4"
 ```
 
 ## 最低支持的 Rust 版本（MSRV）

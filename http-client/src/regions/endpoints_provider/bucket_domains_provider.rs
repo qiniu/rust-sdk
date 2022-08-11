@@ -81,19 +81,19 @@ pub struct BucketDomainsQueryerBuilder {
 }
 
 impl BucketDomainsQueryer {
-    /// 创建存储空间绑定区域查询构建器
+    /// 创建存储空间绑定域名查询构建器
     #[inline]
     pub fn builder() -> BucketDomainsQueryerBuilder {
         BucketDomainsQueryerBuilder::new()
     }
 
-    /// 创建存储空间绑定区域查询器
+    /// 创建存储空间绑定域名查询器
     #[inline]
     pub fn new() -> BucketDomainsQueryer {
         BucketDomainsQueryerBuilder::new().build()
     }
 
-    /// 查询存储空间相关区域
+    /// 查询存储空间相关域名
     pub fn query(
         &self,
         credential: impl CredentialProvider + 'static,
@@ -127,7 +127,7 @@ impl Default for BucketDomainsQueryerBuilder {
 }
 
 impl BucketDomainsQueryerBuilder {
-    /// 创建存储空间绑定区域查询构建器
+    /// 创建存储空间绑定域名查询构建器
     #[inline]
     pub fn new() -> Self {
         Self::default()
@@ -168,7 +168,7 @@ impl BucketDomainsQueryerBuilder {
         self
     }
 
-    /// 从文件系统加载或构建存储空间绑定区域查询器
+    /// 从文件系统加载或构建存储空间绑定域名查询器
     ///
     /// 可以选择是否启用自动持久化缓存功能
     pub fn load_or_create_from(&mut self, path: impl AsRef<Path>, auto_persistent: bool) -> BucketDomainsQueryer {
@@ -187,13 +187,13 @@ impl BucketDomainsQueryerBuilder {
         }
     }
 
-    /// 从默认文件系统路径加载或构建存储空间绑定区域查询器，并启用自动持久化缓存功能
+    /// 从默认文件系统路径加载或构建存储空间绑定域名查询器，并启用自动持久化缓存功能
     #[inline]
     pub fn build(&mut self) -> BucketDomainsQueryer {
         self.default_load_or_create_from(true)
     }
 
-    /// 从默认文件系统路径加载或构建存储空间绑定区域查询器
+    /// 从默认文件系统路径加载或构建存储空间绑定域名查询器
     ///
     /// 可以选择是否启用自动持久化缓存功能
     pub fn default_load_or_create_from(&mut self, auto_persistent: bool) -> BucketDomainsQueryer {
@@ -211,7 +211,7 @@ impl BucketDomainsQueryerBuilder {
         }
     }
 
-    /// 构建存储空间绑定区域查询器
+    /// 构建存储空间绑定域名查询器
     ///
     /// 不启用文件系统持久化缓存
     pub fn in_memory(&mut self) -> BucketDomainsQueryer {
@@ -226,7 +226,7 @@ impl BucketDomainsQueryerBuilder {
     }
 }
 
-/// 存储空间绑定区域获取器
+/// 存储空间绑定域名获取器
 #[derive(Debug, Clone)]
 pub struct BucketDomainsProvider {
     queryer: BucketDomainsQueryer,

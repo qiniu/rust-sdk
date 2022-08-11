@@ -32,7 +32,7 @@ pub trait AuthorizationProvider: Clone + Debug + Sync + Send {
     /// 该方法的异步版本为 [`Self::async_sign`]。
     fn sign(&self, request: &mut SyncRequest) -> AuthorizationResult<()>;
 
-    /// 使用指定的鉴权方式对 HTTP 请求进行异步签名
+    /// 使用指定的鉴权方式对异步 HTTP 请求进行签名
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>>;

@@ -591,11 +591,11 @@ mod tests {
         let mut ops = batch_ops(&bucket);
         let mut iter = ops.call();
         for _ in 0..5 {
-            assert!(iter.next().unwrap().is_ok());
+            iter.next().unwrap().unwrap();
         }
         assert_eq!(
             iter.next().unwrap().unwrap_err().kind(),
-            ResponseErrorKind::StatusCodeError(StatusCode::from_u16(612).unwrap())
+            ResponseErrorKind::StatusCodeError(StatusCode::from_u16(612)?)
         );
         Ok(())
     }
@@ -655,11 +655,11 @@ mod tests {
         let mut ops = batch_ops(&bucket);
         let mut iter = ops.async_call();
         for _ in 0..5 {
-            assert!(iter.next().await.unwrap().is_ok());
+            iter.next().await.unwrap().unwrap();
         }
         assert_eq!(
             iter.next().await.unwrap().unwrap_err().kind(),
-            ResponseErrorKind::StatusCodeError(StatusCode::from_u16(612).unwrap())
+            ResponseErrorKind::StatusCodeError(StatusCode::from_u16(612)?)
         );
         Ok(())
     }

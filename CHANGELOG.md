@@ -1,5 +1,10 @@
 # Change log
 
+## v0.1.4
+
+- `ObjectsManagerBuilder` / `UploadManagerBuilder` 的 `use_https` 方法也对内置的 `BucketRegionsQueryerBuilder` 生效
+- `ListIter` / `ListStream` 添加 `marker` 方法，获取最近一次列举返回的位置标记
+
 ## v0.1.3
 
 - 修复编译 `ureq` 出现 `pattern InsecureRequestHttpsOnly not covered` 的错误
