@@ -5,7 +5,7 @@ use super::{
 use anyhow::Error as AnyError;
 use assert_impl::assert_impl;
 use qiniu_http::{
-    HeaderValue, Metrics, ResponseError as HttpResponseError, ResponseErrorKind as HttpResponseErrorKind,
+    Extensions, HeaderValue, Metrics, ResponseError as HttpResponseError, ResponseErrorKind as HttpResponseErrorKind,
     ResponseParts as HttpResponseParts, StatusCode as HttpStatusCode,
 };
 use qiniu_upload_token::ToStringError;
@@ -62,6 +62,7 @@ pub struct Error {
     x_headers: XHeaders,
     response_body_sample: Vec<u8>,
     retried: Option<RetriedStatsInfo>,
+    extensions: Extensions,
 }
 
 const RESPONSE_BODY_SAMPLE_LEN_LIMIT: u64 = 1024;
@@ -79,6 +80,7 @@ impl Error {
             x_headers: Default::default(),
             response_body_sample: Default::default(),
             retried: Default::default(),
+            extensions: Default::default(),
         }
     }
 
@@ -94,6 +96,7 @@ impl Error {
             x_headers: Default::default(),
             response_body_sample: Default::default(),
             retried: Default::default(),
+            extensions: Default::default(),
         }
     }
 
@@ -185,6 +188,18 @@ impl Error {
         self.x_headers.x_reqid.as_ref()
     }
 
+    /// 获取扩展信息
+    #[inline]
+    pub fn extensions(&self) -> &Extensions {
+        &self.extensions
+    }
+
+    /// 获取扩展信息的可变引用
+    #[inline]
+    pub fn extensions_mut(&mut self) -> &mut Extensions {
+        &mut self.extensions
+    }
+
     pub(in super::super) fn from_http_response_error(
         mut err: HttpResponseError,
         x_headers: XHeaders,
@@ -199,6 +214,7 @@ impl Error {
             error: err.into_inner(),
             response_body_sample: Default::default(),
             retried: Default::default(),
+            extensions: Default::default(),
         }
     }
 
