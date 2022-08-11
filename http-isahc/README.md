@@ -18,14 +18,14 @@
 
 ```toml
 [dependencies]
-qiniu-isahc = "0.1.4"
+qiniu-isahc = "0.2.0"
 ```
 
 ### 启用异步接口
 
 ```toml
 [dependencies]
-qiniu-isahc = { version = "0.1.4", features = ["async"] }
+qiniu-isahc = { version = "0.2.0", features = ["async"] }
 ```
 
 ## 最低支持的 Rust 版本（MSRV）
