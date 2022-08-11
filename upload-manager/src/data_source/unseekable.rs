@@ -1,8 +1,8 @@
-use super::{DataSource, DataSourceReader, PartSize, SourceKey};
+use super::{first_part_number, DataSource, DataSourceReader, PartSize, SourceKey};
 use sha1::{digest::Digest, Sha1};
 use std::{
     fmt::{self, Debug},
-    io::{Read, Result as IoResult},
+    io::{Error as IoError, ErrorKind as IoErrorKind, Read, Result as IoResult},
     num::NonZeroUsize,
     sync::{Arc, Mutex},
 };
@@ -42,8 +42,7 @@ impl<R: Read + Debug + Send + Sync + 'static, A: Digest> UnseekableDataSource<R,
         Self(Arc::new(Mutex::new(UnseekableDataSourceInner {
             reader,
             current_offset: 0,
-            #[allow(unsafe_code)]
-            current_part_number: unsafe { NonZeroUsize::new_unchecked(1) },
+            current_part_number: first_part_number(),
             source_key: None,
         })))
     }
@@ -63,6 +62,11 @@ impl<R: Read + Debug + Send + Sync + 'static, A: Digest> DataSource<A> for Unsee
         } else {
             Ok(None)
         }
+    }
+
+    #[inline]
+    fn reset(&self) -> IoResult<()> {
+        Err(unsupported_reset_error())
     }
 
     #[inline]
@@ -132,8 +136,7 @@ mod async_unseekable {
             Self(Arc::new(Mutex::new(AsyncUnseekableDataSourceInner {
                 reader,
                 current_offset: 0,
-                #[allow(unsafe_code)]
-                current_part_number: unsafe { NonZeroUsize::new_unchecked(1) },
+                current_part_number: first_part_number(),
                 source_key: None,
             })))
         }
@@ -158,6 +161,11 @@ mod async_unseekable {
                     Ok(None)
                 }
             })
+        }
+
+        #[inline]
+        fn reset(&self) -> BoxFuture<IoResult<()>> {
+            Box::pin(async move { Err(unsupported_reset_error()) })
         }
 
         #[inline]
@@ -186,3 +194,7 @@ mod async_unseekable {
 
 #[cfg(feature = "async")]
 pub use async_unseekable::*;
+
+fn unsupported_reset_error() -> IoError {
+    IoError::new(IoErrorKind::Unsupported, "Cannot reset unseekable source")
+}

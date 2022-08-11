@@ -5,7 +5,7 @@ use qiniu_apis::{
     http_client::{FileName, RegionsProvider},
 };
 use qiniu_utils::ObjectName;
-use std::{collections::HashMap, mem::take, time::Duration};
+use std::{collections::HashMap, mem::take};
 
 /// 对象上传参数
 #[derive(Debug, Default)]
@@ -16,7 +16,6 @@ pub struct ObjectParams {
     content_type: Option<Mime>,
     metadata: HashMap<String, String>,
     custom_vars: HashMap<String, String>,
-    uploaded_part_ttl: Duration,
     extensions: Extensions,
 }
 
@@ -111,18 +110,6 @@ impl ObjectParams {
         &mut self.extensions
     }
 
-    /// 获取分片上传后的有效期
-    #[inline]
-    pub fn uploaded_part_ttl(&self) -> Duration {
-        self.uploaded_part_ttl
-    }
-
-    /// 获取分片上传后的有效期的可变引用
-    #[inline]
-    pub fn uploaded_part_ttl_mut(&mut self) -> &mut Duration {
-        &mut self.uploaded_part_ttl
-    }
-
     #[allow(dead_code)]
     fn assert() {
         assert_impl!(Send: Self);
@@ -137,7 +124,6 @@ pub struct ObjectParamsBuilder(ObjectParams);
 impl Default for ObjectParamsBuilder {
     fn default() -> Self {
         Self(ObjectParams {
-            uploaded_part_ttl: Duration::from_secs(5 * 86400),
             region_provider: Default::default(),
             object_name: Default::default(),
             file_name: Default::default(),
@@ -217,15 +203,6 @@ impl ObjectParamsBuilder {
     #[inline]
     pub fn insert_extension<T: Send + Sync + 'static>(&mut self, val: T) -> &mut Self {
         self.0.extensions.insert(val);
-        self
-    }
-
-    /// 设置分片上传后的有效期
-    ///
-    /// 该有效期过了以后，断点恢复时将不会恢复该分片，而是重新上传。
-    #[inline]
-    pub fn uploaded_part_ttl(&mut self, uploaded_part_ttl: Duration) -> &mut Self {
-        self.0.uploaded_part_ttl = uploaded_part_ttl;
         self
     }
 

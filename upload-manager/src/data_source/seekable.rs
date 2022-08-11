@@ -1,4 +1,4 @@
-use super::{DataSource, DataSourceReader, PartSize, SourceKey};
+use super::{first_part_number, DataSource, DataSourceReader, PartSize, SourceKey};
 use digest::Digest;
 use qiniu_apis::http::Reset;
 use std::{
@@ -19,16 +19,18 @@ pub(crate) struct SeekableDataSource {
     source: SeekableSource,
     current: Arc<Mutex<SourceOffset>>,
     size: u64,
+    original_offset: u64,
 }
 
 impl SeekableDataSource {
     pub(crate) fn new(mut source: impl Read + Seek + Debug + Send + Sync + 'static, size: u64) -> IoResult<Self> {
+        let original_offset = source.stream_position()?;
         Ok(Self {
             size,
+            original_offset,
             current: Arc::new(Mutex::new(SourceOffset {
-                offset: source.stream_position()?,
-                #[allow(unsafe_code)]
-                part_number: unsafe { NonZeroUsize::new_unchecked(1) },
+                offset: original_offset,
+                part_number: first_part_number(),
             })),
             source: SeekableSource::new(source, 0, 0),
         })
@@ -52,10 +54,20 @@ impl<D: Digest> DataSource<D> for SeekableDataSource {
         }
     }
 
+    #[inline]
+    fn reset(&self) -> IoResult<()> {
+        let mut cur = self.current.lock().unwrap();
+        cur.offset = self.original_offset;
+        cur.part_number = first_part_number();
+        Ok(())
+    }
+
+    #[inline]
     fn total_size(&self) -> IoResult<Option<u64>> {
         Ok(Some(self.size))
     }
 
+    #[inline]
     fn source_key(&self) -> IoResult<Option<SourceKey<D>>> {
         Ok(None)
     }

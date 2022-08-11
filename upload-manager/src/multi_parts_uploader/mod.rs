@@ -9,6 +9,8 @@ use std::{fmt::Debug, num::NonZeroU64};
 #[cfg(feature = "async")]
 use {super::AsyncDataSource, futures::future::BoxFuture};
 
+pub(super) struct PartsExpiredError;
+
 /// 分片上传器接口
 ///
 /// 将数据源通过多个分片的方式逐一上传，适合数据量较大的数据源，可以提供断点恢复的能力。
@@ -59,6 +61,13 @@ pub trait MultiPartsUploader: MultiPartsUploaderWithCallbacks + Clone + Send + S
     /// 该方法的异步版本为 [`Self::async_complete_parts`]。
     fn complete_parts(&self, initialized: &Self::InitializedParts, parts: &[Self::UploadedPart]) -> ApiResult<Value>;
 
+    /// 重新初始化分片信息
+    ///
+    /// 该步骤负责将先前已经初始化过的分片信息全部重置，清空断点续传记录器中的记录，之后从头上传整个文件
+    ///
+    /// 该方法的异步版本为 [`Self::async_reinitialize_parts`]。
+    fn reinitialize_parts(&self, initialized: &mut Self::InitializedParts) -> ApiResult<()>;
+
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     /// 初始化的异步分片信息
@@ -103,6 +112,16 @@ pub trait MultiPartsUploader: MultiPartsUploaderWithCallbacks + Clone + Send + S
         initialized: &'r Self::AsyncInitializedParts,
         parts: &'r [Self::AsyncUploadedPart],
     ) -> BoxFuture<'r, ApiResult<Value>>;
+
+    /// 异步重新初始化分片信息
+    ///
+    /// 该步骤负责将先前已经初始化过的分片信息全部重置，清空断点续传记录器中的记录，之后从头上传整个文件
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    fn async_reinitialize_parts<'r>(
+        &'r self,
+        initialized: &'r mut Self::AsyncInitializedParts,
+    ) -> BoxFuture<'r, ApiResult<()>>;
 }
 
 /// 初始化的分片信息

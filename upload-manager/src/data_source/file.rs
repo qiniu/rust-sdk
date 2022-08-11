@@ -13,7 +13,7 @@ use std::{
 
 #[cfg(feature = "async")]
 use {
-    super::{AsyncDataSourceReader, AsyncSeekableSource, AsyncUnseekableDataSource},
+    super::{first_part_number, AsyncDataSourceReader, AsyncSeekableSource, AsyncUnseekableDataSource},
     async_once_cell::OnceCell as AsyncOnceCell,
     async_std::{fs::File as AsyncFile, path::PathBuf as AsyncPathBuf},
     futures::{future::BoxFuture, lock::Mutex as AsyncMutex, AsyncSeekExt},
@@ -78,6 +78,13 @@ impl<D: Digest + Send> DataSource<D> for FileDataSource<D> {
         match self.get_seekable_source()? {
             Source::Seekable(source) => DataSource::<D>::slice(source, size),
             Source::Unseekable(source) => source.slice(size),
+        }
+    }
+
+    fn reset(&self) -> IoResult<()> {
+        match self.get_seekable_source()? {
+            Source::Seekable(source) => DataSource::<D>::reset(source),
+            Source::Unseekable(source) => source.reset(),
         }
     }
 
@@ -152,12 +159,12 @@ mod async_reader {
                     let mut file = AsyncFile::open(&self.path).await?;
                     if let Ok(offset) = file.stream_position().await {
                         Ok(AsyncSource::Seekable {
+                            original_offset: offset,
                             file_size: file.metadata().await?.len(),
                             source: AsyncSeekableSource::new(file, 0, 0),
                             current: AsyncMutex::new(SourceOffset {
                                 offset,
-                                #[allow(unsafe_code)]
-                                part_number: unsafe { NonZeroUsize::new_unchecked(1) },
+                                part_number: first_part_number(),
                             }),
                         })
                     } else {
@@ -182,6 +189,7 @@ mod async_reader {
                         source,
                         current,
                         file_size,
+                        ..
                     } => {
                         let mut cur = current.lock().await;
                         if cur.offset < *file_size {
@@ -199,6 +207,24 @@ mod async_reader {
                         }
                     }
                     AsyncSource::Unseekable(source) => source.slice(size).await,
+                }
+            })
+        }
+
+        fn reset(&self) -> BoxFuture<IoResult<()>> {
+            Box::pin(async move {
+                match self.get_async_seekable_source().await? {
+                    AsyncSource::Seekable {
+                        current,
+                        original_offset,
+                        ..
+                    } => {
+                        let mut cur = current.lock().await;
+                        cur.offset = *original_offset;
+                        cur.part_number = first_part_number();
+                        Ok(())
+                    }
+                    AsyncSource::Unseekable(source) => source.reset().await,
                 }
             })
         }
@@ -259,6 +285,7 @@ mod async_reader {
             source: AsyncSeekableSource,
             current: AsyncMutex<SourceOffset>,
             file_size: u64,
+            original_offset: u64,
         },
         Unseekable(AsyncUnseekableDataSource<AsyncFile, A>),
     }
@@ -270,11 +297,13 @@ mod async_reader {
                     source,
                     current,
                     file_size,
+                    original_offset,
                 } => f
                     .debug_struct("Seekable")
                     .field("source", source)
                     .field("current", current)
                     .field("file_size", file_size)
+                    .field("original_offset", original_offset)
                     .finish(),
                 Self::Unseekable(file) => f.debug_tuple("Unseekable").field(file).finish(),
             }

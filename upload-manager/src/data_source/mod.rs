@@ -18,9 +18,10 @@ use std::{
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait DataSource<A: Digest>: Clone + Debug + Sync + Send {
     /// 数据源切片
-    ///
-    /// 该方法的异步版本为 [`Self::async_slice`]。
     fn slice(&self, size: PartSize) -> IoResult<Option<DataSourceReader>>;
+
+    /// 重置数据源
+    fn reset(&self) -> IoResult<()>;
 
     /// 获取数据源 KEY
     ///
@@ -141,6 +142,13 @@ impl Reset for DataSourceReader {
     }
 }
 
+fn first_part_number() -> NonZeroUsize {
+    #[allow(unsafe_code)]
+    unsafe {
+        NonZeroUsize::new_unchecked(1)
+    }
+}
+
 #[cfg(feature = "async")]
 mod async_reader {
     use super::*;
@@ -164,6 +172,9 @@ mod async_reader {
     pub trait AsyncDataSource<A: Digest>: Clone + Debug + Sync + Send {
         /// 异步数据源切片
         fn slice(&self, size: PartSize) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>>;
+
+        /// 异步重置数据源
+        fn reset(&self) -> BoxFuture<IoResult<()>>;
 
         /// 异步获取数据源 KEY
         ///

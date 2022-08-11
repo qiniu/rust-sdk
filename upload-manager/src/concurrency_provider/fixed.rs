@@ -33,12 +33,7 @@ impl FixedConcurrencyProvider {
 impl Default for FixedConcurrencyProvider {
     #[inline]
     fn default() -> Self {
-        Self::new_with_non_zero_concurrency(
-            #[allow(unsafe_code)]
-            unsafe {
-                NonZeroUsize::new_unchecked(4)
-            },
-        )
+        Self::new_with_non_zero_concurrency(default_non_zero_concurrency())
     }
 }
 
@@ -56,5 +51,12 @@ impl From<NonZeroUsize> for FixedConcurrencyProvider {
     #[inline]
     fn from(concurrency: NonZeroUsize) -> Self {
         Self(concurrency)
+    }
+}
+
+fn default_non_zero_concurrency() -> NonZeroUsize {
+    #[allow(unsafe_code)]
+    unsafe {
+        NonZeroUsize::new_unchecked(4)
     }
 }
