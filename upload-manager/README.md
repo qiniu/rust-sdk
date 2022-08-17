@@ -73,7 +73,7 @@ let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_pr
 ))
 .build();
 let params = AutoUploaderObjectParams::builder().object_name(object_name).file_name(object_name).build();
-let mut uploader: AutoUploader = upload_manager.auto_uploader();
+let uploader: AutoUploader = upload_manager.auto_uploader();
 uploader.upload_path("/home/qiniu/test.png", params)?;
 ```
 
@@ -97,7 +97,7 @@ let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_pr
 ))
 .build();
 let params = AutoUploaderObjectParams::builder().object_name(object_name).file_name(object_name).build();
-let mut uploader: AutoUploader = upload_manager.auto_uploader();
+let uploader: AutoUploader = upload_manager.auto_uploader();
 uploader.async_upload_path("/home/qiniu/test.png", params).await?;
 ```
 

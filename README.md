@@ -169,7 +169,7 @@ let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_pr
     Duration::from_secs(3600),
 ))
 .build();
-let mut uploader: AutoUploader = upload_manager.auto_uploader();
+let uploader: AutoUploader = upload_manager.auto_uploader();
 
 let params = AutoUploaderObjectParams::builder().object_name(object_name).file_name(object_name).build();
 uploader.upload_path("/home/qiniu/test.png", params)?;
@@ -199,7 +199,7 @@ let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_pr
     Duration::from_secs(3600),
 ))
 .build();
-let mut uploader: AutoUploader = upload_manager.auto_uploader();
+let uploader: AutoUploader = upload_manager.auto_uploader();
 
 let params = AutoUploaderObjectParams::builder().object_name(object_name).file_name(object_name).build();
 uploader.upload_reader(Cursor::new("hello qiniu cloud"), params)?;
@@ -227,7 +227,7 @@ let upload_manager = UploadManager::builder(
         .build(),
 )
 .build();
-let mut uploader: AutoUploader = upload_manager.auto_uploader();
+let uploader: AutoUploader = upload_manager.auto_uploader();
 
 let params = AutoUploaderObjectParams::builder()
     .object_name(object_name)
@@ -267,7 +267,7 @@ let upload_manager = UploadManager::builder(UploadTokenSigner::new_credential_pr
 )
 .use_https(false) // 私有云普遍使用 HTTP 协议，而 SDK 则默认为 HTTPS 协议
 .build();
-let mut uploader: AutoUploader = upload_manager.auto_uploader();
+let uploader: AutoUploader = upload_manager.auto_uploader();
 
 let params = AutoUploaderObjectParams::builder().object_name(object_name).file_name(object_name).build();
 uploader.upload_path("/home/qiniu/test.png", params)?;

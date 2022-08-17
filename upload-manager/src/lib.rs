@@ -85,7 +85,7 @@
 //! ))
 //! .build();
 //! let params = AutoUploaderObjectParams::builder().object_name(object_name).file_name(object_name).build();
-//! let mut uploader: AutoUploader = upload_manager.auto_uploader();
+//! let uploader: AutoUploader = upload_manager.auto_uploader();
 //! uploader.upload_path("/home/qiniu/test.png", params)?;
 //! # Ok(())
 //! # }
@@ -110,7 +110,7 @@
 //! ))
 //! .build();
 //! let params = AutoUploaderObjectParams::builder().object_name(object_name).file_name(object_name).build();
-//! let mut uploader: AutoUploader = upload_manager.auto_uploader();
+//! let uploader: AutoUploader = upload_manager.auto_uploader();
 //! uploader.async_upload_path("/home/qiniu/test.png", params).await?;
 //! # Ok(())
 //! # }
