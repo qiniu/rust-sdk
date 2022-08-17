@@ -2,8 +2,9 @@ use super::{
     DataPartitionProvider, DataSource, MultiPartsUploaderWithCallbacks, ObjectParams, ResumableRecorder, UploadManager,
 };
 use digest::Digest;
-use qiniu_apis::http_client::ApiResult;
+use qiniu_apis::http_client::{ApiResult, RegionsProvider};
 use serde_json::Value;
+use smart_default::SmartDefault;
 use std::{fmt::Debug, num::NonZeroU64};
 
 #[cfg(feature = "async")]
@@ -66,7 +67,11 @@ pub trait MultiPartsUploader: MultiPartsUploaderWithCallbacks + Clone + Send + S
     /// 该步骤负责将先前已经初始化过的分片信息全部重置，清空断点续传记录器中的记录，之后从头上传整个文件
     ///
     /// 该方法的异步版本为 [`Self::async_reinitialize_parts`]。
-    fn reinitialize_parts(&self, initialized: &mut Self::InitializedParts) -> ApiResult<()>;
+    fn reinitialize_parts(
+        &self,
+        initialized: &mut Self::InitializedParts,
+        options: ReinitializeOptions,
+    ) -> ApiResult<()>;
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
@@ -121,6 +126,7 @@ pub trait MultiPartsUploader: MultiPartsUploaderWithCallbacks + Clone + Send + S
     fn async_reinitialize_parts<'r>(
         &'r self,
         initialized: &'r mut Self::AsyncInitializedParts,
+        options: ReinitializeOptions,
     ) -> BoxFuture<'r, ApiResult<()>>;
 }
 
@@ -142,6 +148,61 @@ pub trait UploadedPart: Send + Sync + Debug {
     fn resumed(&self) -> bool;
 }
 
+/// 重新初始化分片信息的选项
+#[derive(Debug, Clone, Default)]
+pub struct ReinitializeOptions {
+    endpoints_provider: ReinitializedUpEndpointsProvider,
+}
+
+impl ReinitializeOptions {
+    /// 创建重新初始化分片信息的选项构建器
+    #[inline]
+    pub fn builder() -> ReinitializeOptionsBuilder {
+        ReinitializeOptionsBuilder(Self::default())
+    }
+}
+
+#[derive(Debug, Clone, SmartDefault)]
+enum ReinitializedUpEndpointsProvider {
+    #[default]
+    KeepOriginalUpEndpoints,
+    RefreshUpEndpoints,
+    SpecifiedRegionsProvider(Box<dyn RegionsProvider>),
+}
+
+/// 重新初始化分片信息的选项构建器
+#[derive(Debug, Clone)]
+pub struct ReinitializeOptionsBuilder(ReinitializeOptions);
+
+impl ReinitializeOptionsBuilder {
+    /// 复用先前的区域信息
+    #[inline]
+    pub fn keep_original_region(&mut self) -> &mut Self {
+        self.0.endpoints_provider = ReinitializedUpEndpointsProvider::KeepOriginalUpEndpoints;
+        self
+    }
+
+    /// 刷新区域信息
+    #[inline]
+    pub fn refresh_regions(&mut self) -> &mut Self {
+        self.0.endpoints_provider = ReinitializedUpEndpointsProvider::RefreshUpEndpoints;
+        self
+    }
+
+    /// 指定区域信息
+    #[inline]
+    pub fn regions_provider(&mut self, regions: impl RegionsProvider + 'static) -> &mut Self {
+        self.0.endpoints_provider = ReinitializedUpEndpointsProvider::SpecifiedRegionsProvider(Box::new(regions));
+        self
+    }
+
+    /// 构建重新初始化分片信息的选项
+    #[inline]
+    pub fn build(&self) -> ReinitializeOptions {
+        self.0.to_owned()
+    }
+}
+
 mod v1;
 pub use v1::{MultiPartsV1Uploader, MultiPartsV1UploaderInitializedObject, MultiPartsV1UploaderUploadedPart};
 
@@ -149,4 +210,3 @@ mod v2;
 pub use v2::{MultiPartsV2Uploader, MultiPartsV2UploaderInitializedObject, MultiPartsV2UploaderUploadedPart};
 
 mod progress;
-mod up_endpoints;

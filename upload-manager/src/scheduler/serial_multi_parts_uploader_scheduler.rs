@@ -3,6 +3,7 @@ use super::{
         multi_parts_uploader::PartsExpiredError, ConcurrencyProvider, DataPartitionProvider, DataSource,
         FixedDataPartitionProvider, MultiPartsUploader, ObjectParams, UploadedPart,
     },
+    utils::keep_original_region_options,
     MultiPartsUploaderScheduler,
 };
 use qiniu_apis::http_client::{ApiResult, ResponseError};
@@ -114,7 +115,11 @@ impl<M: MultiPartsUploader> MultiPartsUploaderScheduler<M::HashAlgorithm> for Se
         return match _upload(self, source, params) {
             Ok(value) => Ok(value),
             Err((err, true, Some(mut initialized))) if err.extensions().get::<PartsExpiredError>().is_some() => {
-                if self.multi_parts_uploader.reinitialize_parts(&mut initialized).is_ok() {
+                if self
+                    .multi_parts_uploader
+                    .reinitialize_parts(&mut initialized, keep_original_region_options())
+                    .is_ok()
+                {
                     _upload_after_reinitialize(self, &initialized)
                 } else {
                     Err(err)
@@ -183,7 +188,7 @@ impl<M: MultiPartsUploader> MultiPartsUploaderScheduler<M::HashAlgorithm> for Se
                 Err((err, true, Some(mut initialized))) if err.extensions().get::<PartsExpiredError>().is_some() => {
                     if self
                         .multi_parts_uploader
-                        .async_reinitialize_parts(&mut initialized)
+                        .async_reinitialize_parts(&mut initialized, keep_original_region_options())
                         .await
                         .is_ok()
                     {

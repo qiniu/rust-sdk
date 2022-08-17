@@ -150,7 +150,7 @@ pub use data_source::{DataSource, DataSourceReader, FileDataSource, SeekableSour
 pub use multi_parts_uploader::{
     InitializedParts, MultiPartsUploader, MultiPartsV1Uploader, MultiPartsV1UploaderInitializedObject,
     MultiPartsV1UploaderUploadedPart, MultiPartsV2Uploader, MultiPartsV2UploaderInitializedObject,
-    MultiPartsV2UploaderUploadedPart, UploadedPart,
+    MultiPartsV2UploaderUploadedPart, ReinitializeOptions, ReinitializeOptionsBuilder, UploadedPart,
 };
 pub use object_params::{ObjectParams, ObjectParamsBuilder};
 pub use resumable_policy::{

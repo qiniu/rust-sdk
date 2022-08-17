@@ -130,6 +130,17 @@ impl Endpoints {
     }
 }
 
+impl Default for Endpoints {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            preferred: Arc::new([]),
+            alternative: Arc::new([]),
+            md5: Default::default(),
+        }
+    }
+}
+
 impl From<Vec<Endpoint>> for Endpoints {
     #[inline]
     fn from(endpoints: Vec<Endpoint>) -> Self {
