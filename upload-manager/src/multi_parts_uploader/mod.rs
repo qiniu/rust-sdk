@@ -131,7 +131,7 @@ pub trait MultiPartsUploader: MultiPartsUploaderWithCallbacks + Clone + Send + S
 }
 
 /// 初始化的分片信息
-pub trait InitializedParts: Send + Sync + Debug {
+pub trait InitializedParts: Clone + Send + Sync + Debug {
     /// 获取对象上传参数
     fn params(&self) -> &ObjectParams;
 }

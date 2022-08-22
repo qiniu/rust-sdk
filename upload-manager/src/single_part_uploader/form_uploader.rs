@@ -11,14 +11,14 @@ use qiniu_apis::{
     credential::AccessKey,
     http::{ResponseErrorKind as HttpResponseErrorKind, ResponseParts},
     http_client::{
-        ApiResult, BucketRegionsProvider, EndpointsProvider, FileName, PartMetadata, RegionsProvider,
-        RegionsProviderEndpoints, RequestBuilderParts, Response, ResponseError,
+        ApiResult, BucketRegionsProvider, EndpointsProvider, PartMetadata, RegionsProvider, RegionsProviderEndpoints,
+        RequestBuilderParts, Response, ResponseError,
     },
     storage::put_object::{self, sync_part::RequestBody as SyncRequestBody, SyncRequestBuilder},
 };
 use qiniu_upload_token::{BucketName, ObjectName, UploadTokenProvider};
 use serde_json::Value;
-use std::{fmt::Debug, fs::File, io::Read, mem::take, path::Path};
+use std::{fmt::Debug, fs::File, io::Read, path::Path};
 
 #[cfg(feature = "async")]
 use {
@@ -143,17 +143,17 @@ impl SinglePartUploader for FormUploader {
         }
     }
 
-    fn upload_path(&self, path: impl AsRef<Path>, mut params: ObjectParams) -> ApiResult<Value> {
+    fn upload_path(&self, path: impl AsRef<Path>, params: ObjectParams) -> ApiResult<Value> {
         self.upload(
-            take(params.region_provider_mut()),
-            self.make_request_body_from_path(path.as_ref(), self.make_upload_token_signer(&params).as_ref(), params)?,
+            params.region_provider(),
+            self.make_request_body_from_path(path.as_ref(), self.make_upload_token_signer(&params).as_ref(), &params)?,
         )
     }
 
-    fn upload_reader<R: Read + 'static>(&self, reader: R, mut params: ObjectParams) -> ApiResult<Value> {
+    fn upload_reader<R: Read + 'static>(&self, reader: R, params: ObjectParams) -> ApiResult<Value> {
         self.upload(
-            take(params.region_provider_mut()),
-            self.make_request_body_from_reader(reader, self.make_upload_token_signer(&params).as_ref(), params)?,
+            params.region_provider(),
+            self.make_request_body_from_reader(reader, None, self.make_upload_token_signer(&params).as_ref(), &params)?,
         )
     }
 
@@ -162,15 +162,15 @@ impl SinglePartUploader for FormUploader {
     fn async_upload_path<'a>(
         &'a self,
         path: impl AsRef<Path> + Send + Sync + 'a,
-        mut params: ObjectParams,
+        params: ObjectParams,
     ) -> BoxFuture<'a, ApiResult<Value>> {
         Box::pin(async move {
             self.async_upload(
-                take(params.region_provider_mut()),
+                params.region_provider(),
                 self.make_async_request_body_from_path(
                     path.as_ref(),
                     self.make_upload_token_signer(&params).as_ref(),
-                    params,
+                    &params,
                 )
                 .await?,
             )
@@ -183,15 +183,16 @@ impl SinglePartUploader for FormUploader {
     fn async_upload_reader<R: AsyncRead + Unpin + Send + Sync + 'static>(
         &self,
         reader: R,
-        mut params: ObjectParams,
+        params: ObjectParams,
     ) -> BoxFuture<ApiResult<Value>> {
         Box::pin(async move {
             self.async_upload(
-                take(params.region_provider_mut()),
+                params.region_provider(),
                 self.make_async_request_body_from_async_reader(
                     reader,
+                    None,
                     self.make_upload_token_signer(&params).as_ref(),
-                    params,
+                    &params,
                 )
                 .await?,
             )
@@ -201,7 +202,7 @@ impl SinglePartUploader for FormUploader {
 }
 
 impl FormUploader {
-    fn upload(&self, region_provider: Option<Box<dyn RegionsProvider>>, body: SyncRequestBody<'_>) -> ApiResult<Value> {
+    fn upload(&self, region_provider: Option<&dyn RegionsProvider>, body: SyncRequestBody<'_>) -> ApiResult<Value> {
         let put_object = self.put_object();
         return if let Some(region_provider) = region_provider {
             _upload(
@@ -234,7 +235,7 @@ impl FormUploader {
     #[cfg(feature = "async")]
     async fn async_upload<'a>(
         &'a self,
-        region_provider: Option<Box<dyn RegionsProvider>>,
+        region_provider: Option<&'a dyn RegionsProvider>,
         body: AsyncRequestBody<'a>,
     ) -> ApiResult<Value> {
         let put_object = self.put_object();
@@ -270,42 +271,41 @@ impl FormUploader {
 
     fn make_request_body_from_path<'a>(
         &'a self,
-        path: &Path,
+        path: &'a Path,
         token: &'a (dyn UploadTokenProvider + 'a),
-        mut params: ObjectParams,
+        params: &'a ObjectParams,
     ) -> ApiResult<SyncRequestBody<'a>> {
         let file = File::open(path)?;
-        if params.file_name().is_none() {
-            *params.file_name_mut() = path
-                .file_name()
-                .map(Path::new)
-                .map(|file_name| FileName::from(file_name.display().to_string()));
-        }
-        self.make_request_body_from_reader(file, token, params)
+        self.make_request_body_from_reader(file, Some(path), token, params)
     }
 
     fn make_request_body_from_reader<'a, R: Read + 'static>(
         &'a self,
         reader: R,
+        path: Option<&'a Path>,
         token: &'a (dyn UploadTokenProvider + 'a),
-        mut params: ObjectParams,
+        params: &'a ObjectParams,
     ) -> ApiResult<SyncRequestBody<'a>> {
         let mut file_metadata = PartMetadata::default();
         if let Some(file_name) = params.file_name() {
             file_metadata = file_metadata.file_name(file_name);
+        } else if let Some(path) = path {
+            if let Some(file_name) = path.file_name() {
+                file_metadata = file_metadata.file_name(Path::new(file_name).display().to_string());
+            }
         }
-        if let Some(content_type) = take(params.content_type_mut()) {
-            file_metadata = file_metadata.mime(content_type);
+        if let Some(content_type) = params.content_type() {
+            file_metadata = file_metadata.mime(content_type.to_owned());
         }
         let mut request_body = SyncRequestBody::default().set_upload_token(token, Default::default())?;
-        if let Some(object_name) = take(params.object_name_mut()) {
+        if let Some(object_name) = params.object_name() {
             request_body = request_body.set_object_name(object_name.to_string());
         }
-        for (key, value) in take(params.metadata_mut()).into_iter() {
-            request_body = request_body.append_custom_data("x-qn-meta-".to_owned() + &key, value);
+        for (key, value) in params.metadata() {
+            request_body = request_body.append_custom_data("x-qn-meta-".to_owned() + key, value);
         }
-        for (key, value) in take(params.custom_vars_mut()).into_iter() {
-            request_body = request_body.append_custom_data("x:".to_owned() + &key, value);
+        for (key, value) in params.custom_vars() {
+            request_body = request_body.append_custom_data("x:".to_owned() + key, value);
         }
         request_body = request_body.set_file_as_reader(reader, file_metadata);
         Ok(request_body)
@@ -316,16 +316,10 @@ impl FormUploader {
         &'a self,
         path: &'a Path,
         token: &'a (dyn UploadTokenProvider + 'a),
-        mut params: ObjectParams,
+        params: &'a ObjectParams,
     ) -> ApiResult<AsyncRequestBody<'a>> {
         let file = AsyncFile::open(path).await?;
-        if params.file_name().is_none() {
-            *params.file_name_mut() = path
-                .file_name()
-                .map(Path::new)
-                .map(|file_name| FileName::from(file_name.display().to_string()));
-        }
-        self.make_async_request_body_from_async_reader(file, token, params)
+        self.make_async_request_body_from_async_reader(file, Some(path), token, params)
             .await
     }
 
@@ -333,29 +327,38 @@ impl FormUploader {
     async fn make_async_request_body_from_async_reader<'a, R: AsyncRead + Unpin + Send + Sync + 'static>(
         &'a self,
         reader: R,
+        path: Option<&'a Path>,
         token: &'a (dyn UploadTokenProvider + 'a),
-        mut params: ObjectParams,
+        params: &'a ObjectParams,
     ) -> ApiResult<AsyncRequestBody<'a>> {
         let mut file_metadata = PartMetadata::default();
+        let mut file_name_set = false;
         if let Some(file_name) = params.file_name() {
             file_metadata = file_metadata.file_name(file_name);
-        } else {
+            file_name_set = true;
+        } else if let Some(path) = path {
+            if let Some(file_name) = path.file_name() {
+                file_metadata = file_metadata.file_name(Path::new(file_name).display().to_string());
+                file_name_set = true;
+            }
+        }
+        if !file_name_set {
             file_metadata = file_metadata.file_name("untitled");
         }
-        if let Some(content_type) = take(params.content_type_mut()) {
-            file_metadata = file_metadata.mime(content_type);
+        if let Some(content_type) = params.content_type() {
+            file_metadata = file_metadata.mime(content_type.to_owned());
         }
         let mut request_body = AsyncRequestBody::default()
             .set_upload_token(token, Default::default())
             .await?;
-        if let Some(object_name) = take(params.object_name_mut()) {
+        if let Some(object_name) = params.object_name() {
             request_body = request_body.set_object_name(object_name.to_string());
         }
-        for (key, value) in take(params.metadata_mut()).into_iter() {
-            request_body = request_body.append_custom_data("x-qn-meta-".to_owned() + &key, value);
+        for (key, value) in params.metadata() {
+            request_body = request_body.append_custom_data("x-qn-meta-".to_owned() + key, value);
         }
-        for (key, value) in take(params.custom_vars_mut()).into_iter() {
-            request_body = request_body.append_custom_data("x:".to_owned() + &key, value);
+        for (key, value) in params.custom_vars() {
+            request_body = request_body.append_custom_data("x:".to_owned() + key, value);
         }
         request_body = request_body.set_file_as_reader(reader, file_metadata);
         Ok(request_body)

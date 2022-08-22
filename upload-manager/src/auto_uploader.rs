@@ -349,7 +349,7 @@ impl<H: Digest> Clone for AutoUploader<H> {
 }
 
 /// 自动上传器对象参数
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct AutoUploaderObjectParams {
     object_params: ObjectParams,
     multi_parts_uploader_scheduler_prefer: MultiPartsUploaderSchedulerPrefer,
@@ -415,34 +415,16 @@ impl AutoUploaderObjectParams {
         self.multi_parts_uploader_scheduler_prefer
     }
 
-    /// 获取期望的分片上传调度器的可变引用
-    #[inline]
-    pub fn multi_parts_uploader_scheduler_prefer_mut(&mut self) -> &mut MultiPartsUploaderSchedulerPrefer {
-        &mut self.multi_parts_uploader_scheduler_prefer
-    }
-
     /// 期望的对象单请求上传器
     #[inline]
     pub fn single_part_uploader_prefer(&self) -> SinglePartUploaderPrefer {
         self.single_part_uploader_prefer
     }
 
-    /// 期望的对象单请求上传器的可变引用
-    #[inline]
-    pub fn single_part_uploader_prefer_mut(&mut self) -> &mut SinglePartUploaderPrefer {
-        &mut self.single_part_uploader_prefer
-    }
-
     /// 期望的对象分片上传器
     #[inline]
     pub fn multi_parts_uploader_prefer(&self) -> MultiPartsUploaderPrefer {
         self.multi_parts_uploader_prefer
-    }
-
-    /// 期望的对象分片上传器的可变引用
-    #[inline]
-    pub fn multi_parts_uploader_prefer_mut(&mut self) -> &mut MultiPartsUploaderPrefer {
-        &mut self.multi_parts_uploader_prefer
     }
 
     #[allow(dead_code)]

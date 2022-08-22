@@ -77,6 +77,7 @@ pub struct MultiPartsV1Uploader<H: Digest = Sha1> {
 }
 
 /// 被 分片上传器 V1 初始化的分片信息
+#[derive(Clone)]
 pub struct MultiPartsV1UploaderInitializedObject<S> {
     source: S,
     params: ObjectParams,
@@ -84,7 +85,7 @@ pub struct MultiPartsV1UploaderInitializedObject<S> {
     recovered_records: MultiPartsV1ResumableRecorderRecords,
 }
 
-impl<S: Debug + Send + Sync> InitializedParts for MultiPartsV1UploaderInitializedObject<S> {
+impl<S: Clone + Debug + Send + Sync> InitializedParts for MultiPartsV1UploaderInitializedObject<S> {
     #[inline]
     fn params(&self) -> &ObjectParams {
         &self.params
@@ -1125,14 +1126,14 @@ struct AsyncAppendOnlyMediumForMultiPartsV1ResumableRecorderRecords {
     header_written: bool,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct MultiPartsV1ResumableRecorderRecords {
-    map: DashMap<u64, MultiPartsV1ResumableRecorderRecord>,
+    map: Arc<DashMap<u64, MultiPartsV1ResumableRecorderRecord>>,
     up_endpoints: Endpoints,
-    append_only_medium: Option<Mutex<AppendOnlyMediumForMultiPartsV1ResumableRecorderRecords>>,
+    append_only_medium: Option<Arc<Mutex<AppendOnlyMediumForMultiPartsV1ResumableRecorderRecords>>>,
 
     #[cfg(feature = "async")]
-    async_append_only_medium: Option<AsyncMutex<AsyncAppendOnlyMediumForMultiPartsV1ResumableRecorderRecords>>,
+    async_append_only_medium: Option<Arc<AsyncMutex<AsyncAppendOnlyMediumForMultiPartsV1ResumableRecorderRecords>>>,
 }
 
 impl MultiPartsV1ResumableRecorderRecords {
@@ -1146,10 +1147,9 @@ impl MultiPartsV1ResumableRecorderRecords {
         }
     }
     fn set_medium_for_append(&mut self, medium: Box<dyn AppendOnlyResumableRecorderMedium>, header_written: bool) {
-        self.append_only_medium = Some(Mutex::new(AppendOnlyMediumForMultiPartsV1ResumableRecorderRecords {
-            medium,
-            header_written,
-        }));
+        self.append_only_medium = Some(Arc::new(Mutex::new(
+            AppendOnlyMediumForMultiPartsV1ResumableRecorderRecords { medium, header_written },
+        )));
     }
 
     #[cfg(feature = "async")]
@@ -1158,9 +1158,9 @@ impl MultiPartsV1ResumableRecorderRecords {
         medium: Box<dyn AppendOnlyAsyncResumableRecorderMedium>,
         header_written: bool,
     ) {
-        self.async_append_only_medium = Some(AsyncMutex::new(
+        self.async_append_only_medium = Some(Arc::new(AsyncMutex::new(
             AsyncAppendOnlyMediumForMultiPartsV1ResumableRecorderRecords { medium, header_written },
-        ));
+        )));
     }
 
     fn take(&self, offset: u64) -> Option<MultiPartsV1ResumableRecorderRecord> {
@@ -1222,7 +1222,9 @@ impl MultiPartsV1ResumableRecorderRecords {
 impl FromIterator<MultiPartsV1ResumableRecorderRecord> for MultiPartsV1ResumableRecorderRecords {
     fn from_iter<T: IntoIterator<Item = MultiPartsV1ResumableRecorderRecord>>(iter: T) -> Self {
         Self {
-            map: DashMap::from_iter(iter.into_iter().map(|record| (record.offset, record))),
+            map: Arc::new(DashMap::from_iter(
+                iter.into_iter().map(|record| (record.offset, record)),
+            )),
             up_endpoints: Default::default(),
             append_only_medium: None,
 
@@ -1234,7 +1236,9 @@ impl FromIterator<MultiPartsV1ResumableRecorderRecord> for MultiPartsV1Resumable
 
 impl Extend<MultiPartsV1ResumableRecorderRecord> for MultiPartsV1ResumableRecorderRecords {
     fn extend<T: IntoIterator<Item = MultiPartsV1ResumableRecorderRecord>>(&mut self, iter: T) {
-        self.map.extend(iter.into_iter().map(|record| (record.offset, record)))
+        for record in iter {
+            self.map.insert(record.offset, record);
+        }
     }
 }
 
