@@ -257,7 +257,7 @@ pub(super) fn call_error_callbacks(
     request: &InnerRequestParts<'_>,
     built: &mut HttpRequestParts<'_>,
     retried: &RetriedStatsInfo,
-    response_error: &ResponseError,
+    response_error: &mut ResponseError,
 ) -> Result<(), TryError> {
     let mut context = ExtendedCallbackContextImpl::new(request, built, retried);
     request

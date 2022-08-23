@@ -21,6 +21,10 @@ impl TryError {
         &self.response_error
     }
 
+    pub(super) fn response_error_mut(&mut self) -> &mut ResponseError {
+        &mut self.response_error
+    }
+
     pub(super) fn feedback_response_error(&self) -> Option<&ResponseError> {
         match &self.response_error.kind() {
             ResponseErrorKind::HttpError(error_kind) => match error_kind {

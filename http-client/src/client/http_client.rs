@@ -574,7 +574,7 @@ impl HttpClientBuilder {
     #[inline]
     pub fn on_error(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> AnyResult<()> + Send + Sync + 'static,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, &mut ResponseError) -> AnyResult<()> + Send + Sync + 'static,
     ) -> &mut Self {
         self.callbacks.on_error(callback);
         self

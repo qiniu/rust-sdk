@@ -589,7 +589,7 @@ impl ApiDetailedDescription {
                     &mut self,
                     callback: impl Fn(
                             &mut dyn qiniu_http_client::ExtendedCallbackContext,
-                            &qiniu_http_client::ResponseError,
+                            &mut qiniu_http_client::ResponseError,
                         ) -> anyhow::Result<()>
                             + Send
                             + Sync

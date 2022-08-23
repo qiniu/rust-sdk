@@ -125,7 +125,7 @@ impl UploaderWithCallbacks for FormUploader {
     }
 
     #[inline]
-    fn on_response_error<F: Fn(&ResponseError) -> AnyResult<()> + Send + Sync + 'static>(
+    fn on_response_error<F: Fn(&mut ResponseError) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {

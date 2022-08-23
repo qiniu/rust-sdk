@@ -13,7 +13,7 @@ type BeforeRequestCallback<'c> = Arc<dyn Fn(&mut RequestBuilderParts<'_>) -> Any
 type UploadProgressCallback<'c> = Arc<dyn Fn(&UploadingProgressInfo) -> AnyResult<()> + Send + Sync + 'c>;
 type PartUploadedCallback<'c> = Arc<dyn Fn(&dyn UploadedPart) -> AnyResult<()> + Send + Sync + 'c>;
 type AfterResponseOkCallback<'c> = Arc<dyn Fn(&mut ResponseParts) -> AnyResult<()> + Send + Sync + 'c>;
-type AfterResponseErrorCallback<'c> = Arc<dyn Fn(&ResponseError) -> AnyResult<()> + Send + Sync + 'c>;
+type AfterResponseErrorCallback<'c> = Arc<dyn Fn(&mut ResponseError) -> AnyResult<()> + Send + Sync + 'c>;
 
 /// 上传回调函数提供者
 pub trait UploaderWithCallbacks {
@@ -36,7 +36,7 @@ pub trait UploaderWithCallbacks {
     ) -> &mut Self;
 
     /// 设置响应错误的回调函数
-    fn on_response_error<F: Fn(&ResponseError) -> AnyResult<()> + Send + Sync + 'static>(
+    fn on_response_error<F: Fn(&mut ResponseError) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self;
@@ -95,7 +95,7 @@ impl<'a> Callbacks<'a> {
 
     pub(super) fn insert_after_response_error_callback(
         &mut self,
-        callback: impl Fn(&ResponseError) -> AnyResult<()> + Send + Sync + 'a,
+        callback: impl Fn(&mut ResponseError) -> AnyResult<()> + Send + Sync + 'a,
     ) -> &mut Self {
         self.after_response_error_callbacks.push(Arc::new(callback));
         self
@@ -136,7 +136,7 @@ impl<'a> Callbacks<'a> {
         Ok(())
     }
 
-    fn after_response_error(&self, error: &ResponseError) -> AnyResult<()> {
+    fn after_response_error(&self, error: &mut ResponseError) -> AnyResult<()> {
         for callback in self.after_response_error_callbacks.iter() {
             callback(error)?;
         }

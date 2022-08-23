@@ -22,7 +22,8 @@ type OnIPsChosen<'f> =
 type OnRequest<'f> = Box<dyn Fn(&mut dyn ExtendedCallbackContext) -> AnyResult<()> + Send + Sync + 'f>;
 type OnRetry<'f> = Box<dyn Fn(&mut dyn ExtendedCallbackContext, Duration) -> AnyResult<()> + Send + Sync + 'f>;
 type OnResponse<'f> = Box<dyn Fn(&mut dyn ExtendedCallbackContext, &ResponseParts) -> AnyResult<()> + Send + Sync + 'f>;
-type OnError<'f> = Box<dyn Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> AnyResult<()> + Send + Sync + 'f>;
+type OnError<'f> =
+    Box<dyn Fn(&mut dyn ExtendedCallbackContext, &mut ResponseError) -> AnyResult<()> + Send + Sync + 'f>;
 
 #[derive(Default)]
 pub(super) struct Callbacks<'f> {
@@ -163,7 +164,7 @@ impl<'f> Callbacks<'f> {
     pub(super) fn call_error_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
-        error: &ResponseError,
+        error: &mut ResponseError,
     ) -> AnyResult<()> {
         self.on_error_callbacks()
             .iter()
@@ -353,7 +354,7 @@ impl<'f> CallbacksBuilder<'f> {
     #[inline]
     pub(super) fn on_error(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> AnyResult<()> + Send + Sync + 'f,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, &mut ResponseError) -> AnyResult<()> + Send + Sync + 'f,
     ) -> &mut Self {
         self.on_error.push(Box::new(callback));
         self

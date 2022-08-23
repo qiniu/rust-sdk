@@ -141,7 +141,7 @@ impl DownloadingObject {
 
     /// 设置响应错误的回调函数
     #[inline]
-    pub fn on_response_error<F: Fn(&ResponseError) -> AnyResult<()> + Send + Sync + 'static>(
+    pub fn on_response_error<F: Fn(&mut ResponseError) -> AnyResult<()> + Send + Sync + 'static>(
         mut self,
         callback: F,
     ) -> Self {

@@ -7,7 +7,7 @@ use std::fmt::{self, Debug};
 
 type BeforeRequestCallback<'c> = Box<dyn FnMut(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'c>;
 type AfterResponseOkCallback<'c> = Box<dyn FnMut(&mut ResponseParts) -> AnyResult<()> + Send + Sync + 'c>;
-type AfterResponseErrorCallback<'c> = Box<dyn FnMut(&ResponseError) -> AnyResult<()> + Send + Sync + 'c>;
+type AfterResponseErrorCallback<'c> = Box<dyn FnMut(&mut ResponseError) -> AnyResult<()> + Send + Sync + 'c>;
 
 #[derive(Default)]
 pub(super) struct Callbacks<'a> {
@@ -35,7 +35,7 @@ impl<'a> Callbacks<'a> {
 
     pub(super) fn insert_after_response_error_callback(
         &mut self,
-        callback: impl FnMut(&ResponseError) -> AnyResult<()> + Send + Sync + 'a,
+        callback: impl FnMut(&mut ResponseError) -> AnyResult<()> + Send + Sync + 'a,
     ) -> &mut Self {
         self.after_response_error_callbacks.push(Box::new(callback));
         self

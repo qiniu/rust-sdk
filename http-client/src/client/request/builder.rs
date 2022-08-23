@@ -278,7 +278,7 @@ impl<'r> RequestBuilderParts<'r> {
     #[inline]
     pub fn on_error(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> AnyResult<()> + Send + Sync + 'r,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, &mut ResponseError) -> AnyResult<()> + Send + Sync + 'r,
     ) -> &mut Self {
         self.callbacks.on_error(callback);
         self
@@ -573,7 +573,7 @@ impl<'r, B: 'r, E: 'r> RequestBuilder<'r, B, E> {
     #[inline]
     pub fn on_error(
         &mut self,
-        callback: impl Fn(&mut dyn ExtendedCallbackContext, &ResponseError) -> AnyResult<()> + Send + Sync + 'r,
+        callback: impl Fn(&mut dyn ExtendedCallbackContext, &mut ResponseError) -> AnyResult<()> + Send + Sync + 'r,
     ) -> &mut Self {
         self.parts.on_error(callback);
         self

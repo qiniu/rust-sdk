@@ -9,7 +9,7 @@ use std::fmt::{self, Debug};
 type BeforeRequestCallback<'c> = Box<dyn Fn(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'c>;
 type DownloadProgressCallback<'c> = Box<dyn Fn(DownloadingProgressInfo) -> AnyResult<()> + Send + Sync + 'c>;
 type AfterResponseOkCallback<'c> = Box<dyn Fn(&mut HttpResponseParts) -> AnyResult<()> + Send + Sync + 'c>;
-type AfterResponseErrorCallback<'c> = Box<dyn Fn(&ResponseError) -> AnyResult<()> + Send + Sync + 'c>;
+type AfterResponseErrorCallback<'c> = Box<dyn Fn(&mut ResponseError) -> AnyResult<()> + Send + Sync + 'c>;
 
 #[derive(Default)]
 pub(super) struct Callbacks<'a> {
@@ -46,7 +46,7 @@ impl<'a> Callbacks<'a> {
 
     pub(super) fn insert_after_response_error_callback(
         &mut self,
-        callback: impl Fn(&ResponseError) -> AnyResult<()> + Send + Sync + 'a,
+        callback: impl Fn(&mut ResponseError) -> AnyResult<()> + Send + Sync + 'a,
     ) -> &mut Self {
         self.after_response_error_callbacks.push(Box::new(callback));
         self
@@ -77,7 +77,7 @@ impl<'a> Callbacks<'a> {
             .try_for_each(|callback| callback(response_parts))
     }
 
-    fn after_response_error(&self, error: &ResponseError) -> AnyResult<()> {
+    fn after_response_error(&self, error: &mut ResponseError) -> AnyResult<()> {
         self.after_response_error_callbacks
             .iter()
             .try_for_each(|callback| callback(error))

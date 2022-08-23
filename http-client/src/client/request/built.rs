@@ -282,7 +282,7 @@ impl InnerRequestParts<'_> {
     pub(in super::super) fn call_error_callbacks(
         &self,
         context: &mut dyn ExtendedCallbackContext,
-        error: &ResponseError,
+        error: &mut ResponseError,
     ) -> AnyResult<()> {
         self.callbacks.call_error_callbacks(context, error)?;
         self.http_client.callbacks().call_error_callbacks(context, error)?;

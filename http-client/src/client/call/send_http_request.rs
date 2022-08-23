@@ -33,8 +33,8 @@ pub(super) fn send_http_request(
             Ok(response) => {
                 return Ok(response);
             }
-            Err(err) => {
-                call_error_callbacks(parts, http_request, retried, err.response_error())?;
+            Err(mut err) => {
+                call_error_callbacks(parts, http_request, retried, err.response_error_mut())?;
                 if need_backoff(&err) {
                     backoff(http_request, parts, retried, &err)?;
                     if need_retry_after_backoff(&err) {
@@ -134,8 +134,8 @@ mod async_send {
                 Ok(response) => {
                     return Ok(response);
                 }
-                Err(err) => {
-                    call_error_callbacks(parts, http_request, retried, err.response_error())?;
+                Err(mut err) => {
+                    call_error_callbacks(parts, http_request, retried, err.response_error_mut())?;
                     if need_backoff(&err) {
                         backoff(http_request, parts, retried, &err).await?;
                         if need_retry_after_backoff(&err) {

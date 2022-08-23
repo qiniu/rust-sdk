@@ -651,7 +651,7 @@ impl<'a> ListBuilder<'a> {
     #[inline]
     pub fn after_response_error_callback(
         &mut self,
-        callback: impl FnMut(&ResponseError) -> AnyResult<()> + Send + Sync + 'a,
+        callback: impl FnMut(&mut ResponseError) -> AnyResult<()> + Send + Sync + 'a,
     ) -> &mut Self {
         self.callbacks.insert_after_response_error_callback(callback);
         self
