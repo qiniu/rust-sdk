@@ -15,7 +15,9 @@ pub(super) struct PartsExpiredError;
 /// 分片上传器接口
 ///
 /// 将数据源通过多个分片的方式逐一上传，适合数据量较大的数据源，可以提供断点恢复的能力。
-pub trait MultiPartsUploader: MultiPartsUploaderWithCallbacks + Clone + Send + Sync + Debug {
+pub trait MultiPartsUploader:
+    __private::Sealed + MultiPartsUploaderWithCallbacks + Clone + Send + Sync + Debug
+{
     /// 数据源 KEY 的哈希算法
     type HashAlgorithm: Digest + Send + 'static;
 
@@ -131,13 +133,13 @@ pub trait MultiPartsUploader: MultiPartsUploaderWithCallbacks + Clone + Send + S
 }
 
 /// 初始化的分片信息
-pub trait InitializedParts: Clone + Send + Sync + Debug {
+pub trait InitializedParts: __private::Sealed + Clone + Send + Sync + Debug {
     /// 获取对象上传参数
     fn params(&self) -> &ObjectParams;
 }
 
 /// 已经上传的分片信息
-pub trait UploadedPart: Send + Sync + Debug {
+pub trait UploadedPart: __private::Sealed + Send + Sync + Debug {
     /// 分片大小
     fn size(&self) -> NonZeroU64;
 
@@ -210,3 +212,7 @@ mod v2;
 pub use v2::{MultiPartsV2Uploader, MultiPartsV2UploaderInitializedObject, MultiPartsV2UploaderUploadedPart};
 
 mod progress;
+
+mod __private {
+    pub trait Sealed {}
+}

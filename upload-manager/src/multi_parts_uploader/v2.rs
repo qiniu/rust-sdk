@@ -125,6 +125,8 @@ impl<S: Clone + Debug + Send + Sync> InitializedParts for MultiPartsV2UploaderIn
     }
 }
 
+impl<S> super::__private::Sealed for MultiPartsV2UploaderInitializedObject<S> {}
+
 impl<S: Debug> Debug for MultiPartsV2UploaderInitializedObject<S> {
     #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -178,6 +180,8 @@ impl UploadedPart for MultiPartsV2UploaderUploadedPart {
         self.resumed
     }
 }
+
+impl super::__private::Sealed for MultiPartsV2UploaderUploadedPart {}
 
 impl<H: Digest> UploaderWithCallbacks for MultiPartsV2Uploader<H> {
     #[inline]
@@ -725,6 +729,8 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV2Uploader<H> 
         }
     }
 }
+
+impl<H: Digest> super::__private::Sealed for MultiPartsV2Uploader<H> {}
 
 fn make_init_parts_path_params_from_initialized_params(
     bucket_name: String,

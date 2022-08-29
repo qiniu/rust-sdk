@@ -92,6 +92,8 @@ impl<S: Clone + Debug + Send + Sync> InitializedParts for MultiPartsV1UploaderIn
     }
 }
 
+impl<S> super::__private::Sealed for MultiPartsV1UploaderInitializedObject<S> {}
+
 impl<S> MultiPartsV1UploaderInitializedObject<S> {
     fn up_endpoints(&self) -> &Endpoints {
         &self.recovered_records.up_endpoints
@@ -143,6 +145,8 @@ impl UploadedPart for MultiPartsV1UploaderUploadedPart {
         self.resumed
     }
 }
+
+impl super::__private::Sealed for MultiPartsV1UploaderUploadedPart {}
 
 impl<H: Digest> UploaderWithCallbacks for MultiPartsV1Uploader<H> {
     #[inline]
@@ -682,6 +686,8 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> 
         }
     }
 }
+
+impl<H: Digest> super::__private::Sealed for MultiPartsV1Uploader<H> {}
 
 fn make_mkfile_path_params_from_initialized_parts(object_params: &ObjectParams, file_size: u64) -> MkFilePathParams {
     let mut params = MkFilePathParams::default().set_size_as_u64(file_size);

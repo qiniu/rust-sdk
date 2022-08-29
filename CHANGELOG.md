@@ -68,6 +68,7 @@
 - `MultiPartsUploader` 移除了泛型参数 `ResumableRecorder`，加上了 `HashAlgorithm: Digest + Send + 'static` / `AsyncInitializedParts: InitializedParts + 'static` / `AsyncUploadedPart: UploadedPart`。
 - `MultiPartsUploader` 增加了 `reinitialize_parts` / `async_reinitialize_parts` 方法。
 - `MultiPartsUploader` 的 `complete_parts` / `async_complete_parts` 方法现在只接受 `initialized` 和 `parts` 的不可变引用。
+- `MultiPartsUploader` / `InitializedParts` / `UploadedPart` 不可被用户实现。
 
 #### `qiniu-download-manager`
 
