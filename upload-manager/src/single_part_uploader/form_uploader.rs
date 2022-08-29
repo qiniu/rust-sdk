@@ -201,6 +201,8 @@ impl SinglePartUploader for FormUploader {
     }
 }
 
+impl super::__private::Sealed for FormUploader {}
+
 impl FormUploader {
     fn upload(&self, region_provider: Option<&dyn RegionsProvider>, body: SyncRequestBody<'_>) -> ApiResult<Value> {
         let put_object = self.put_object();
