@@ -1,9 +1,13 @@
 use super::{
     super::{
-        multi_parts_uploader::PartsExpiredError, ConcurrencyProvider, DataPartitionProvider, DataSource,
-        FixedDataPartitionProvider, MultiPartsUploader, ObjectParams, UploadedPart,
+        multi_parts_uploader::{MultiPartsUploaderExt, PartsExpiredError},
+        ConcurrencyProvider, DataPartitionProvider, DataSource, FixedDataPartitionProvider, MultiPartsUploader,
+        ObjectParams, ReinitializeOptions, UploadedPart,
     },
-    utils::keep_original_region_options,
+    utils::{
+        keep_original_region_options, need_to_retry, no_region_tried_error, remove_used_region_from_regions,
+        specify_region_options, UploadPartsError, UploadResumedPartsError,
+    },
     MultiPartsUploaderScheduler,
 };
 use qiniu_apis::http_client::{ApiResult, ResponseError};
@@ -11,7 +15,10 @@ use serde_json::Value;
 use std::num::NonZeroU64;
 
 #[cfg(feature = "async")]
-use {super::AsyncDataSource, futures::future::BoxFuture};
+use {
+    super::AsyncDataSource,
+    futures::future::{BoxFuture, OptionFuture},
+};
 
 /// 串行分片上传调度器
 ///
@@ -112,37 +119,127 @@ impl<M: MultiPartsUploader> MultiPartsUploaderScheduler<M::HashAlgorithm> for Se
     }
 
     fn upload(&self, source: Box<dyn DataSource<M::HashAlgorithm>>, params: ObjectParams) -> ApiResult<Value> {
-        return match _upload(self, source, params) {
-            Ok(value) => Ok(value),
-            Err((err, true, Some(mut initialized))) if err.extensions().get::<PartsExpiredError>().is_some() => {
-                if self
-                    .multi_parts_uploader
-                    .reinitialize_parts(&mut initialized, keep_original_region_options())
-                    .is_ok()
-                {
-                    _upload_after_reinitialize(self, &initialized)
-                } else {
-                    Err(err)
+        return match _resume_and_upload(self, source.to_owned(), params.to_owned()) {
+            None => match _try_to_upload_to_all_regions(self, source, params, None) {
+                Ok(None) => Err(no_region_tried_error()),
+                Ok(Some(value)) => Ok(value),
+                Err(err) => Err(err),
+            },
+            Some(Err(UploadPartsError { err, .. })) if !need_to_retry(&err) => Err(err),
+            Some(Err(UploadPartsError { initialized, err })) => {
+                match _try_to_upload_to_all_regions(self, source, params, initialized) {
+                    Ok(None) => Err(err),
+                    Ok(Some(value)) => Ok(value),
+                    Err(err) => Err(err),
                 }
             }
-            Err((err, _, _)) => Err(err),
+            Some(Ok(value)) => Ok(value),
         };
 
-        fn _upload<M: MultiPartsUploader>(
+        fn _resume_and_upload<M: MultiPartsUploader>(
             scheduler: &SerialMultiPartsUploaderScheduler<M>,
             source: Box<dyn DataSource<M::HashAlgorithm>>,
             params: ObjectParams,
-        ) -> Result<Value, (ResponseError, bool, Option<M::InitializedParts>)> {
-            let initialized = scheduler
+        ) -> Option<Result<Value, UploadPartsError<M::InitializedParts>>> {
+            _upload_resumed_parts(scheduler, source, params).map(|result| match result {
+                Ok(value) => Ok(value),
+                Err(UploadResumedPartsError {
+                    err,
+                    resumed: true,
+                    initialized: Some(mut initialized),
+                }) if err.extensions().get::<PartsExpiredError>().is_some() => {
+                    match _reinitialize_and_upload_again(scheduler, &mut initialized, keep_original_region_options()) {
+                        Some(Ok(value)) => Ok(value),
+                        Some(Err(err)) => Err(UploadPartsError::new(err, Some(initialized))),
+                        None => Err(UploadPartsError::new(err, Some(initialized))),
+                    }
+                }
+                Err(UploadResumedPartsError { err, initialized, .. }) => Err(UploadPartsError::new(err, initialized)),
+            })
+        }
+
+        fn _upload_resumed_parts<M: MultiPartsUploader>(
+            scheduler: &SerialMultiPartsUploaderScheduler<M>,
+            source: Box<dyn DataSource<M::HashAlgorithm>>,
+            params: ObjectParams,
+        ) -> Option<Result<Value, UploadResumedPartsError<M::InitializedParts>>> {
+            scheduler
                 .multi_parts_uploader
-                .initialize_parts(source, params)
-                .map_err(|err| (err, false, None))?;
+                .try_to_resume_parts(source, params)
+                .map(|initialized| {
+                    _upload_after_initialize(scheduler, &initialized)
+                        .map_err(|(err, resumed)| UploadResumedPartsError::new(err, resumed, Some(initialized)))
+                })
+        }
+
+        fn _try_to_upload_to_all_regions<M: MultiPartsUploader>(
+            scheduler: &SerialMultiPartsUploaderScheduler<M>,
+            source: Box<dyn DataSource<M::HashAlgorithm>>,
+            params: ObjectParams,
+            mut initialized: Option<M::InitializedParts>,
+        ) -> ApiResult<Option<Value>> {
+            let mut regions = scheduler
+                .multi_parts_uploader
+                .get_bucket_regions(&params)
+                .map(|r| r.into_regions())?;
+            if let Some(initialized) = &initialized {
+                remove_used_region_from_regions(&mut regions, initialized);
+            }
+            let mut last_err = None;
+            for region in regions {
+                let initialized_result = if let Some(mut initialized) = initialized.take() {
+                    scheduler
+                        .multi_parts_uploader
+                        .reinitialize_parts(&mut initialized, specify_region_options(region))
+                        .map(|_| initialized)
+                } else {
+                    scheduler
+                        .multi_parts_uploader
+                        .initialize_parts(source.to_owned(), params.to_owned())
+                };
+                let new_initialized = match initialized_result {
+                    Ok(new_initialized) => {
+                        initialized = Some(new_initialized.to_owned());
+                        new_initialized
+                    }
+                    Err(err) => {
+                        let to_retry = need_to_retry(&err);
+                        last_err = Some(err);
+                        if to_retry {
+                            continue;
+                        } else {
+                            break;
+                        }
+                    }
+                };
+                match _upload_after_reinitialize(scheduler, &new_initialized) {
+                    Ok(value) => {
+                        return Ok(Some(value));
+                    }
+                    Err(err) => {
+                        let to_retry = need_to_retry(&err);
+                        last_err = Some(err);
+                        if to_retry {
+                            continue;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+            last_err.map_or(Ok(None), Err)
+        }
+
+        fn _upload_after_initialize<M: MultiPartsUploader>(
+            scheduler: &SerialMultiPartsUploaderScheduler<M>,
+            initialized: &M::InitializedParts,
+        ) -> Result<Value, (ResponseError, bool)> {
             let mut parts = Vec::with_capacity(4);
             let mut resumed = false;
             loop {
                 match scheduler
                     .multi_parts_uploader
-                    .upload_part(&initialized, &scheduler.data_partition_provider)
+                    .upload_part(initialized, &scheduler.data_partition_provider)
                 {
                     Ok(Some(uploaded_part)) => {
                         if uploaded_part.resumed() {
@@ -151,13 +248,25 @@ impl<M: MultiPartsUploader> MultiPartsUploaderScheduler<M::HashAlgorithm> for Se
                         parts.push(uploaded_part);
                     }
                     Ok(None) => break,
-                    Err(err) => return Err((err, resumed, Some(initialized))),
+                    Err(err) => return Err((err, resumed)),
                 }
             }
-            match scheduler.multi_parts_uploader.complete_parts(&initialized, &parts) {
-                Ok(value) => Ok(value),
-                Err(err) => Err((err, resumed, Some(initialized))),
-            }
+            scheduler
+                .multi_parts_uploader
+                .complete_parts(initialized, &parts)
+                .map_err(|err| (err, resumed))
+        }
+
+        fn _reinitialize_and_upload_again<M: MultiPartsUploader>(
+            scheduler: &SerialMultiPartsUploaderScheduler<M>,
+            initialized: &mut M::InitializedParts,
+            reinitialize_options: ReinitializeOptions,
+        ) -> Option<ApiResult<Value>> {
+            scheduler
+                .multi_parts_uploader
+                .reinitialize_parts(initialized, reinitialize_options)
+                .ok()
+                .map(|_| _upload_after_reinitialize(scheduler, initialized))
         }
 
         fn _upload_after_reinitialize<M: MultiPartsUploader>(
@@ -183,40 +292,151 @@ impl<M: MultiPartsUploader> MultiPartsUploaderScheduler<M::HashAlgorithm> for Se
         params: ObjectParams,
     ) -> BoxFuture<ApiResult<Value>> {
         return Box::pin(async move {
-            match _upload(self, source, params).await {
-                Ok(value) => Ok(value),
-                Err((err, true, Some(mut initialized))) if err.extensions().get::<PartsExpiredError>().is_some() => {
-                    if self
-                        .multi_parts_uploader
-                        .async_reinitialize_parts(&mut initialized, keep_original_region_options())
-                        .await
-                        .is_ok()
-                    {
-                        _upload_after_reinitialize(self, &initialized).await
-                    } else {
-                        Err(err)
+            match _resume_and_upload(self, source.to_owned(), params.to_owned()).await {
+                None => match _try_to_upload_to_all_regions(self, source, params, None).await {
+                    Ok(None) => Err(no_region_tried_error()),
+                    Ok(Some(value)) => Ok(value),
+                    Err(err) => Err(err),
+                },
+                Some(Err(UploadPartsError { err, .. })) if !need_to_retry(&err) => Err(err),
+                Some(Err(UploadPartsError { initialized, err })) => {
+                    match _try_to_upload_to_all_regions(self, source, params, initialized).await {
+                        Ok(None) => Err(err),
+                        Ok(Some(value)) => Ok(value),
+                        Err(err) => Err(err),
                     }
                 }
-                Err((err, _, _)) => Err(err),
+                Some(Ok(value)) => Ok(value),
             }
         });
 
-        async fn _upload<M: MultiPartsUploader>(
+        async fn _resume_and_upload<M: MultiPartsUploader>(
             scheduler: &SerialMultiPartsUploaderScheduler<M>,
             source: Box<dyn AsyncDataSource<M::HashAlgorithm>>,
             params: ObjectParams,
-        ) -> Result<Value, (ResponseError, bool, Option<M::AsyncInitializedParts>)> {
-            let initialized = scheduler
+        ) -> Option<Result<Value, UploadPartsError<M::AsyncInitializedParts>>> {
+            OptionFuture::from(
+                _upload_resumed_parts(scheduler, source, params)
+                    .await
+                    .map(|result| async move {
+                        match result {
+                            Ok(value) => Ok(value),
+                            Err(UploadResumedPartsError {
+                                err,
+                                resumed: true,
+                                initialized: Some(mut initialized),
+                            }) if err.extensions().get::<PartsExpiredError>().is_some() => {
+                                match _reinitialize_and_upload_again(
+                                    scheduler,
+                                    &mut initialized,
+                                    keep_original_region_options(),
+                                )
+                                .await
+                                {
+                                    Some(Ok(value)) => Ok(value),
+                                    Some(Err(err)) => Err(UploadPartsError::new(err, Some(initialized))),
+                                    None => Err(UploadPartsError::new(err, Some(initialized))),
+                                }
+                            }
+                            Err(UploadResumedPartsError { err, initialized, .. }) => {
+                                Err(UploadPartsError::new(err, initialized))
+                            }
+                        }
+                    }),
+            )
+            .await
+        }
+
+        async fn _upload_resumed_parts<M: MultiPartsUploader>(
+            scheduler: &SerialMultiPartsUploaderScheduler<M>,
+            source: Box<dyn AsyncDataSource<M::HashAlgorithm>>,
+            params: ObjectParams,
+        ) -> Option<Result<Value, UploadResumedPartsError<M::AsyncInitializedParts>>> {
+            OptionFuture::from(
+                scheduler
+                    .multi_parts_uploader
+                    .try_to_async_resume_parts(source, params)
+                    .await
+                    .map(|initialized| async move {
+                        _upload_after_initialize(scheduler, &initialized)
+                            .await
+                            .map_err(|(err, resumed)| UploadResumedPartsError::new(err, resumed, Some(initialized)))
+                    }),
+            )
+            .await
+        }
+
+        async fn _try_to_upload_to_all_regions<M: MultiPartsUploader>(
+            scheduler: &SerialMultiPartsUploaderScheduler<M>,
+            source: Box<dyn AsyncDataSource<M::HashAlgorithm>>,
+            params: ObjectParams,
+            mut initialized: Option<M::AsyncInitializedParts>,
+        ) -> ApiResult<Option<Value>> {
+            let mut regions = scheduler
                 .multi_parts_uploader
-                .async_initialize_parts(source, params)
+                .async_get_bucket_regions(&params)
                 .await
-                .map_err(|err| (err, false, None))?;
+                .map(|r| r.into_regions())?;
+            if let Some(initialized) = &initialized {
+                remove_used_region_from_regions(&mut regions, initialized);
+            }
+            let mut last_err = None;
+            for region in regions {
+                let initialized_result = if let Some(mut initialized) = initialized.take() {
+                    scheduler
+                        .multi_parts_uploader
+                        .async_reinitialize_parts(&mut initialized, specify_region_options(region))
+                        .await
+                        .map(|_| initialized)
+                } else {
+                    scheduler
+                        .multi_parts_uploader
+                        .async_initialize_parts(source.to_owned(), params.to_owned())
+                        .await
+                };
+                let new_initialized = match initialized_result {
+                    Ok(new_initialized) => {
+                        initialized = Some(new_initialized.to_owned());
+                        new_initialized
+                    }
+                    Err(err) => {
+                        let to_retry = need_to_retry(&err);
+                        last_err = Some(err);
+                        if to_retry {
+                            continue;
+                        } else {
+                            break;
+                        }
+                    }
+                };
+                match _upload_after_reinitialize(scheduler, &new_initialized).await {
+                    Ok(value) => {
+                        return Ok(Some(value));
+                    }
+                    Err(err) => {
+                        let to_retry = need_to_retry(&err);
+                        last_err = Some(err);
+                        if to_retry {
+                            continue;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+            last_err.map_or(Ok(None), Err)
+        }
+
+        async fn _upload_after_initialize<M: MultiPartsUploader>(
+            scheduler: &SerialMultiPartsUploaderScheduler<M>,
+            initialized: &M::AsyncInitializedParts,
+        ) -> Result<Value, (ResponseError, bool)> {
             let mut parts = Vec::with_capacity(4);
             let mut resumed = false;
             loop {
                 match scheduler
                     .multi_parts_uploader
-                    .async_upload_part(&initialized, &scheduler.data_partition_provider)
+                    .async_upload_part(initialized, &scheduler.data_partition_provider)
                     .await
                 {
                     Ok(Some(uploaded_part)) => {
@@ -226,19 +446,30 @@ impl<M: MultiPartsUploader> MultiPartsUploaderScheduler<M::HashAlgorithm> for Se
                         parts.push(uploaded_part);
                     }
                     Ok(None) => break,
-                    Err(err) => {
-                        return Err((err, resumed, Some(initialized)));
-                    }
+                    Err(err) => return Err((err, resumed)),
                 }
             }
-            match scheduler
+            scheduler
                 .multi_parts_uploader
-                .async_complete_parts(&initialized, &parts)
+                .async_complete_parts(initialized, &parts)
                 .await
-            {
-                Ok(value) => Ok(value),
-                Err(err) => Err((err, resumed, Some(initialized))),
-            }
+                .map_err(|err| (err, resumed))
+        }
+
+        async fn _reinitialize_and_upload_again<M: MultiPartsUploader>(
+            scheduler: &SerialMultiPartsUploaderScheduler<M>,
+            initialized: &mut M::AsyncInitializedParts,
+            reinitialize_options: ReinitializeOptions,
+        ) -> Option<ApiResult<Value>> {
+            OptionFuture::from(
+                scheduler
+                    .multi_parts_uploader
+                    .async_reinitialize_parts(initialized, reinitialize_options)
+                    .await
+                    .ok()
+                    .map(|_| _upload_after_reinitialize(scheduler, initialized)),
+            )
+            .await
         }
 
         async fn _upload_after_reinitialize<M: MultiPartsUploader>(
@@ -283,7 +514,10 @@ mod tests {
             AsyncRequest, AsyncReset, AsyncResponse, AsyncResponseResult, HeaderValue, HttpCaller, StatusCode,
             SyncRequest, SyncResponseResult,
         },
-        http_client::{AsyncResponseBody, DirectChooser, HttpClient, NeverRetrier, Region, NO_BACKOFF},
+        http_client::{
+            AsyncResponseBody, DirectChooser, ErrorRetrier, HttpClient, LimitedRetrier, NeverRetrier, Region,
+            RequestRetrier, StaticRegionsProvider, NO_BACKOFF,
+        },
     };
     use qiniu_utils::base64::urlsafe as urlsafe_base64;
     use rand::{thread_rng, RngCore};
@@ -802,6 +1036,129 @@ mod tests {
             assert_eq!(caller.upload_part_counts.into_inner(), 1);
         }
 
+        #[derive(Debug, Default)]
+        struct FakeHttpCaller4 {
+            init_parts_counts: AtomicUsize,
+            upload_part_counts: AtomicUsize,
+            complete_parts_counts: AtomicUsize,
+        }
+
+        impl HttpCaller for FakeHttpCaller4 {
+            fn call(&self, _request: &mut SyncRequest<'_>) -> SyncResponseResult {
+                unreachable!()
+            }
+
+            #[cfg(feature = "async")]
+            fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
+                Box::pin(async move {
+                    if request.url().path() == "/buckets/fakebucket/objects/~/uploads" {
+                        if request.url().host() == Some("fakeup.example.com") {
+                            assert_eq!(self.init_parts_counts.fetch_add(1, Ordering::Relaxed), 0);
+                            assert_eq!(self.upload_part_counts.load(Ordering::Relaxed), 0);
+                            assert_eq!(self.complete_parts_counts.load(Ordering::Relaxed), 0);
+                        } else {
+                            assert_eq!(self.init_parts_counts.fetch_add(1, Ordering::Relaxed), 1);
+                            assert_eq!(self.upload_part_counts.load(Ordering::Relaxed), 1);
+                            assert_eq!(self.complete_parts_counts.load(Ordering::Relaxed), 1);
+                        }
+                        let resp_body = json_to_vec(&json!({
+                                "uploadId": "fakeuploadid",
+                                "expireAt": (SystemTime::now() + Duration::from_secs(5)).duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                            }))
+                            .unwrap();
+                        Ok(AsyncResponse::builder()
+                            .status_code(StatusCode::OK)
+                            .header("x-reqid", HeaderValue::from_static("FakeReqid"))
+                            .body(AsyncResponseBody::from_bytes(resp_body))
+                            .build())
+                    } else if request
+                        .url()
+                        .path()
+                        .starts_with("/buckets/fakebucket/objects/~/uploads/fakeuploadid/")
+                    {
+                        let page_number: usize;
+                        scan_text!(request.url().path().bytes() => "/buckets/fakebucket/objects/~/uploads/fakeuploadid/{}", page_number);
+                        assert_eq!(page_number, 1);
+                        let body_len = size_of_async_reader(request.body_mut()).await.unwrap();
+                        assert_eq!(body_len, BLOCK_SIZE);
+                        if request.url().host() == Some("fakeup.example.com") {
+                            assert_eq!(self.init_parts_counts.load(Ordering::Relaxed), 1);
+                            assert_eq!(self.upload_part_counts.fetch_add(1, Ordering::Relaxed), 0);
+                            assert_eq!(self.complete_parts_counts.load(Ordering::Relaxed), 0);
+                        } else {
+                            assert_eq!(self.init_parts_counts.load(Ordering::Relaxed), 2);
+                            assert_eq!(self.upload_part_counts.fetch_add(1, Ordering::Relaxed), 1);
+                            assert_eq!(self.complete_parts_counts.load(Ordering::Relaxed), 1);
+                        }
+                        let resp_body = json_to_vec(&json!({
+                            "etag": format!("==={}===", page_number),
+                            "md5": "fake-md5",
+                        }))
+                        .unwrap();
+                        Ok(AsyncResponse::builder()
+                            .status_code(StatusCode::OK)
+                            .header("x-reqid", HeaderValue::from_static("FakeReqid"))
+                            .body(AsyncResponseBody::from_bytes(resp_body))
+                            .build())
+                    } else if request
+                        .url()
+                        .path()
+                        .starts_with("/buckets/fakebucket/objects/~/uploads/fakeuploadid")
+                    {
+                        if request.url().host() == Some("fakeup.example.com") {
+                            assert_eq!(self.init_parts_counts.load(Ordering::Relaxed), 1);
+                            assert_eq!(self.upload_part_counts.load(Ordering::Relaxed), 1);
+                            assert_eq!(self.complete_parts_counts.fetch_add(1, Ordering::Relaxed), 0);
+                            let resp_body = json_to_vec(&json!({
+                                "error": "test error",
+                            }))
+                            .unwrap();
+                            Ok(AsyncResponse::builder()
+                                .status_code(StatusCode::from_u16(599).unwrap())
+                                .header("x-reqid", HeaderValue::from_static("FakeReqid"))
+                                .body(AsyncResponseBody::from_bytes(resp_body))
+                                .build())
+                        } else {
+                            assert_eq!(self.init_parts_counts.load(Ordering::Relaxed), 2);
+                            assert_eq!(self.upload_part_counts.load(Ordering::Relaxed), 2);
+                            assert_eq!(self.complete_parts_counts.fetch_add(1, Ordering::Relaxed), 1);
+                            let resp_body = json_to_vec(&json!({
+                                "ok": 1,
+                            }))
+                            .unwrap();
+                            Ok(AsyncResponse::builder()
+                                .status_code(StatusCode::OK)
+                                .header("x-reqid", HeaderValue::from_static("FakeReqid"))
+                                .body(AsyncResponseBody::from_bytes(resp_body))
+                                .build())
+                        }
+                    } else {
+                        unreachable!()
+                    }
+                })
+            }
+        }
+
+        {
+            let caller = Arc::new(FakeHttpCaller4::default());
+            {
+                let uploader = SerialMultiPartsUploaderScheduler::new(MultiPartsV2Uploader::new(
+                    get_upload_manager_with_retrier(caller.to_owned(), LimitedRetrier::new(ErrorRetrier, 0)),
+                    FileSystemResumableRecorder::<Sha1>::new(resuming_files_dir.path()),
+                ));
+                let file_source = Box::new(AsyncFileDataSource::new(file_path.as_os_str()));
+                let params = ObjectParams::builder()
+                    .region_provider(double_up_domain_region())
+                    .build();
+                let body = uploader.async_upload(file_source, params).await.unwrap();
+                assert_eq!(body.get("ok").unwrap().as_i64(), Some(1));
+            }
+            let caller = Arc::try_unwrap(caller).unwrap();
+            assert_eq!(caller.init_parts_counts.into_inner(), 2);
+            assert_eq!(caller.upload_part_counts.into_inner(), 2);
+            assert_eq!(caller.complete_parts_counts.into_inner(), 2);
+        }
+
         Ok(())
     }
 
@@ -818,6 +1175,13 @@ mod tests {
     }
 
     fn get_upload_manager(caller: impl HttpCaller + 'static) -> UploadManager {
+        get_upload_manager_with_retrier(caller, NeverRetrier)
+    }
+
+    fn get_upload_manager_with_retrier(
+        caller: impl HttpCaller + 'static,
+        retrier: impl RequestRetrier + 'static,
+    ) -> UploadManager {
         UploadManager::builder(UploadTokenSigner::new_credential_provider(
             get_credential(),
             "fakebucket",
@@ -826,7 +1190,7 @@ mod tests {
         .http_client(
             HttpClient::builder(caller)
                 .chooser(DirectChooser)
-                .request_retrier(NeverRetrier)
+                .request_retrier(retrier)
                 .backoff(NO_BACKOFF)
                 .build(),
         )
@@ -841,6 +1205,16 @@ mod tests {
         Region::builder("chaotic")
             .add_up_preferred_endpoint(("fakeup.example.com".to_owned(), 8080).into())
             .build()
+    }
+
+    fn double_up_domain_region() -> StaticRegionsProvider {
+        let mut provider = StaticRegionsProvider::new(single_up_domain_region());
+        provider.append(
+            Region::builder("chaotic2")
+                .add_up_preferred_endpoint(("fakeup.example2.com".to_owned(), 8080).into())
+                .build(),
+        );
+        provider
     }
 
     fn random_file_path(size: u64) -> IoResult<TempPath> {

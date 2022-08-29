@@ -1,5 +1,5 @@
 use super::{
-    super::super::{EndpointParseError, RetriedStatsInfo},
+    super::super::{EndpointParseError, RetriedStatsInfo, RetryDecision},
     X_LOG_HEADER_NAME, X_REQ_ID_HEADER_NAME,
 };
 use anyhow::Error as AnyError;
@@ -62,6 +62,7 @@ pub struct Error {
     x_headers: XHeaders,
     response_body_sample: Vec<u8>,
     retried: Option<RetriedStatsInfo>,
+    retry_decision: Option<RetryDecision>,
     extensions: Extensions,
 }
 
@@ -80,6 +81,7 @@ impl Error {
             x_headers: Default::default(),
             response_body_sample: Default::default(),
             retried: Default::default(),
+            retry_decision: Default::default(),
             extensions: Default::default(),
         }
     }
@@ -96,6 +98,7 @@ impl Error {
             x_headers: Default::default(),
             response_body_sample: Default::default(),
             retried: Default::default(),
+            retry_decision: Default::default(),
             extensions: Default::default(),
         }
     }
@@ -105,6 +108,14 @@ impl Error {
     #[must_use]
     pub fn retried(mut self, retried: &RetriedStatsInfo) -> Self {
         self.retried = Some(retried.to_owned());
+        self
+    }
+
+    /// 设置重试决定
+    #[inline]
+    #[must_use]
+    pub fn set_retry_decision(mut self, retry_decision: RetryDecision) -> Self {
+        self.retry_decision = Some(retry_decision);
         self
     }
 
@@ -150,6 +161,12 @@ impl Error {
     #[inline]
     pub fn kind(&self) -> ErrorKind {
         self.kind
+    }
+
+    /// 获取重试决定
+    #[inline]
+    pub fn retry_decision(&self) -> Option<RetryDecision> {
+        self.retry_decision
     }
 
     /// 获取响应体样本
@@ -214,6 +231,7 @@ impl Error {
             error: err.into_inner(),
             response_body_sample: Default::default(),
             retried: Default::default(),
+            retry_decision: Default::default(),
             extensions: Default::default(),
         }
     }

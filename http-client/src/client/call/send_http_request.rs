@@ -86,7 +86,7 @@ fn need_retry_after_backoff(err: &TryError) -> bool {
 }
 
 fn handle_response_error(
-    response_error: ResponseError,
+    mut response_error: ResponseError,
     http_parts: &mut HttpRequestParts,
     parts: &InnerRequestParts<'_>,
     retried: &mut RetriedStatsInfo,
@@ -98,6 +98,7 @@ fn handle_response_error(
             .build(),
     );
     retried.increase_current_endpoint();
+    response_error = response_error.set_retry_decision(retry_result.decision());
     TryError::new(response_error, retry_result)
 }
 

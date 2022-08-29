@@ -37,7 +37,7 @@ impl RequestRetrier for ErrorRetrier {
             ResponseErrorKind::UnexpectedStatusCode(_) => RetryDecision::DontRetry,
             ResponseErrorKind::StatusCodeError(status_code) => match status_code.as_u16() {
                 0..=399 => panic!("Should not arrive here"),
-                400..=501 | 579 | 599 | 608 | 612 | 614 | 616 | 618 | 630 | 631 | 632 | 640 | 701 => {
+                400..=499 | 501 | 579 | 608 | 612 | 614 | 616 | 618 | 630 | 631 | 632 | 640 | 701 => {
                     RetryDecision::DontRetry
                 }
                 509 | 573 => RetryDecision::Throttled,
