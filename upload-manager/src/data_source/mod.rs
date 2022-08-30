@@ -13,7 +13,7 @@ use std::{
 ///
 /// 提供上传所用的数据源
 ///
-/// 该 Trait 的异步版本为 [`Self::AsyncDataSource`]。
+/// 该 Trait 的异步版本为 [`AsyncDataSource`]。
 #[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait DataSource<A: Digest>: Clone + Debug + Sync + Send {
@@ -26,16 +26,12 @@ pub trait DataSource<A: Digest>: Clone + Debug + Sync + Send {
     /// 获取数据源 KEY
     ///
     /// 用于区分不同的数据源
-    ///
-    /// 该方法的异步版本为 [`Self::async_source_key`]。
     #[inline]
     fn source_key(&self) -> IoResult<Option<SourceKey<A>>> {
         Ok(None)
     }
 
     /// 获取数据源大小
-    ///
-    /// 该方法的异步版本为 [`Self::async_total_size`]。
     fn total_size(&self) -> IoResult<Option<u64>>;
 }
 
