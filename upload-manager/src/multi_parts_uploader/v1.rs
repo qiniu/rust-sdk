@@ -497,37 +497,16 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> 
                         let upload_token_signer =
                             self.make_upload_token_signer(initialized.params.object_name().map(|n| n.into()));
                         let mkblk = self.storage().resumable_upload_v1_make_block();
-                        let uploaded_result = if let Some(region_provider) = initialized.params.region_provider() {
-                            _upload_part(
-                                self,
-                                mkblk.new_async_request(
-                                    RegionsProviderEndpoints::new(region_provider),
-                                    params,
-                                    upload_token_signer.as_ref(),
-                                ),
-                                reader,
-                                part_size,
-                                &progresses_key,
-                                initialized,
-                                &data_partitioner_provider,
-                            )
-                            .await
-                        } else {
-                            _upload_part(
-                                self,
-                                mkblk.new_async_request(
-                                    RegionsProviderEndpoints::new(self.async_get_bucket_region().await?),
-                                    params,
-                                    upload_token_signer.as_ref(),
-                                ),
-                                reader,
-                                part_size,
-                                &progresses_key,
-                                initialized,
-                                &data_partitioner_provider,
-                            )
-                            .await
-                        };
+                        let uploaded_result = _upload_part(
+                            self,
+                            mkblk.new_async_request(initialized.up_endpoints(), params, upload_token_signer.as_ref()),
+                            reader,
+                            part_size,
+                            &progresses_key,
+                            initialized,
+                            &data_partitioner_provider,
+                        )
+                        .await;
                         match uploaded_result {
                             Ok(uploaded_part) => {
                                 self.after_part_uploaded(&progresses_key, total_size, Some(&uploaded_part))?;
@@ -640,31 +619,13 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> 
             let params = make_mkfile_path_params_from_initialized_parts(&initialized.params, file_size);
             let mkfile = self.storage().resumable_upload_v1_make_file();
             let body = make_mkfile_request_body_from_uploaded_parts(parts.to_vec());
-            if let Some(region_provider) = initialized.params.region_provider() {
-                _complete_parts(
-                    self,
-                    mkfile.new_async_request(
-                        RegionsProviderEndpoints::new(region_provider),
-                        params,
-                        upload_token_signer.as_ref(),
-                    ),
-                    &initialized.source,
-                    body,
-                )
-                .await
-            } else {
-                _complete_parts(
-                    self,
-                    mkfile.new_async_request(
-                        RegionsProviderEndpoints::new(self.async_get_bucket_region().await?),
-                        params,
-                        upload_token_signer.as_ref(),
-                    ),
-                    &initialized.source,
-                    body,
-                )
-                .await
-            }
+            _complete_parts(
+                self,
+                mkfile.new_async_request(initialized.up_endpoints(), params, upload_token_signer.as_ref()),
+                &initialized.source,
+                body,
+            )
+            .await
         });
 
         async fn _complete_parts<'a, H: Digest, E: EndpointsProvider + Clone + 'a, D: AsyncDataSource<H>>(
