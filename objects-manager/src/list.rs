@@ -110,7 +110,7 @@ impl<'a> ListParams<'a> {
             query_params = query_params.set_limit_as_usize(limit);
         }
         if let Some(prefix) = self.prefix.as_ref() {
-            query_params = query_params.set_prefix_as_str(prefix.to_owned());
+            query_params = query_params.set_prefix_as_str(prefix.clone());
         }
         if self.need_parts {
             query_params = query_params.set_need_parts_as_bool(true);

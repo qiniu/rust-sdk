@@ -863,7 +863,7 @@ mod tests {
     fn test_build_upload_policy_with_callback() -> Result<()> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
             .callback(
-                &["https://1.1.1.1", "https://2.2.2.2", "https://3.3.3.3"],
+                ["https://1.1.1.1", "https://2.2.2.2", "https://3.3.3.3"],
                 "www.qiniu.com",
                 "a=b&c=d",
                 "",
@@ -890,7 +890,7 @@ mod tests {
     fn test_build_upload_policy_with_callback_body_with_body_type() -> Result<()> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
             .callback(
-                &["https://1.1.1.1", "https://2.2.2.2", "https://3.3.3.3"],
+                ["https://1.1.1.1", "https://2.2.2.2", "https://3.3.3.3"],
                 "www.qiniu.com",
                 "a=b&c=d",
                 APPLICATION_WWW_FORM_URLENCODED.as_ref(),
@@ -990,7 +990,7 @@ mod tests {
     #[test]
     fn test_build_upload_policy_with_mime() -> Result<()> {
         let policy = UploadPolicyBuilder::new_policy_for_bucket("test_bucket", Duration::from_secs(3600))
-            .mime_types(&["image/jpeg", "image/png"])
+            .mime_types(["image/jpeg", "image/png"])
             .build();
         assert_eq!(
             policy.mime_types().map(|ops| ops.collect::<Vec<&str>>()),
