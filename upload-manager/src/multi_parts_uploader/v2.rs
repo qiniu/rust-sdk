@@ -324,11 +324,7 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV2Uploader<H> 
         initialized: &Self::InitializedParts,
         data_partitioner_provider: &dyn DataPartitionProvider,
     ) -> ApiResult<Option<Self::UploadedPart>> {
-        let data_partitioner_provider = LimitedDataPartitionProvider::new_with_non_zero_threshold(
-            data_partitioner_provider,
-            MIN_PART_SIZE,
-            MAX_PART_SIZE,
-        );
+        let data_partitioner_provider = normalize_data_partitioner_provider(data_partitioner_provider);
         let total_size = initialized.source.total_size()?;
         return if let Some(mut reader) = initialized.source.slice(data_partitioner_provider.part_size())? {
             if let Some(part_size) = NonZeroU64::new(reader.len()?) {
@@ -574,11 +570,7 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV2Uploader<H> 
         data_partitioner_provider: &'r dyn DataPartitionProvider,
     ) -> BoxFuture<'r, ApiResult<Option<Self::AsyncUploadedPart>>> {
         return Box::pin(async move {
-            let data_partitioner_provider = LimitedDataPartitionProvider::new_with_non_zero_threshold(
-                data_partitioner_provider,
-                MIN_PART_SIZE,
-                MAX_PART_SIZE,
-            );
+            let data_partitioner_provider = normalize_data_partitioner_provider(data_partitioner_provider);
             let total_size = initialized.source.total_size().await?;
             if let Some(mut reader) = initialized.source.slice(data_partitioner_provider.part_size()).await? {
                 if let Some(part_size) = NonZeroU64::new(reader.len().await?) {
@@ -858,6 +850,10 @@ fn may_set_extensions_in_err(err: &mut ResponseError) {
         }
         _ => {}
     }
+}
+
+fn normalize_data_partitioner_provider<P: DataPartitionProvider>(base: P) -> LimitedDataPartitionProvider<P> {
+    LimitedDataPartitionProvider::new_with_non_zero_threshold(base, MIN_PART_SIZE, MAX_PART_SIZE)
 }
 
 impl<H: Digest + Send + 'static> MultiPartsV2Uploader<H> {
