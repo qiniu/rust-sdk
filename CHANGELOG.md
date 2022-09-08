@@ -1,5 +1,10 @@
 # Change log
 
+## v0.2.1
+
+- `qiniu_upload_manager::MultiPartsV1Uploader` 总是使用 4 MB 分片大小，无论 `qiniu_upload_manager::DataPartitionProvider` 返回多大的分片大小。
+- `qiniu_upload_manager::SerialMultiPartsUploaderScheduler` 和 `qiniu_upload_manager::ConcurrentMultiPartsUploaderScheduler` 对空间所在区域上传对象失败后，会使用多活区域继续重试，直到其中有一个能成功为止。
+
 ## v0.2.0
 
 - 大部分 Trait 现在都实现了 Clone，减少了泛型参数以方便被作为 Trait Object 使用
