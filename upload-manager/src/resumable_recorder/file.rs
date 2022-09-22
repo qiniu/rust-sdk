@@ -1,47 +1,40 @@
-use super::{ResumableRecorder, SourceKey};
+use super::{AppendOnlyResumableRecorderMedium, ReadOnlyResumableRecorderMedium, ResumableRecorder, SourceKey};
+use digest::Digest;
 use sha1::Sha1;
 use std::{
     env::temp_dir,
-    fs::{remove_file, DirBuilder, File, OpenOptions},
+    fmt::{self, Debug},
+    fs::{remove_file, DirBuilder, OpenOptions},
     io::Result as IoResult,
+    marker::PhantomData,
     path::PathBuf,
 };
 
 #[cfg(feature = "async")]
 use {
-    async_std::fs::{
-        remove_file as async_remove_file, DirBuilder as AsyncDirBuilder, File as AsyncFile,
-        OpenOptions as AsyncOpenOptions,
-    },
+    super::{AppendOnlyAsyncResumableRecorderMedium, ReadOnlyAsyncResumableRecorderMedium},
+    async_std::fs::{remove_file as async_remove_file, DirBuilder as AsyncDirBuilder, OpenOptions as AsyncOpenOptions},
     futures::future::BoxFuture,
 };
 
 /// 文件系统断点恢复记录器
 ///
 /// 基于文件系统提供断点恢复记录功能
-#[derive(Debug)]
-pub struct FileSystemResumableRecorder {
+pub struct FileSystemResumableRecorder<O = Sha1> {
     path: PathBuf,
+    _unused: PhantomData<O>,
 }
 
 const DEFAULT_DIRECTORY_NAME: &str = ".qiniu-rust-sdk";
 
-impl Default for FileSystemResumableRecorder {
-    #[inline]
-    fn default() -> Self {
-        Self::new(temp_dir().join(DEFAULT_DIRECTORY_NAME))
-    }
-}
-
-impl FileSystemResumableRecorder {
+impl<O> FileSystemResumableRecorder<O> {
     /// 创建文件系统断点恢复记录器，传入一个目录路径用于储存断点记录
     #[inline]
     pub fn new(path: impl Into<PathBuf>) -> Self {
-        Self { path: path.into() }
-    }
-
-    fn path_of(&self, source_key: &SourceKey<<Self as ResumableRecorder>::HashAlgorithm>) -> PathBuf {
-        self.path.join(&hex::encode(source_key.as_slice()))
+        Self {
+            path: path.into(),
+            _unused: Default::default(),
+        }
     }
 
     fn create_directory(&self) -> IoResult<()> {
@@ -54,37 +47,39 @@ impl FileSystemResumableRecorder {
     }
 }
 
-impl ResumableRecorder for FileSystemResumableRecorder {
-    type HashAlgorithm = Sha1;
-    type ReadOnlyMedium = File;
-    type AppendOnlyMedium = File;
-
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    type AsyncReadOnlyMedium = AsyncFile;
-
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    type AsyncAppendOnlyMedium = AsyncFile;
+impl<O: Digest> ResumableRecorder for FileSystemResumableRecorder<O> {
+    type HashAlgorithm = O;
 
     #[inline]
-    fn open_for_read(&self, source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<Self::ReadOnlyMedium> {
+    fn open_for_read(
+        &self,
+        source_key: &SourceKey<Self::HashAlgorithm>,
+    ) -> IoResult<Box<dyn ReadOnlyResumableRecorderMedium>> {
         self.create_directory()?;
-        OpenOptions::new().read(true).open(self.path_of(source_key))
+        let medium = OpenOptions::new().read(true).open(self.path_of(source_key))?;
+        Ok(Box::new(medium))
     }
 
-    fn open_for_append(&self, source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<Self::AppendOnlyMedium> {
+    fn open_for_append(
+        &self,
+        source_key: &SourceKey<Self::HashAlgorithm>,
+    ) -> IoResult<Box<dyn AppendOnlyResumableRecorderMedium>> {
         self.create_directory()?;
-        OpenOptions::new().append(true).open(self.path_of(source_key))
+        let medium = OpenOptions::new().append(true).open(self.path_of(source_key))?;
+        Ok(Box::new(medium))
     }
 
-    fn open_for_create_new(&self, source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<Self::AppendOnlyMedium> {
+    fn open_for_create_new(
+        &self,
+        source_key: &SourceKey<Self::HashAlgorithm>,
+    ) -> IoResult<Box<dyn AppendOnlyResumableRecorderMedium>> {
         self.create_directory()?;
-        OpenOptions::new()
+        let medium = OpenOptions::new()
             .create(true)
             .truncate(true)
             .write(true)
-            .open(self.path_of(source_key))
+            .open(self.path_of(source_key))?;
+        Ok(Box::new(medium))
     }
 
     fn delete(&self, source_key: &SourceKey<Self::HashAlgorithm>) -> IoResult<()> {
@@ -96,10 +91,14 @@ impl ResumableRecorder for FileSystemResumableRecorder {
     fn open_for_async_read<'a>(
         &'a self,
         source_key: &'a SourceKey<Self::HashAlgorithm>,
-    ) -> BoxFuture<'a, IoResult<Self::AsyncReadOnlyMedium>> {
+    ) -> BoxFuture<'a, IoResult<Box<dyn ReadOnlyAsyncResumableRecorderMedium>>> {
         Box::pin(async move {
             self.async_create_directory().await?;
-            AsyncOpenOptions::new().read(true).open(self.path_of(source_key)).await
+            let medium = AsyncOpenOptions::new()
+                .read(true)
+                .open(self.path_of(source_key))
+                .await?;
+            Ok(Box::new(medium) as Box<dyn ReadOnlyAsyncResumableRecorderMedium>)
         })
     }
 
@@ -108,13 +107,14 @@ impl ResumableRecorder for FileSystemResumableRecorder {
     fn open_for_async_append<'a>(
         &'a self,
         source_key: &'a SourceKey<Self::HashAlgorithm>,
-    ) -> BoxFuture<'a, IoResult<Self::AsyncAppendOnlyMedium>> {
+    ) -> BoxFuture<'a, IoResult<Box<dyn AppendOnlyAsyncResumableRecorderMedium>>> {
         Box::pin(async move {
             self.async_create_directory().await?;
-            AsyncOpenOptions::new()
+            let medium = AsyncOpenOptions::new()
                 .append(true)
                 .open(self.path_of(source_key))
-                .await
+                .await?;
+            Ok(Box::new(medium) as Box<dyn AppendOnlyAsyncResumableRecorderMedium>)
         })
     }
 
@@ -123,15 +123,16 @@ impl ResumableRecorder for FileSystemResumableRecorder {
     fn open_for_async_create_new<'a>(
         &'a self,
         source_key: &'a SourceKey<Self::HashAlgorithm>,
-    ) -> BoxFuture<'a, IoResult<Self::AsyncAppendOnlyMedium>> {
+    ) -> BoxFuture<'a, IoResult<Box<dyn AppendOnlyAsyncResumableRecorderMedium>>> {
         Box::pin(async move {
             self.async_create_directory().await?;
-            AsyncOpenOptions::new()
+            let medium = AsyncOpenOptions::new()
                 .create(true)
                 .truncate(true)
                 .write(true)
                 .open(self.path_of(source_key))
-                .await
+                .await?;
+            Ok(Box::new(medium) as Box<dyn AppendOnlyAsyncResumableRecorderMedium>)
         })
     }
 
@@ -141,6 +142,43 @@ impl ResumableRecorder for FileSystemResumableRecorder {
         Box::pin(async move { async_remove_file(self.path_of(source_key)).await })
     }
 }
+
+impl<O: Digest> FileSystemResumableRecorder<O> {
+    fn path_of(&self, source_key: &SourceKey<O>) -> PathBuf {
+        self.path.join(&hex::encode(source_key.as_slice()))
+    }
+}
+
+impl<O> Default for FileSystemResumableRecorder<O> {
+    #[inline]
+    fn default() -> Self {
+        Self::new(temp_dir().join(DEFAULT_DIRECTORY_NAME))
+    }
+}
+
+impl<O> Debug for FileSystemResumableRecorder<O> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FileSystemResumableRecorder")
+            .field("path", &self.path)
+            .finish()
+    }
+}
+
+impl<O> Clone for FileSystemResumableRecorder<O> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self {
+            path: self.path.clone(),
+            _unused: self._unused,
+        }
+    }
+}
+
+#[allow(unsafe_code)]
+unsafe impl<O> Send for FileSystemResumableRecorder<O> {}
+
+#[allow(unsafe_code)]
+unsafe impl<O> Sync for FileSystemResumableRecorder<O> {}
 
 #[cfg(test)]
 mod tests {
@@ -154,7 +192,7 @@ mod tests {
     fn test_file_system_resumable_recorder() -> Result<()> {
         let dir = tempdir()?;
         let source_key = SourceKey::new([0u8; 20]);
-        let recorder = FileSystemResumableRecorder::new(dir.path());
+        let recorder = FileSystemResumableRecorder::<Sha1>::new(dir.path());
         let mut rander = thread_rng();
         let mut buf = vec![0u8; 1 << 20];
         rander.fill_bytes(&mut buf);
@@ -191,7 +229,7 @@ mod tests {
 
         let dir = tempdir()?;
         let source_key = SourceKey::new([0u8; 20]);
-        let recorder = FileSystemResumableRecorder::new(dir.path());
+        let recorder = FileSystemResumableRecorder::<Sha1>::new(dir.path());
         let mut rander = thread_rng();
         let mut buf = vec![0u8; 1 << 20];
         rander.fill_bytes(&mut buf);

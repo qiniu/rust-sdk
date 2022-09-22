@@ -47,7 +47,7 @@ mod tests {
     use futures::channel::oneshot::channel;
     use isahc::http::header::{CONTENT_LENGTH, USER_AGENT};
     use md5::{Digest, Md5};
-    use qiniu_http::{CallbackResult, HttpCaller, Method, SyncRequest, SyncRequestBody};
+    use qiniu_http::{HttpCaller, Method, OnProgressCallback, SyncRequest, SyncRequestBody, TransferProgressInfo};
     use rand::{thread_rng, RngCore};
     use std::{
         io::{copy as io_copy, Read},
@@ -132,24 +132,25 @@ mod tests {
                 let mut response = {
                     let last_uploaded = last_uploaded.to_owned();
                     let last_total = last_total.to_owned();
-                    Client::default_client()?.call(
-                        &mut SyncRequest::builder()
-                            .method(Method::POST)
-                            .url(
-                                format!("http://fakehost:{}/dir1/dir2/file", addr.port())
-                                    .parse()
-                                    .expect("invalid uri"),
-                            )
-                            .body(SyncRequestBody::from_referenced_bytes(&request_body))
-                            .resolved_ip_addrs([addr.ip()].as_ref())
-                            .on_uploading_progress(&|info| {
-                                last_uploaded.store(info.transferred_bytes(), Relaxed);
-                                last_total.store(info.total_bytes(), Relaxed);
-                                CallbackResult::Continue
-                            })
-                            .add_extension(TimeoutRequestExtension::new(Duration::from_secs(1)))
-                            .build(),
-                    )?
+                    let callback = move |info: TransferProgressInfo| {
+                        last_uploaded.store(info.transferred_bytes(), Relaxed);
+                        last_total.store(info.total_bytes(), Relaxed);
+                        Ok(())
+                    };
+                    let resolved_ip_addrs = [addr.ip()];
+                    let mut request = SyncRequest::builder()
+                        .method(Method::POST)
+                        .url(
+                            format!("http://fakehost:{}/dir1/dir2/file", addr.port())
+                                .parse()
+                                .expect("invalid uri"),
+                        )
+                        .body(SyncRequestBody::from_referenced_bytes(&request_body))
+                        .resolved_ip_addrs(resolved_ip_addrs.as_ref())
+                        .on_uploading_progress(OnProgressCallback::reference(&callback))
+                        .add_extension(TimeoutRequestExtension::new(Duration::from_secs(1)))
+                        .build();
+                    Client::default_client()?.call(&mut request)?
                 };
                 assert_eq!(
                     response.header(&CONTENT_LENGTH).map(|h| h.as_bytes()),
@@ -230,26 +231,25 @@ mod tests {
             let mut response = {
                 let last_uploaded = last_uploaded.to_owned();
                 let last_total = last_total.to_owned();
-                Client::default_client()?
-                    .async_call(
-                        &mut AsyncRequest::builder()
-                            .method(Method::POST)
-                            .url(
-                                format!("http://fakehost:{}/dir1/dir2/file", addr.port())
-                                    .parse()
-                                    .expect("invalid uri"),
-                            )
-                            .body(AsyncRequestBody::from_referenced_bytes(&request_body))
-                            .resolved_ip_addrs([addr.ip()].as_ref())
-                            .on_uploading_progress(&|info| {
-                                last_uploaded.store(info.transferred_bytes(), Relaxed);
-                                last_total.store(info.total_bytes(), Relaxed);
-                                CallbackResult::Continue
-                            })
-                            .add_extension(TimeoutRequestExtension::new(Duration::from_secs(1)))
-                            .build(),
+                let callback = move |info: TransferProgressInfo| {
+                    last_uploaded.store(info.transferred_bytes(), Relaxed);
+                    last_total.store(info.total_bytes(), Relaxed);
+                    Ok(())
+                };
+                let resolved_ip_addrs = [addr.ip()];
+                let mut request = AsyncRequest::builder()
+                    .method(Method::POST)
+                    .url(
+                        format!("http://fakehost:{}/dir1/dir2/file", addr.port())
+                            .parse()
+                            .expect("invalid uri"),
                     )
-                    .await?
+                    .body(AsyncRequestBody::from_referenced_bytes(&request_body))
+                    .resolved_ip_addrs(resolved_ip_addrs.as_ref())
+                    .on_uploading_progress(OnProgressCallback::reference(&callback))
+                    .add_extension(TimeoutRequestExtension::new(Duration::from_secs(1)))
+                    .build();
+                Client::default_client()?.async_call(&mut request).await?
             };
             assert_eq!(
                 response.header(&CONTENT_LENGTH).map(|h| h.as_bytes()),

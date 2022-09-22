@@ -39,7 +39,7 @@ mod request;
 mod response;
 
 use auto_impl::auto_impl;
-pub use callback::{CallbackResult, TransferProgressInfo};
+pub use callback::{OnHeaderCallback, OnProgressCallback, OnStatusCodeCallback, TransferProgressInfo};
 pub use error::{
     Error as ResponseError, ErrorBuilder as ResponseErrorBuilder, ErrorKind as ResponseErrorKind, MapError,
 };
@@ -51,9 +51,12 @@ pub use http::{
     Extensions, Version,
 };
 use once_cell::sync::OnceCell;
-pub use request::{Request, RequestBody as SyncRequestBody, RequestBuilder, RequestParts, UserAgent};
+pub use request::{
+    Request, RequestBody as SyncRequestBody, RequestBuilder, RequestParts, RequestPartsBuilder, UserAgent,
+};
 pub use response::{
-    Metrics, Response, ResponseBody as SyncResponseBody, ResponseBuilder, ResponseParts, Result as ResponseResult,
+    Metrics, MetricsBuilder, Response, ResponseBody as SyncResponseBody, ResponseBuilder, ResponseParts,
+    Result as ResponseResult,
 };
 use std::{
     fmt::Debug,

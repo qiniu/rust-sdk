@@ -46,7 +46,7 @@ impl<P> LimitedBackoff<P> {
     }
 }
 
-impl<P: Backoff> Backoff for LimitedBackoff<P> {
+impl<P: Backoff + Clone> Backoff for LimitedBackoff<P> {
     #[inline]
     fn time(&self, request: &mut HttpRequestParts, opts: BackoffOptions) -> GotBackoffDuration {
         self.base_backoff

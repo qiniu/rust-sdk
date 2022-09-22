@@ -1,3 +1,4 @@
+use anyhow::Result as AnyResult;
 use assert_impl::assert_impl;
 use qiniu_apis::{
     credential::{AccessKey, CredentialProvider},
@@ -24,7 +25,7 @@ enum UploadTokenSignerInner {
     CredentialProvider(UploadTokenCredentialSigner),
 }
 
-type OnPolicyGeneratedCallback = Arc<dyn Fn(&mut UploadPolicyBuilder) + Sync + Send + 'static>;
+type OnPolicyGeneratedCallback = Arc<dyn Fn(&mut UploadPolicyBuilder) -> AnyResult<()> + Sync + Send + 'static>;
 
 #[derive(Clone)]
 struct UploadTokenCredentialSigner {
@@ -219,9 +220,7 @@ fn make_object_upload_token_provider<C: CredentialProvider + Clone>(
 ) -> ObjectUploadTokenProvider<C> {
     let mut builder = ObjectUploadTokenProvider::builder(bucket_name.to_owned(), object_name, lifetime, credential);
     if let Some(on_policy_generated) = on_policy_generated {
-        builder = builder.on_policy_generated(move |builder| {
-            on_policy_generated(builder);
-        });
+        builder = builder.on_policy_generated(move |builder| on_policy_generated(builder));
     }
     builder.build()
 }
@@ -234,9 +233,7 @@ fn make_bucket_upload_token_provider<C: CredentialProvider + Clone>(
 ) -> BucketUploadTokenProvider<C> {
     let mut builder = BucketUploadTokenProvider::builder(bucket_name.to_owned(), lifetime, credential);
     if let Some(on_policy_generated) = on_policy_generated {
-        builder = builder.on_policy_generated(move |builder| {
-            on_policy_generated(builder);
-        });
+        builder = builder.on_policy_generated(move |builder| on_policy_generated(builder));
     }
     builder.build()
 }
@@ -273,7 +270,10 @@ impl UploadTokenSignerBuilder {
     /// 设置上传凭证回调函数
     #[inline]
     #[must_use]
-    pub fn on_policy_generated(mut self, callback: impl Fn(&mut UploadPolicyBuilder) + Sync + Send + 'static) -> Self {
+    pub fn on_policy_generated(
+        mut self,
+        callback: impl Fn(&mut UploadPolicyBuilder) -> AnyResult<()> + Sync + Send + 'static,
+    ) -> Self {
         self.0.on_policy_generated = Some(Arc::new(callback));
         self
     }

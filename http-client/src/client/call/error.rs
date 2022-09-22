@@ -21,6 +21,10 @@ impl TryError {
         &self.response_error
     }
 
+    pub(super) fn response_error_mut(&mut self) -> &mut ResponseError {
+        &mut self.response_error
+    }
+
     pub(super) fn feedback_response_error(&self) -> Option<&ResponseError> {
         match &self.response_error.kind() {
             ResponseErrorKind::HttpError(error_kind) => match error_kind {
@@ -30,7 +34,7 @@ impl TryError {
                 | HttpResponseErrorKind::UnknownHostError
                 | HttpResponseErrorKind::SendError
                 | HttpResponseErrorKind::ReceiveError
-                | HttpResponseErrorKind::UserCanceled => Some(self.response_error()),
+                | HttpResponseErrorKind::CallbackError => Some(self.response_error()),
                 _ => None,
             },
             ResponseErrorKind::StatusCodeError(status_code) => match status_code.as_u16() {

@@ -1,3 +1,4 @@
+use anyhow::Error as AnyError;
 use isahc::{
     config::{Configurable, Dialer},
     error::{Error as IsahcError, ErrorKind as IsahcErrorKind},
@@ -13,7 +14,6 @@ use std::{
     mem::{take, transmute},
     net::{IpAddr, SocketAddr},
     num::NonZeroU16,
-    time::Duration,
 };
 
 type IsahcSyncRequest = isahc::Request<IsahcBody>;
@@ -193,7 +193,7 @@ fn make_sync_response(mut response: IsahcSyncResponse, request: &mut SyncRequest
         }
     }
     if let Some(metrics) = response.metrics() {
-        response_builder.metrics(Box::new(IsahcBasedMetrics(metrics.to_owned())));
+        response_builder.metrics(make_metrics_from_isahc(metrics));
     }
     response_builder.body(SyncResponseBody::from_reader(response.into_body()));
     Ok(response_builder.build())
@@ -216,7 +216,7 @@ fn make_async_response(mut response: IsahcAsyncResponse, request: &mut AsyncRequ
         }
     }
     if let Some(metrics) = response.metrics() {
-        response_builder.metrics(Box::new(IsahcBasedMetrics(metrics.to_owned())));
+        response_builder.metrics(make_metrics_from_isahc(metrics));
     }
     response_builder.body(AsyncResponseBody::from_reader(response.into_body()));
     Ok(response_builder.build())
@@ -227,67 +227,35 @@ fn call_response_callbacks<ReqBody, RespBody>(
     response: &IsahcResponse<RespBody>,
 ) -> Result<(), ResponseError> {
     if let Some(on_receive_response_status) = request.on_receive_response_status() {
-        if on_receive_response_status(response.status()).is_cancelled() {
-            return Err(ResponseError::builder(
-                ResponseErrorKind::UserCanceled,
-                "Cancelled by on_receive_response_status() callback",
-            )
-            .uri(request.url())
-            .build());
-        }
+        on_receive_response_status(response.status()).map_err(|err| make_callback_error(err, request))?;
     }
     if let Some(on_receive_response_header) = request.on_receive_response_header() {
-        for (header_name, header_value) in response.headers().iter() {
-            if on_receive_response_header(header_name, header_value).is_cancelled() {
-                return Err(ResponseError::builder(
-                    ResponseErrorKind::UserCanceled,
-                    "Cancelled by on_receive_response_header() callback",
-                )
-                .uri(request.url())
-                .build());
-            }
-        }
+        response.headers().iter().try_for_each(|(header_name, header_value)| {
+            on_receive_response_header(header_name, header_value).map_err(|err| make_callback_error(err, request))
+        })?;
     }
     Ok(())
+}
+
+fn make_callback_error(err: AnyError, request: &RequestParts) -> ResponseError {
+    ResponseError::builder(ResponseErrorKind::CallbackError, err)
+        .uri(request.url())
+        .build()
 }
 
 fn should_retry(err: &IsahcError) -> bool {
     err.kind() == IsahcErrorKind::ConnectionFailed
 }
 
-#[derive(Debug)]
-struct IsahcBasedMetrics(IsahcMetrics);
-
-impl Metrics for IsahcBasedMetrics {
-    #[inline]
-    fn total_duration(&self) -> Option<Duration> {
-        Some(self.0.total_time())
-    }
-
-    #[inline]
-    fn name_lookup_duration(&self) -> Option<Duration> {
-        Some(self.0.name_lookup_time())
-    }
-
-    #[inline]
-    fn connect_duration(&self) -> Option<Duration> {
-        Some(self.0.connect_time())
-    }
-
-    #[inline]
-    fn secure_connect_duration(&self) -> Option<Duration> {
-        Some(self.0.secure_connect_time())
-    }
-
-    #[inline]
-    fn redirect_duration(&self) -> Option<Duration> {
-        Some(self.0.redirect_time())
-    }
-
-    #[inline]
-    fn transfer_duration(&self) -> Option<Duration> {
-        Some(self.0.transfer_time())
-    }
+fn make_metrics_from_isahc(metrics: &IsahcMetrics) -> Metrics {
+    Metrics::builder()
+        .total_duration(metrics.total_time())
+        .name_lookup_duration(metrics.name_lookup_time())
+        .connect_duration(metrics.connect_time())
+        .secure_connect_duration(metrics.redirect_time())
+        .redirect_duration(metrics.redirect_time())
+        .transfer_duration(metrics.transfer_time())
+        .build()
 }
 
 fn make_sync_isahc_request(
@@ -341,21 +309,15 @@ fn make_sync_isahc_request(
                     let buf = &buf[..n];
                     self.have_read += n as u64;
                     if let Some(on_uploading_progress) = self.request.on_uploading_progress() {
-                        if on_uploading_progress(&TransferProgressInfo::new(
+                        on_uploading_progress(TransferProgressInfo::new(
                             self.have_read,
                             self.request.body().size(),
                             buf,
                         ))
-                        .is_cancelled()
-                        {
-                            const ERROR_MESSAGE: &str = "Cancelled by on_uploading_progress() callback";
-                            *self.user_cancelled_error = Some(
-                                ResponseError::builder(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
-                                    .uri(self.request.url())
-                                    .build(),
-                            );
-                            return Err(IoError::new(IoErrorKind::Other, ERROR_MESSAGE));
-                        }
+                        .map_err(|err| {
+                            *self.user_cancelled_error = Some(make_callback_error(err, self.request));
+                            IoError::new(IoErrorKind::Other, "on_uploading_progress() callback returns error")
+                        })?;
                     }
                     Ok(n)
                 }
@@ -420,20 +382,16 @@ fn make_async_isahc_request(
                     let buf = &buf[..n];
                     self.as_mut().have_read += n as u64;
                     if let Some(on_uploading_progress) = self.as_ref().request.on_uploading_progress() {
-                        if on_uploading_progress(&TransferProgressInfo::new(
+                        if let Err(err) = on_uploading_progress(TransferProgressInfo::new(
                             self.as_ref().have_read,
                             self.as_ref().request.body().size(),
                             buf,
-                        ))
-                        .is_cancelled()
-                        {
-                            const ERROR_MESSAGE: &str = "Cancelled by on_uploading_progress() callback";
-                            *self.user_cancelled_error = Some(
-                                ResponseError::builder(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
-                                    .uri(self.as_ref().request.url())
-                                    .build(),
-                            );
-                            return Poll::Ready(Err(IoError::new(IoErrorKind::Other, ERROR_MESSAGE)));
+                        )) {
+                            *self.user_cancelled_error = Some(make_callback_error(err, self.request));
+                            return Poll::Ready(Err(IoError::new(
+                                IoErrorKind::Other,
+                                "on_uploading_progress() callback returns error",
+                            )));
                         }
                     }
                     Poll::Ready(Ok(n))
@@ -561,10 +519,10 @@ fn add_extensions_to_isahc_request_builder(
                 } else if scheme == &Scheme::HTTPS {
                     Ok(443)
                 } else {
-                    Err(ResponseError::builder(INVALID_URL, "unknown port for url").build())
+                    Err(ResponseError::builder_with_msg(INVALID_URL, "unknown port for url").build())
                 }
             } else {
-                Err(ResponseError::builder(INVALID_URL, "empty scheme for url").build())
+                Err(ResponseError::builder_with_msg(INVALID_URL, "empty scheme for url").build())
             }
         })
     }

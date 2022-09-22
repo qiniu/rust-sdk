@@ -33,8 +33,8 @@ pub(super) fn send_http_request(
             Ok(response) => {
                 return Ok(response);
             }
-            Err(err) => {
-                call_error_callbacks(parts, http_request, retried, err.response_error())?;
+            Err(mut err) => {
+                call_error_callbacks(parts, http_request, retried, err.response_error_mut())?;
                 if need_backoff(&err) {
                     backoff(http_request, parts, retried, &err)?;
                     if need_retry_after_backoff(&err) {
@@ -57,7 +57,9 @@ pub(super) fn send_http_request(
             .backoff()
             .time(
                 http_request,
-                BackoffOptions::new(err.retry_decision(), err.response_error(), retried),
+                BackoffOptions::builder(err.response_error(), retried)
+                    .retry_decision(err.retry_decision())
+                    .build(),
             )
             .duration();
         call_before_backoff_callbacks(parts, http_request, retried, delay)?;
@@ -91,9 +93,11 @@ fn handle_response_error(
 ) -> TryError {
     let retry_result = parts.http_client().request_retrier().retry(
         http_parts,
-        RequestRetrierOptions::new(parts.idempotent(), &response_error, retried),
+        RequestRetrierOptions::builder(&response_error, retried)
+            .idempotent(parts.idempotent())
+            .build(),
     );
-    retried.increase();
+    retried.increase_current_endpoint();
     TryError::new(response_error, retry_result)
 }
 
@@ -130,8 +134,8 @@ mod async_send {
                 Ok(response) => {
                     return Ok(response);
                 }
-                Err(err) => {
-                    call_error_callbacks(parts, http_request, retried, err.response_error())?;
+                Err(mut err) => {
+                    call_error_callbacks(parts, http_request, retried, err.response_error_mut())?;
                     if need_backoff(&err) {
                         backoff(http_request, parts, retried, &err).await?;
                         if need_retry_after_backoff(&err) {
@@ -154,7 +158,9 @@ mod async_send {
                 .backoff()
                 .time(
                     http_request,
-                    BackoffOptions::new(err.retry_decision(), err.response_error(), retried),
+                    BackoffOptions::builder(err.response_error(), retried)
+                        .retry_decision(err.retry_decision())
+                        .build(),
                 )
                 .duration();
             call_before_backoff_callbacks(parts, http_request, retried, delay)?;

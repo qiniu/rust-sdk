@@ -327,10 +327,9 @@ impl SubnetChooserBuilder {
 #[cfg(test)]
 mod tests {
     use super::{
-        super::super::{ChooseOptionsBuilder, ResponseError, ResponseErrorKind, RetriedStatsInfo},
+        super::super::{ChooseOptionsBuilder, ResponseError, ResponseErrorKind},
         *,
     };
-    use qiniu_http::Extensions;
     use std::{
         net::{IpAddr, Ipv4Addr},
         thread::sleep,
@@ -359,17 +358,18 @@ mod tests {
                 .into_ip_addrs(),
             SUBNET_1.to_vec()
         );
-        subnet_chooser.feedback(ChooserFeedback::new(
-            &[
+        subnet_chooser.feedback(
+            ChooserFeedback::builder(&[
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
-            ],
-            Some(&domain),
-            &RetriedStatsInfo::default(),
-            &mut Extensions::default(),
-            None,
-            Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
-        ));
+            ])
+            .domain(&domain)
+            .error(&ResponseError::new_with_msg(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            ))
+            .build(),
+        );
         assert_eq!(
             subnet_chooser
                 .choose(&all_ips, ChooseOptionsBuilder::new().domain(&domain).build())
@@ -379,17 +379,18 @@ mod tests {
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 2)), None),
             ]
         );
-        subnet_chooser.feedback(ChooserFeedback::new(
-            &[
+        subnet_chooser.feedback(
+            ChooserFeedback::builder(&[
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1)), None),
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 2)), None),
-            ],
-            Some(&domain),
-            &RetriedStatsInfo::default(),
-            &mut Extensions::default(),
-            None,
-            Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
-        ));
+            ])
+            .domain(&domain)
+            .error(&ResponseError::new_with_msg(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            ))
+            .build(),
+        );
         assert_eq!(
             subnet_chooser
                 .choose(&all_ips, ChooseOptionsBuilder::new().domain(&domain).build())
@@ -397,22 +398,20 @@ mod tests {
             vec![IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)), None)]
         );
 
-        subnet_chooser.feedback(ChooserFeedback::new(
-            &[IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)), None)],
-            Some(&domain),
-            &RetriedStatsInfo::default(),
-            &mut Extensions::default(),
-            None,
-            Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
-        ));
-        subnet_chooser.feedback(ChooserFeedback::new(
-            &[IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1)), None)],
-            Some(&domain),
-            &RetriedStatsInfo::default(),
-            &mut Extensions::default(),
-            None,
-            None,
-        ));
+        subnet_chooser.feedback(
+            ChooserFeedback::builder(&[IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)), None)])
+                .domain(&domain)
+                .error(&ResponseError::new_with_msg(
+                    ResponseErrorKind::ParseResponseError,
+                    "Test Error",
+                ))
+                .build(),
+        );
+        subnet_chooser.feedback(
+            ChooserFeedback::builder(&[IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 2, 1)), None)])
+                .domain(&domain)
+                .build(),
+        );
         assert_eq!(
             subnet_chooser
                 .choose(&all_ips, ChooseOptionsBuilder::new().domain(&domain).build())
@@ -435,17 +434,17 @@ mod tests {
             subnet_chooser.choose(&all_ips, Default::default()).into_ip_addrs(),
             SUBNET_1.to_vec()
         );
-        subnet_chooser.feedback(ChooserFeedback::new(
-            &[
+        subnet_chooser.feedback(
+            ChooserFeedback::builder(&[
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
-            ],
-            None,
-            &RetriedStatsInfo::default(),
-            &mut Extensions::default(),
-            None,
-            Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
-        ));
+            ])
+            .error(&ResponseError::new_with_msg(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            ))
+            .build(),
+        );
         assert_eq!(
             subnet_chooser.choose(&all_ips, Default::default()).into_ip_addrs(),
             SUBNET_2.to_vec(),

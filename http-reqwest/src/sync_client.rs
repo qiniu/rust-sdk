@@ -1,4 +1,5 @@
 use super::extensions::TimeoutExtension;
+use anyhow::Error as AnyError;
 use qiniu_http::{
     HeaderMap, HeaderValue, HttpCaller, RequestParts, ResponseError, ResponseErrorKind, StatusCode, SyncRequest,
     SyncResponse, SyncResponseBody, SyncResponseResult, TransferProgressInfo,
@@ -117,21 +118,15 @@ fn make_sync_reqwest_request(
                     let buf = &buf[..n];
                     self.have_read += n as u64;
                     if let Some(on_uploading_progress) = self.request.on_uploading_progress() {
-                        if on_uploading_progress(&TransferProgressInfo::new(
+                        on_uploading_progress(TransferProgressInfo::new(
                             self.have_read,
                             self.request.body().size(),
                             buf,
                         ))
-                        .is_cancelled()
-                        {
-                            const ERROR_MESSAGE: &str = "Cancelled by on_uploading_progress() callback";
-                            *self.user_cancelled_error = Some(
-                                ResponseError::builder(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
-                                    .uri(self.request.url())
-                                    .build(),
-                            );
-                            return Err(IoError::new(IoErrorKind::Other, ERROR_MESSAGE));
-                        }
+                        .map_err(|err| {
+                            *self.user_cancelled_error = Some(make_callback_error(err, self.request));
+                            IoError::new(IoErrorKind::Other, "on_uploading_progress() callback returns error")
+                        })?;
                     }
                     Ok(n)
                 }
@@ -209,26 +204,18 @@ pub(super) fn call_response_callbacks(
     headers: &HeaderMap,
 ) -> Result<(), ResponseError> {
     if let Some(on_receive_response_status) = request.on_receive_response_status() {
-        if on_receive_response_status(status_code).is_cancelled() {
-            return Err(ResponseError::builder(
-                ResponseErrorKind::UserCanceled,
-                "Cancelled by on_receive_response_status() callback",
-            )
-            .uri(request.url())
-            .build());
-        }
+        on_receive_response_status(status_code).map_err(|err| make_callback_error(err, request))?;
     }
     if let Some(on_receive_response_header) = request.on_receive_response_header() {
-        for (header_name, header_value) in headers.iter() {
-            if !on_receive_response_header(header_name, header_value).is_cancelled() {
-                return Err(ResponseError::builder(
-                    ResponseErrorKind::UserCanceled,
-                    "Cancelled by on_receive_response_header() callback",
-                )
-                .uri(request.url())
-                .build());
-            }
-        }
+        headers.iter().try_for_each(|(header_name, header_value)| {
+            on_receive_response_header(header_name, header_value).map_err(|err| make_callback_error(err, request))
+        })?;
     }
     Ok(())
+}
+
+pub(super) fn make_callback_error(err: AnyError, request: &RequestParts) -> ResponseError {
+    ResponseError::builder(ResponseErrorKind::CallbackError, err)
+        .uri(request.url())
+        .build()
 }

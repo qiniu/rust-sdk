@@ -45,8 +45,8 @@ impl ObjectsManager {
 
     /// 获取七牛认证信息提供者
     #[inline]
-    pub fn credential(&self) -> Arc<dyn CredentialProvider> {
-        self.0.credential.to_owned()
+    pub fn credential(&self) -> &dyn CredentialProvider {
+        &self.0.credential
     }
 
     /// 获取七牛存储空间相关区域查询器

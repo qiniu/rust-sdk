@@ -2,6 +2,7 @@ use super::{
     download_callbacks::Callbacks, DownloadRetrier, DownloadRetrierOptions, ErrorRetrier, RetriedStatsInfo,
     RetryDecision,
 };
+use anyhow::{Error as AnyError, Result as AnyResult};
 use assert_impl::assert_impl;
 use http::{
     header::{IntoHeaderName, CONTENT_LENGTH, ETAG, RANGE},
@@ -14,8 +15,8 @@ use qiniu_apis::{
         TransferProgressInfo,
     },
     http_client::{
-        ApiResult, CallbackResult, Endpoint, HttpClient, RequestBuilderParts, Response, ResponseError,
-        ResponseErrorKind, SyncResponseBody,
+        ApiResult, Endpoint, HttpClient, RequestBuilderParts, Response, ResponseError, ResponseErrorKind,
+        SyncResponseBody,
     },
 };
 use std::{
@@ -112,7 +113,7 @@ impl DownloadingObject {
     #[inline]
     pub fn on_before_request<F>(mut self, callback: F) -> Self
     where
-        F: Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'static,
+        F: Fn(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'static,
     {
         self.callbacks.insert_before_request_callback(callback);
         self
@@ -120,7 +121,7 @@ impl DownloadingObject {
 
     /// 设置下载进度回调函数
     #[inline]
-    pub fn on_download_progress<F: Fn(&TransferProgressInfo) -> CallbackResult + Send + Sync + 'static>(
+    pub fn on_download_progress<F: Fn(DownloadingProgressInfo) -> AnyResult<()> + Send + Sync + 'static>(
         mut self,
         callback: F,
     ) -> Self {
@@ -130,7 +131,7 @@ impl DownloadingObject {
 
     /// 设置响应成功的回调函数
     #[inline]
-    pub fn on_response_ok<F: Fn(&mut HttpResponseParts) -> CallbackResult + Send + Sync + 'static>(
+    pub fn on_response_ok<F: Fn(&mut HttpResponseParts) -> AnyResult<()> + Send + Sync + 'static>(
         mut self,
         callback: F,
     ) -> Self {
@@ -140,7 +141,7 @@ impl DownloadingObject {
 
     /// 设置响应错误的回调函数
     #[inline]
-    pub fn on_response_error<F: Fn(&ResponseError) -> CallbackResult + Send + Sync + 'static>(
+    pub fn on_response_error<F: Fn(&mut ResponseError) -> AnyResult<()> + Send + Sync + 'static>(
         mut self,
         callback: F,
     ) -> Self {
@@ -270,7 +271,7 @@ impl DownloadingObject {
     /// ```
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    pub async fn to_async_writer(self, writer: &mut (dyn AsyncWrite + Unpin)) -> DownloadResult<()> {
+    pub async fn to_async_writer(self, writer: &mut (dyn AsyncWrite + Send + Sync + Unpin)) -> DownloadResult<()> {
         let mut buf = [0u8; 1 << 15];
         let mut reader = self.into_inner_reader();
         loop {
@@ -352,10 +353,17 @@ impl DownloadingObject {
             range_to: self.range_to,
             retrier: self.retrier.unwrap_or_else(|| Box::new(ErrorRetrier)),
             retried: Default::default(),
+            have_read: 0,
             content_length: None,
             etag: None,
             response: None,
         }
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 
@@ -493,6 +501,7 @@ struct InnerReader<B> {
     range_from: Option<NonZeroU64>,
     range_to: Option<NonZeroU64>,
     content_length: Option<u64>,
+    have_read: u64,
     etag: Option<HeaderValue>,
     response: Option<ResponseInfo<B>>,
 }
@@ -500,24 +509,26 @@ struct InnerReader<B> {
 impl InnerReader<SyncResponseBody> {
     fn read(&mut self, mut buf: &mut [u8]) -> DownloadResult<usize> {
         return if let Some(response) = &mut self.response {
-            let unread = response.unread;
-            if let Ok(unread) = usize::try_from(unread) {
+            let mut response_unread = None;
+            if let Some(content_length) = self.content_length {
+                let unread = usize::try_from(content_length - self.have_read).unwrap_or(usize::max_value());
                 let to_read = buf.len().min(unread);
                 buf = &mut buf[..to_read];
+                response_unread = Some(unread);
             }
             match response.body.read(buf) {
-                Ok(0) if response.unread == 0 => Ok(0),
-                Ok(0) => make_request(
-                    self,
-                    buf,
-                    Some(ResponseError::new(
-                        ResponseErrorKind::UnexpectedEof,
-                        format!("Transfer closed with {} bytes remaining to read", unread),
-                    )),
-                ),
-                Ok(have_read) => {
-                    Self::handle_have_read(response, &buf[..have_read], &mut self.range_from, &self.callbacks)
-                }
+                Ok(0) => match response_unread {
+                    Some(unread) if unread > 0 => make_request(
+                        self,
+                        buf,
+                        Some(ResponseError::new_with_msg(
+                            ResponseErrorKind::UnexpectedEof,
+                            format!("Transfer closed with {} bytes remaining to read", unread),
+                        )),
+                    ),
+                    _ => Ok(0),
+                },
+                Ok(have_read) => self.handle_have_read(&buf[..have_read]),
                 Err(err) => make_request(
                     self,
                     buf,
@@ -593,29 +604,28 @@ impl InnerReader<AsyncResponseBody> {
     async fn async_read(&mut self, mut buf: &mut [u8]) -> DownloadResult<usize> {
         loop {
             if let Some(response) = &mut self.response {
-                let unread = response.unread;
-                if let Ok(unread) = usize::try_from(unread) {
+                let mut response_unread = None;
+                if let Some(content_length) = self.content_length {
+                    let unread = usize::try_from(content_length - self.have_read).unwrap_or(usize::max_value());
                     let to_read = buf.len().min(unread);
                     buf = &mut buf[..to_read];
+                    response_unread = Some(unread);
                 }
                 match response.body.read(buf).await {
-                    Ok(0) if response.unread == 0 => {
-                        return Ok(0);
-                    }
-                    Ok(0) => {
-                        let err = ResponseError::new(
-                            ResponseErrorKind::UnexpectedEof,
-                            format!("Transfer closed with {} bytes remaining to read", unread),
-                        );
-                        self.response = Some(self.make_async_request(Some(err)).await?);
-                    }
+                    Ok(0) => match response_unread {
+                        Some(unread) if unread > 0 => {
+                            let err = ResponseError::new_with_msg(
+                                ResponseErrorKind::UnexpectedEof,
+                                format!("Transfer closed with {} bytes remaining to read", unread),
+                            );
+                            self.response = Some(self.make_async_request(Some(err)).await?);
+                        }
+                        _ => {
+                            return Ok(0);
+                        }
+                    },
                     Ok(have_read) => {
-                        return Self::handle_have_read(
-                            response,
-                            &buf[..have_read],
-                            &mut self.range_from,
-                            &self.callbacks,
-                        );
+                        return self.handle_have_read(&buf[..have_read]);
                     }
                     Err(err) => {
                         let err =
@@ -679,53 +689,37 @@ impl InnerReader<AsyncResponseBody> {
 }
 
 impl<B> InnerReader<B> {
-    fn handle_have_read(
-        response: &mut ResponseInfo<B>,
-        buf: &[u8],
-        range_from: &mut Option<NonZeroU64>,
-        callbacks: &Callbacks<'_>,
-    ) -> DownloadResult<usize> {
+    fn handle_have_read(&mut self, buf: &[u8]) -> DownloadResult<usize> {
         let have_read = buf.len() as u64;
-        *range_from = NonZeroU64::new(range_from.map(|v| v.get()).unwrap_or(0) + have_read);
-        response.unread -= have_read;
-        if callbacks
-            .download_progress(&TransferProgressInfo::new(
-                response.content_length - response.unread,
-                response.content_length,
-                buf,
-            ))
-            .is_cancelled()
-        {
-            return Err(make_user_cancelled_error(
-                "Cancelled by on_download_progress() callback",
-            ));
-        }
+        self.range_from = NonZeroU64::new(self.range_from.map(|v| v.get()).unwrap_or(0) + have_read);
+        self.have_read += have_read;
+        self.callbacks
+            .download_progress(DownloadingProgressInfo::new(self.have_read, self.content_length))
+            .map_err(make_callback_error)?;
         Ok(buf.len())
     }
 
     fn handle_response(&mut self, response: Response<B>, uri: Uri) -> DownloadResult<ResponseInfo<B>> {
-        let content_length = if let Some(content_length) = response.header(CONTENT_LENGTH) {
-            content_length
-                .to_str()
-                .ok()
-                .and_then(|content_length| content_length.parse::<u64>().ok())
-                .map_or_else(
-                    || {
-                        Err(DownloadError::ResponseError(ResponseError::new(
-                            ResponseErrorKind::MaliciousResponse,
-                            "content_length is invalid in response headers",
-                        )))
-                    },
-                    Ok,
-                )?
-        } else {
-            return Err(DownloadError::ResponseError(ResponseError::new(
-                ResponseErrorKind::MaliciousResponse,
-                "content_length is missing in response headers",
-            )));
-        };
+        let content_length = response
+            .header(CONTENT_LENGTH)
+            .map(|content_length| {
+                content_length
+                    .to_str()
+                    .ok()
+                    .and_then(|content_length| content_length.parse::<u64>().ok())
+                    .map_or_else(
+                        || {
+                            Err(DownloadError::ResponseError(ResponseError::new_with_msg(
+                                ResponseErrorKind::MaliciousResponse,
+                                "content_length is invalid in response headers",
+                            )))
+                        },
+                        Ok,
+                    )
+            })
+            .transpose()?;
         if self.content_length.is_none() {
-            self.content_length = Some(content_length);
+            self.content_length = content_length;
         }
         if let Some(etag) = response.header(ETAG) {
             if let Some(first_etag) = &self.etag {
@@ -737,12 +731,10 @@ impl<B> InnerReader<B> {
             }
             Ok(ResponseInfo {
                 uri,
-                unread: content_length,
-                content_length: self.content_length.unwrap_or(content_length),
                 body: response.into_body(),
             })
         } else {
-            Err(DownloadError::ResponseError(ResponseError::new(
+            Err(DownloadError::ResponseError(ResponseError::new_with_msg(
                 ResponseErrorKind::MaliciousResponse,
                 "etag is missing in response headers",
             )))
@@ -773,11 +765,53 @@ impl<B: Sync + Send> InnerReader<B> {
     }
 }
 
+/// 下载进度信息
+#[derive(Debug, Clone, Copy)]
+pub struct DownloadingProgressInfo {
+    transferred_bytes: u64,
+    total_bytes: Option<u64>,
+}
+
+impl DownloadingProgressInfo {
+    /// 创建下载进度信息
+    #[inline]
+    pub fn new(transferred_bytes: u64, total_bytes: Option<u64>) -> Self {
+        Self {
+            transferred_bytes,
+            total_bytes,
+        }
+    }
+
+    /// 获取已传输的字节数
+    #[inline]
+    pub fn transferred_bytes(&self) -> u64 {
+        self.transferred_bytes
+    }
+
+    /// 获取总字节数
+    #[inline]
+    pub fn total_bytes(&self) -> Option<u64> {
+        self.total_bytes
+    }
+}
+
+impl<'a> From<&'a TransferProgressInfo<'a>> for DownloadingProgressInfo {
+    #[inline]
+    fn from(t: &'a TransferProgressInfo<'a>) -> Self {
+        Self::new(t.transferred_bytes(), Some(t.total_bytes()))
+    }
+}
+
+impl From<TransferProgressInfo<'_>> for DownloadingProgressInfo {
+    #[inline]
+    fn from(t: TransferProgressInfo<'_>) -> Self {
+        Self::new(t.transferred_bytes(), Some(t.total_bytes()))
+    }
+}
+
 #[derive(Debug)]
 struct ResponseInfo<B> {
     body: B,
-    unread: u64,
-    content_length: u64,
     uri: Uri,
 }
 
@@ -822,8 +856,8 @@ impl From<DownloadError> for IoError {
     }
 }
 
-fn make_user_cancelled_error(message: &str) -> DownloadError {
-    DownloadError::ResponseError(ResponseError::new(HttpResponseErrorKind::UserCanceled.into(), message))
+fn make_callback_error(err: AnyError) -> DownloadError {
+    DownloadError::ResponseError(ResponseError::new(HttpResponseErrorKind::CallbackError.into(), err))
 }
 
 fn set_uri_into_request<'a>(request: &mut RequestBuilderParts<'a>, uri: &'a UriParts) -> DownloadResult<()> {
@@ -833,7 +867,7 @@ fn set_uri_into_request<'a>(request: &mut RequestBuilderParts<'a>, uri: &'a UriP
     } else if scheme == &Scheme::HTTPS {
         request.use_https(true);
     } else {
-        return Err(DownloadError::ResponseError(ResponseError::new(
+        return Err(DownloadError::ResponseError(ResponseError::new_with_msg(
             ResponseErrorKind::HttpError(HttpResponseErrorKind::InvalidUrl),
             "scheme is neither http nor https in http::Uri",
         )));
@@ -845,7 +879,7 @@ fn set_uri_into_request<'a>(request: &mut RequestBuilderParts<'a>, uri: &'a UriP
             request.query(query);
         }
     } else {
-        return Err(DownloadError::ResponseError(ResponseError::new(
+        return Err(DownloadError::ResponseError(ResponseError::new_with_msg(
             ResponseErrorKind::HttpError(HttpResponseErrorKind::InvalidUrl),
             "path_and_query is neither http nor https in http::Uri",
         )));
@@ -881,24 +915,17 @@ fn set_range_into_request(
 }
 
 fn before_request_call(callbacks: &Callbacks<'_>, builder_parts: &mut RequestBuilderParts) -> DownloadResult<()> {
-    if callbacks.before_request(builder_parts).is_cancelled() {
-        return Err(make_user_cancelled_error("Cancelled by on_before_request() callback"));
-    }
-    Ok(())
+    callbacks.before_request(builder_parts).map_err(make_callback_error)
 }
 
 fn after_response_call<B>(callbacks: &Callbacks<'_>, response: &mut ApiResult<Response<B>>) -> DownloadResult<()> {
-    if callbacks.after_response(response).is_cancelled() {
-        Err(make_user_cancelled_error("Cancelled by on_after_response() callback"))
-    } else {
-        Ok(())
-    }
+    callbacks.after_response(response).map_err(make_callback_error)
 }
 
 fn make_endpoint_from_uri(uri: &mut UriParts) -> DownloadResult<Endpoint> {
     uri.authority.take().map(Endpoint::from).map_or_else(
         || {
-            Err(DownloadError::ResponseError(ResponseError::new(
+            Err(DownloadError::ResponseError(ResponseError::new_with_msg(
                 ResponseErrorKind::HttpError(HttpResponseErrorKind::InvalidUrl),
                 "authority is missing in http::Uri",
             )))
@@ -955,16 +982,18 @@ mod tests {
                 assert!(url.contains("&token="));
                 assert_eq!(headers.get(REFERER).unwrap().to_str().unwrap(), "http://example.com");
                 if self.0.fetch_add(1, Ordering::Relaxed) > 0 {
-                    return Err(
-                        HttpResponseError::builder(HttpResponseErrorKind::InvalidUrl, "called more than once").build(),
-                    );
+                    Err(
+                        HttpResponseError::builder_with_msg(HttpResponseErrorKind::InvalidUrl, "called more than once")
+                            .build(),
+                    )
+                } else {
+                    Ok(HttpResponse::builder()
+                        .header("x-reqid", HeaderValue::from_static("fake-reqid"))
+                        .header(CONTENT_LENGTH, HeaderValue::from_static("10"))
+                        .header(ETAG, HeaderValue::from_static("fake-etag"))
+                        .body(body)
+                        .build())
                 }
-                Ok(HttpResponse::builder()
-                    .header("x-reqid", HeaderValue::from_static("fake-reqid"))
-                    .header(CONTENT_LENGTH, HeaderValue::from_static("10"))
-                    .header(ETAG, HeaderValue::from_static("fake-etag"))
-                    .body(body)
-                    .build())
             }
         }
 
@@ -1017,7 +1046,7 @@ mod tests {
 
         return Ok(());
 
-        fn get_download_manager() -> DownloadManager<UrlsSigner<Credential, StaticDomainsUrlsGenerator>> {
+        fn get_download_manager() -> DownloadManager {
             DownloadManager::builder(UrlsSigner::new(
                 get_credential(),
                 StaticDomainsUrlsGenerator::new(Endpoint::new_from_ip_addr(IpAddr::V4(Ipv4Addr::LOCALHOST))),
@@ -1056,9 +1085,11 @@ mod tests {
                             .body(body_2)
                             .build())
                     }
-                    _ => Err(
-                        HttpResponseError::builder(HttpResponseErrorKind::InvalidUrl, "called more than twice").build(),
-                    ),
+                    _ => Err(HttpResponseError::builder_with_msg(
+                        HttpResponseErrorKind::InvalidUrl,
+                        "called more than twice",
+                    )
+                    .build()),
                 }
             }
         }
@@ -1095,9 +1126,8 @@ mod tests {
                     let current_progress = current_progress.to_owned();
                     move |transfer| {
                         current_progress.store(transfer.transferred_bytes(), Ordering::Relaxed);
-                        assert_eq!(transfer.total_bytes(), 10);
-                        assert_eq!(transfer.body().len(), 5);
-                        CallbackResult::Continue
+                        assert_eq!(transfer.total_bytes(), Some(10));
+                        Ok(())
                     }
                 })
                 .into_inner_reader();
@@ -1120,9 +1150,8 @@ mod tests {
                     let current_progress = current_progress.to_owned();
                     move |transfer| {
                         current_progress.store(transfer.transferred_bytes(), Ordering::Relaxed);
-                        assert_eq!(transfer.total_bytes(), 10);
-                        assert_eq!(transfer.body().len(), 5);
-                        CallbackResult::Continue
+                        assert_eq!(transfer.total_bytes(), Some(10));
+                        Ok(())
                     }
                 })
                 .into_inner_reader();
@@ -1136,7 +1165,7 @@ mod tests {
 
         return Ok(());
 
-        fn get_download_manager() -> DownloadManager<UrlsSigner<Credential, StaticDomainsUrlsGenerator>> {
+        fn get_download_manager() -> DownloadManager {
             DownloadManager::builder(UrlsSigner::new(
                 get_credential(),
                 StaticDomainsUrlsGenerator::new(Endpoint::new_from_ip_addr(IpAddr::V4(Ipv4Addr::LOCALHOST))),
@@ -1178,7 +1207,11 @@ mod tests {
                         .body(body_2)
                         .build())
                 } else {
-                    Err(HttpResponseError::builder(HttpResponseErrorKind::InvalidUrl, "called more than twice").build())
+                    Err(HttpResponseError::builder_with_msg(
+                        HttpResponseErrorKind::InvalidUrl,
+                        "called more than twice",
+                    )
+                    .build())
                 }
             }
         }
@@ -1228,7 +1261,7 @@ mod tests {
 
         return Ok(());
 
-        fn get_download_manager() -> DownloadManager<UrlsSigner<Credential, StaticDomainsUrlsGenerator>> {
+        fn get_download_manager() -> DownloadManager {
             DownloadManager::builder(UrlsSigner::new(
                 get_credential(),
                 StaticDomainsUrlsGenerator::builder(Endpoint::new_from_ip_addr(IpAddr::V4(Ipv4Addr::new(
@@ -1263,9 +1296,11 @@ mod tests {
                         .header(ETAG, HeaderValue::from_static("fake-etag"))
                         .body(body)
                         .build()),
-                    _ => Err(
-                        HttpResponseError::builder(HttpResponseErrorKind::InvalidUrl, "called more than once").build(),
-                    ),
+                    _ => Err(HttpResponseError::builder_with_msg(
+                        HttpResponseErrorKind::InvalidUrl,
+                        "called more than once",
+                    )
+                    .build()),
                 }
             }
         }
@@ -1317,7 +1352,7 @@ mod tests {
 
         return Ok(());
 
-        fn get_download_manager() -> DownloadManager<UrlsSigner<Credential, StaticDomainsUrlsGenerator>> {
+        fn get_download_manager() -> DownloadManager {
             DownloadManager::builder(UrlsSigner::new(
                 get_credential(),
                 StaticDomainsUrlsGenerator::builder(Endpoint::new_from_ip_addr(IpAddr::V4(Ipv4Addr::new(
@@ -1347,7 +1382,10 @@ mod tests {
                 let called = self.0.fetch_add(1, Ordering::Relaxed);
                 if url.starts_with("http://127.0.0.1/test-key") {
                     assert_eq!(called, 0);
-                    Err(HttpResponseError::builder(HttpResponseErrorKind::ConnectError, "fake connect error").build())
+                    Err(
+                        HttpResponseError::builder_with_msg(HttpResponseErrorKind::ConnectError, "fake connect error")
+                            .build(),
+                    )
                 } else if url.starts_with("http://127.0.0.2/test-key") {
                     assert_eq!(called, 1);
                     Ok(HttpResponse::builder()
@@ -1357,7 +1395,11 @@ mod tests {
                         .body(body)
                         .build())
                 } else {
-                    Err(HttpResponseError::builder(HttpResponseErrorKind::InvalidUrl, "called more than twice").build())
+                    Err(HttpResponseError::builder_with_msg(
+                        HttpResponseErrorKind::InvalidUrl,
+                        "called more than twice",
+                    )
+                    .build())
                 }
             }
         }
@@ -1405,7 +1447,7 @@ mod tests {
 
         return Ok(());
 
-        fn get_download_manager() -> DownloadManager<UrlsSigner<Credential, StaticDomainsUrlsGenerator>> {
+        fn get_download_manager() -> DownloadManager {
             DownloadManager::builder(UrlsSigner::new(
                 get_credential(),
                 StaticDomainsUrlsGenerator::builder(Endpoint::new_from_ip_addr(IpAddr::V4(Ipv4Addr::new(
@@ -1448,9 +1490,11 @@ mod tests {
                             .body(body_2)
                             .build())
                     }
-                    _ => Err(
-                        HttpResponseError::builder(HttpResponseErrorKind::InvalidUrl, "called more than twice").build(),
-                    ),
+                    _ => Err(HttpResponseError::builder_with_msg(
+                        HttpResponseErrorKind::InvalidUrl,
+                        "called more than twice",
+                    )
+                    .build()),
                 }
             }
         }
@@ -1506,7 +1550,7 @@ mod tests {
 
         return Ok(());
 
-        fn get_download_manager() -> DownloadManager<UrlsSigner<Credential, StaticDomainsUrlsGenerator>> {
+        fn get_download_manager() -> DownloadManager {
             DownloadManager::builder(UrlsSigner::new(
                 get_credential(),
                 StaticDomainsUrlsGenerator::new(Endpoint::new_from_ip_addr(IpAddr::V4(Ipv4Addr::LOCALHOST))),
@@ -1596,7 +1640,7 @@ mod tests {
 
         return Ok(());
 
-        fn get_download_manager(bytes: Vec<u8>) -> DownloadManager<UrlsSigner<Credential, StaticDomainsUrlsGenerator>> {
+        fn get_download_manager(bytes: Vec<u8>) -> DownloadManager {
             DownloadManager::builder(UrlsSigner::new(
                 get_credential(),
                 StaticDomainsUrlsGenerator::new(Endpoint::new_from_ip_addr(IpAddr::V4(Ipv4Addr::LOCALHOST))),

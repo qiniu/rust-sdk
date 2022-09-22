@@ -1,4 +1,5 @@
 use auto_impl::auto_impl;
+use dyn_clonable::clonable;
 use qiniu_apis::http_client::ResponseError;
 use std::{
     fmt::Debug,
@@ -10,8 +11,9 @@ use std::{
 /// 并发数获取接口
 ///
 /// 获取分片上传时的并发数
+#[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait ConcurrencyProvider: Debug + Sync + Send {
+pub trait ConcurrencyProvider: Clone + Debug + Sync + Send {
     /// 获取并发数
     fn concurrency(&self) -> Concurrency;
 

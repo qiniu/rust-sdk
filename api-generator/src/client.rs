@@ -428,8 +428,8 @@ impl ApiDetailedDescription {
                     &mut self,
                     callback: impl Fn(
                             &dyn qiniu_http_client::SimplifiedCallbackContext,
-                            &qiniu_http_client::http::TransferProgressInfo,
-                        ) -> qiniu_http_client::CallbackResult
+                            qiniu_http_client::http::TransferProgressInfo,
+                        ) -> anyhow::Result<()>
                             + Send
                             + Sync
                             +'req,
@@ -445,7 +445,7 @@ impl ApiDetailedDescription {
                     callback: impl Fn(
                             &dyn qiniu_http_client::SimplifiedCallbackContext,
                             qiniu_http_client::http::StatusCode,
-                        ) -> qiniu_http_client::CallbackResult
+                        ) -> anyhow::Result<()>
                         + Send
                         + Sync
                         + 'req,
@@ -462,7 +462,7 @@ impl ApiDetailedDescription {
                             &dyn qiniu_http_client::SimplifiedCallbackContext,
                             &qiniu_http_client::http::HeaderName,
                             &qiniu_http_client::http::HeaderValue,
-                        ) -> qiniu_http_client::CallbackResult
+                        ) -> anyhow::Result<()>
                             + Send
                             + Sync
                             +'req,
@@ -478,7 +478,7 @@ impl ApiDetailedDescription {
                     callback: impl Fn(
                             &mut dyn qiniu_http_client::CallbackContext,
                             &str,
-                        ) -> qiniu_http_client::CallbackResult
+                        ) -> anyhow::Result<()>
                             + Send
                             + Sync
                             + 'req,
@@ -495,7 +495,7 @@ impl ApiDetailedDescription {
                             &mut dyn qiniu_http_client::CallbackContext,
                             &str,
                             &qiniu_http_client::ResolveAnswers,
-                        ) -> qiniu_http_client::CallbackResult
+                        ) -> anyhow::Result<()>
                             + Send
                             + Sync
                             + 'req,
@@ -511,7 +511,7 @@ impl ApiDetailedDescription {
                     callback: impl Fn(
                             &mut dyn qiniu_http_client::CallbackContext,
                             &[qiniu_http_client::IpAddrWithPort],
-                        ) -> qiniu_http_client::CallbackResult
+                        ) -> anyhow::Result<()>
                             + Send
                             + Sync
                             + 'req,
@@ -528,7 +528,7 @@ impl ApiDetailedDescription {
                             &mut dyn qiniu_http_client::CallbackContext,
                             &[qiniu_http_client::IpAddrWithPort],
                             &[qiniu_http_client::IpAddrWithPort],
-                        ) -> qiniu_http_client::CallbackResult
+                        ) -> anyhow::Result<()>
                             + Send
                             + Sync
                             + 'req,
@@ -543,7 +543,7 @@ impl ApiDetailedDescription {
                     &mut self,
                     callback: impl Fn(
                         &mut dyn qiniu_http_client::ExtendedCallbackContext,
-                        ) -> qiniu_http_client::CallbackResult
+                        ) -> anyhow::Result<()>
                             + Send
                             + Sync
                             + 'req,
@@ -558,7 +558,7 @@ impl ApiDetailedDescription {
                     &mut self,
                     callback: impl Fn(
                             &mut dyn qiniu_http_client::ExtendedCallbackContext,
-                        ) -> qiniu_http_client::CallbackResult
+                        ) -> anyhow::Result<()>
                             + Send
                             + Sync
                             + 'req,
@@ -574,7 +574,7 @@ impl ApiDetailedDescription {
                     callback: impl Fn(
                             &mut dyn qiniu_http_client::ExtendedCallbackContext,
                             &qiniu_http_client::http::ResponseParts,
-                        ) -> qiniu_http_client::CallbackResult
+                        ) -> anyhow::Result<()>
                             + Send
                             + Sync
                             + 'req,
@@ -589,8 +589,8 @@ impl ApiDetailedDescription {
                     &mut self,
                     callback: impl Fn(
                             &mut dyn qiniu_http_client::ExtendedCallbackContext,
-                            &qiniu_http_client::ResponseError,
-                        ) -> qiniu_http_client::CallbackResult
+                            &mut qiniu_http_client::ResponseError,
+                        ) -> anyhow::Result<()>
                             + Send
                             + Sync
                             + 'req,
@@ -606,7 +606,7 @@ impl ApiDetailedDescription {
                     callback: impl Fn(
                             &mut dyn qiniu_http_client::ExtendedCallbackContext,
                             std::time::Duration,
-                        ) -> qiniu_http_client::CallbackResult
+                        ) -> anyhow::Result<()>
                             + Send
                             + Sync
                             + 'req,
@@ -622,7 +622,7 @@ impl ApiDetailedDescription {
                     callback: impl Fn(
                             &mut dyn qiniu_http_client::ExtendedCallbackContext,
                             std::time::Duration,
-                        ) -> qiniu_http_client::CallbackResult
+                        ) -> anyhow::Result<()>
                             + Send
                             + Sync
                             + 'req,

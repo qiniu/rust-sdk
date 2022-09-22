@@ -6,6 +6,7 @@ mod timeout;
 
 use super::{super::cache::IsCacheValid, ApiResult, RetriedStatsInfo};
 use auto_impl::auto_impl;
+use dyn_clonable::clonable;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Debug,
@@ -20,8 +21,9 @@ use futures::future::BoxFuture;
 /// 域名解析的接口
 ///
 /// 同时提供阻塞接口和异步接口，异步接口则需要启用 `async` 功能
+#[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait Resolver: Debug + Sync + Send {
+pub trait Resolver: Clone + Debug + Sync + Send {
     /// 解析域名
     ///
     /// 该方法的异步版本为 [`Self::async_resolve`]。

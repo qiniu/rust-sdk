@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-apis"
-version = "0.1.4"
+version = "0.2.0"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2021"
 rust-version = "1.60.0"
@@ -14,6 +14,7 @@ keywords = ["qiniu", "storage"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.41"
 mime = "0.3.16"
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = "1.0.59"
@@ -21,11 +22,8 @@ indexmap = "1.7.0"
 futures = { version = "0.3.5", optional = true }
 async-std = { version = "1.9.0", optional = true }
 
-qiniu-http-client = { version = "0.1.4", path = "../http-client", default-features = false }
-qiniu-utils = { version = "0.1.4", path = "../utils" }
-
-[dev-dependencies]
-anyhow = "1.0.43"
+qiniu-http-client = { version = "0.2.0", path = "../http-client", default-features = false }
+qiniu-utils = { version = "0.2.0", path = "../utils" }
 
 [features]
 default = ["ureq"]

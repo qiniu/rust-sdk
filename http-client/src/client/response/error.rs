@@ -2,19 +2,21 @@ use super::{
     super::super::{EndpointParseError, RetriedStatsInfo},
     X_LOG_HEADER_NAME, X_REQ_ID_HEADER_NAME,
 };
+use anyhow::Error as AnyError;
 use assert_impl::assert_impl;
 use qiniu_http::{
-    HeaderValue, Metrics, ResponseError as HttpResponseError, ResponseErrorKind as HttpResponseErrorKind,
+    Extensions, HeaderValue, Metrics, ResponseError as HttpResponseError, ResponseErrorKind as HttpResponseErrorKind,
     ResponseParts as HttpResponseParts, StatusCode as HttpStatusCode,
 };
+use qiniu_upload_token::ToStringError;
 use serde_json::Error as JsonError;
 use std::{
-    error, fmt,
+    error::Error as StdError,
+    fmt::{self, Debug, Display},
     io::{Error as IoError, Read, Result as IOResult},
     mem::take,
     net::IpAddr,
     num::NonZeroU16,
-    time::Duration,
 };
 
 #[cfg(feature = "async")]
@@ -53,13 +55,14 @@ pub enum ErrorKind {
 #[derive(Debug)]
 pub struct Error {
     kind: ErrorKind,
-    error: Box<dyn error::Error + Send + Sync>,
+    error: AnyError,
     server_ip: Option<IpAddr>,
     server_port: Option<NonZeroU16>,
-    metrics: Option<Box<dyn Metrics>>,
+    metrics: Option<Metrics>,
     x_headers: XHeaders,
     response_body_sample: Vec<u8>,
     retried: Option<RetriedStatsInfo>,
+    extensions: Extensions,
 }
 
 const RESPONSE_BODY_SAMPLE_LEN_LIMIT: u64 = 1024;
@@ -67,7 +70,7 @@ const RESPONSE_BODY_SAMPLE_LEN_LIMIT: u64 = 1024;
 impl Error {
     /// 创建 HTTP 响应错误
     #[inline]
-    pub fn new(kind: ErrorKind, err: impl Into<Box<dyn error::Error + Send + Sync>>) -> Self {
+    pub fn new(kind: ErrorKind, err: impl Into<AnyError>) -> Self {
         Error {
             kind,
             error: err.into(),
@@ -77,6 +80,23 @@ impl Error {
             x_headers: Default::default(),
             response_body_sample: Default::default(),
             retried: Default::default(),
+            extensions: Default::default(),
+        }
+    }
+
+    /// 创建 HTTP 响应错误
+    #[inline]
+    pub fn new_with_msg(kind: ErrorKind, msg: impl Display + Debug + Send + Sync + 'static) -> Self {
+        Error {
+            kind,
+            error: AnyError::msg(msg),
+            server_ip: Default::default(),
+            server_port: Default::default(),
+            metrics: Default::default(),
+            x_headers: Default::default(),
+            response_body_sample: Default::default(),
+            retried: Default::default(),
+            extensions: Default::default(),
         }
     }
 
@@ -152,8 +172,8 @@ impl Error {
 
     /// 获取 HTTP 响应指标信息
     #[inline]
-    pub fn metrics(&self) -> Option<&dyn Metrics> {
-        self.metrics.as_deref()
+    pub fn metrics(&self) -> Option<&Metrics> {
+        self.metrics.as_ref()
     }
 
     /// 获取 HTTP 响应的 X-Log 信息
@@ -166,6 +186,18 @@ impl Error {
     #[inline]
     pub fn x_reqid(&self) -> Option<&HeaderValue> {
         self.x_headers.x_reqid.as_ref()
+    }
+
+    /// 获取扩展信息
+    #[inline]
+    pub fn extensions(&self) -> &Extensions {
+        &self.extensions
+    }
+
+    /// 获取扩展信息的可变引用
+    #[inline]
+    pub fn extensions_mut(&mut self) -> &mut Extensions {
+        &mut self.extensions
     }
 
     pub(in super::super) fn from_http_response_error(
@@ -182,6 +214,7 @@ impl Error {
             error: err.into_inner(),
             response_body_sample: Default::default(),
             retried: Default::default(),
+            extensions: Default::default(),
         }
     }
 
@@ -220,14 +253,11 @@ fn extract_x_reqid_from_response_parts(parts: &HttpResponseParts) -> Option<Head
     parts.header(X_REQ_ID_HEADER_NAME).cloned()
 }
 
-fn extract_metrics_from_response_parts(parts: &HttpResponseParts) -> Option<Box<dyn Metrics + 'static>> {
-    parts
-        .metrics()
-        .map(ClonedMetrics::new)
-        .map(|metrics| Box::new(metrics) as Box<dyn Metrics + 'static>)
+fn extract_metrics_from_response_parts(parts: &HttpResponseParts) -> Option<Metrics> {
+    parts.metrics().cloned()
 }
 
-impl fmt::Display for Error {
+impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "[{:?}]", self.kind)?;
         if let Some(retried) = self.retried.as_ref() {
@@ -247,9 +277,9 @@ impl fmt::Display for Error {
     }
 }
 
-impl error::Error for Error {
+impl StdError for Error {
     #[inline]
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
         Some(self.error.as_ref())
     }
 }
@@ -268,62 +298,6 @@ impl From<HttpResponseErrorKind> for ErrorKind {
     }
 }
 
-#[derive(Clone, Debug)]
-struct ClonedMetrics {
-    total_duration: Option<Duration>,
-    name_lookup_duration: Option<Duration>,
-    connect_duration: Option<Duration>,
-    secure_connect_duration: Option<Duration>,
-    redirect_duration: Option<Duration>,
-    transfer_duration: Option<Duration>,
-}
-
-impl ClonedMetrics {
-    #[must_use]
-    fn new(metrics: &dyn Metrics) -> Self {
-        Self {
-            total_duration: metrics.total_duration(),
-            name_lookup_duration: metrics.name_lookup_duration(),
-            connect_duration: metrics.connect_duration(),
-            secure_connect_duration: metrics.secure_connect_duration(),
-            redirect_duration: metrics.redirect_duration(),
-            transfer_duration: metrics.transfer_duration(),
-        }
-    }
-}
-
-impl Metrics for ClonedMetrics {
-    #[inline]
-    fn total_duration(&self) -> Option<Duration> {
-        self.total_duration
-    }
-
-    #[inline]
-    fn name_lookup_duration(&self) -> Option<Duration> {
-        self.name_lookup_duration
-    }
-
-    #[inline]
-    fn connect_duration(&self) -> Option<Duration> {
-        self.connect_duration
-    }
-
-    #[inline]
-    fn secure_connect_duration(&self) -> Option<Duration> {
-        self.secure_connect_duration
-    }
-
-    #[inline]
-    fn redirect_duration(&self) -> Option<Duration> {
-        self.redirect_duration
-    }
-
-    #[inline]
-    fn transfer_duration(&self) -> Option<Duration> {
-        self.transfer_duration
-    }
-}
-
 impl From<JsonError> for Error {
     #[inline]
     fn from(error: JsonError) -> Self {
@@ -335,5 +309,16 @@ impl From<IoError> for Error {
     #[inline]
     fn from(error: IoError) -> Self {
         Self::new(ErrorKind::HttpError(HttpResponseErrorKind::LocalIoError), error)
+    }
+}
+
+impl From<ToStringError> for Error {
+    #[inline]
+    fn from(error: ToStringError) -> Self {
+        match error {
+            ToStringError::CredentialGetError(err) => err.into(),
+            ToStringError::CallbackError(err) => Self::new(HttpResponseErrorKind::CallbackError.into(), err),
+            err => Self::new(HttpResponseErrorKind::UnknownError.into(), err),
+        }
     }
 }

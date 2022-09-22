@@ -5,6 +5,7 @@ mod randomized;
 
 use super::{ResponseError, RetriedStatsInfo, RetryDecision};
 use auto_impl::auto_impl;
+use dyn_clonable::clonable;
 use qiniu_http::RequestParts as HttpRequestParts;
 use std::{
     fmt::Debug,
@@ -13,8 +14,9 @@ use std::{
 };
 
 /// 退避时长获取接口
+#[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait Backoff: Debug + Sync + Send {
+pub trait Backoff: Clone + Debug + Sync + Send {
     /// 获取退避时长
     fn time(&self, request: &mut HttpRequestParts, opts: BackoffOptions) -> GotBackoffDuration;
 }
@@ -28,16 +30,10 @@ pub struct BackoffOptions<'a> {
 }
 
 impl<'a> BackoffOptions<'a> {
-    pub(super) fn new(
-        retry_decision: RetryDecision,
-        response_error: &'a ResponseError,
-        retried: &'a RetriedStatsInfo,
-    ) -> Self {
-        Self {
-            retry_decision,
-            response_error,
-            retried,
-        }
+    /// 创建退避时长的选项构建器
+    #[inline]
+    pub fn builder(response_error: &'a ResponseError, retried: &'a RetriedStatsInfo) -> BackoffOptionsBuilder<'a> {
+        BackoffOptionsBuilder::new(response_error, retried)
     }
 
     /// 获取重试决定
@@ -56,6 +52,34 @@ impl<'a> BackoffOptions<'a> {
     #[inline]
     pub fn retried(&self) -> &RetriedStatsInfo {
         self.retried
+    }
+}
+
+/// 退避时长的选项构建器
+#[derive(Copy, Debug, Clone)]
+pub struct BackoffOptionsBuilder<'a>(BackoffOptions<'a>);
+
+impl<'a> BackoffOptionsBuilder<'a> {
+    /// 创建退避时长的选项构建器
+    #[inline]
+    pub fn new(response_error: &'a ResponseError, retried: &'a RetriedStatsInfo) -> Self {
+        Self(BackoffOptions {
+            response_error,
+            retried,
+            retry_decision: Default::default(),
+        })
+    }
+
+    /// 设置重试决定
+    #[inline]
+    pub fn retry_decision(&mut self, decision: RetryDecision) -> &mut Self {
+        self.0.retry_decision = decision;
+        self
+    }
+
+    /// 构建退避时长的选项
+    pub fn build(&self) -> BackoffOptions<'a> {
+        self.0
     }
 }
 

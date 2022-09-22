@@ -8,22 +8,25 @@ use futures::future::BoxFuture;
 
 /// URL 列表签名器
 #[derive(Debug, Clone)]
-pub struct UrlsSigner<C, G> {
-    generator: G,
-    credential: C,
+pub struct UrlsSigner {
+    generator: Box<dyn DownloadUrlsGenerator>,
+    credential: Box<dyn CredentialProvider>,
 }
 
-impl<C, G> UrlsSigner<C, G> {
+impl UrlsSigner {
     /// 创建静态私有空间域名下载 URL 列表生成构建器
     ///
     /// 必须添加第一个域名
     #[inline]
-    pub fn new(credential: C, generator: G) -> Self {
-        Self { credential, generator }
+    pub fn new(credential: impl CredentialProvider + 'static, generator: impl DownloadUrlsGenerator + 'static) -> Self {
+        Self {
+            credential: Box::new(credential),
+            generator: Box::new(generator),
+        }
     }
 }
 
-impl<C: CredentialProvider, G: DownloadUrlsGenerator> DownloadUrlsGenerator for UrlsSigner<C, G> {
+impl DownloadUrlsGenerator for UrlsSigner {
     fn generate(&self, object_name: &str, options: GeneratorOptions<'_>) -> ApiResult<Vec<Uri>> {
         let credential = self.credential.get(Default::default())?;
         let ttl = options.ttl().unwrap_or(Duration::from_secs(3600));

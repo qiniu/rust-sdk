@@ -1,4 +1,4 @@
-use super::{DataSource, DataSourceReader, PartSize, SourceKey};
+use super::{first_part_number, DataSource, DataSourceReader, PartSize, SourceKey};
 use digest::Digest;
 use qiniu_apis::http::Reset;
 use std::{
@@ -8,31 +8,30 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-#[cfg(feature = "async")]
-use {super::AsyncDataSourceReader, futures::future::BoxFuture};
-
 #[derive(Debug)]
 struct SourceOffset {
     offset: u64,
     part_number: NonZeroUsize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct SeekableDataSource {
     source: SeekableSource,
-    current: Mutex<SourceOffset>,
+    current: Arc<Mutex<SourceOffset>>,
     size: u64,
+    original_offset: u64,
 }
 
 impl SeekableDataSource {
     pub(crate) fn new(mut source: impl Read + Seek + Debug + Send + Sync + 'static, size: u64) -> IoResult<Self> {
+        let original_offset = source.stream_position()?;
         Ok(Self {
             size,
-            current: Mutex::new(SourceOffset {
-                offset: source.stream_position()?,
-                #[allow(unsafe_code)]
-                part_number: unsafe { NonZeroUsize::new_unchecked(1) },
-            }),
+            original_offset,
+            current: Arc::new(Mutex::new(SourceOffset {
+                offset: original_offset,
+                part_number: first_part_number(),
+            })),
             source: SeekableSource::new(source, 0, 0),
         })
     }
@@ -55,16 +54,20 @@ impl<D: Digest> DataSource<D> for SeekableDataSource {
         }
     }
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_slice(&self, _size: PartSize) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>> {
-        unimplemented!()
+    #[inline]
+    fn reset(&self) -> IoResult<()> {
+        let mut cur = self.current.lock().unwrap();
+        cur.offset = self.original_offset;
+        cur.part_number = first_part_number();
+        Ok(())
     }
 
+    #[inline]
     fn total_size(&self) -> IoResult<Option<u64>> {
         Ok(Some(self.size))
     }
 
+    #[inline]
     fn source_key(&self) -> IoResult<Option<SourceKey<D>>> {
         Ok(None)
     }
@@ -166,7 +169,11 @@ impl<T: Read + Seek + Send + Sync + Debug> SeekableSourceInner<T> {
 #[cfg(feature = "async")]
 mod async_reader {
     use super::*;
-    use futures::{future::FutureExt, lock::Mutex, ready, AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, Future};
+    use futures::{
+        future::{BoxFuture, FutureExt},
+        lock::Mutex,
+        ready, AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, Future,
+    };
     use qiniu_apis::http::AsyncReset;
     use smart_default::SmartDefault;
     use std::{

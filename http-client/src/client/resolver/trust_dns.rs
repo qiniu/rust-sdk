@@ -14,6 +14,7 @@ use trust_dns_resolver::{
 ///
 /// 基于 [`trust-dns`](https://trust-dns.org/) 库的域名解析接口实现，由于该接口只有异步实现，即使使用阻塞接口，也会调用异步实现
 #[cfg_attr(feature = "docs", doc(cfg(all(feature = "trust_dns", feature = "async"))))]
+#[derive(Clone)]
 pub struct TrustDnsResolver {
     #[cfg(feature = "async")]
     resolver: AsyncResolver,

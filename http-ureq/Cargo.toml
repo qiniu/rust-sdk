@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-ureq"
-version = "0.1.4"
+version = "0.2.0"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2021"
 rust-version = "1.60.0"
@@ -14,8 +14,10 @@ keywords = ["qiniu", "storage"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ureq = { version = "2.5.0" }
-qiniu-http = { version = "0.1.4", path = "../http" }
+anyhow = "1.0.41"
+ureq = "2.5.0"
+
+qiniu-http = { version = "0.2.0", path = "../http" }
 
 [features]
 async = ["qiniu-http/async"]
@@ -27,7 +29,6 @@ socks-proxy = ["ureq/socks-proxy"]
 docs = []
 
 [dev-dependencies]
-anyhow = "1.0.41"
 bytes = "1.0.1"
 env_logger = "0.8.4"
 md-5 = "0.9.1"

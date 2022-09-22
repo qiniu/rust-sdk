@@ -1,4 +1,5 @@
 use auto_impl::auto_impl;
+use dyn_clonable::clonable;
 use qiniu_apis::http_client::{CallbackContext, ResponseError};
 use std::{
     fmt::{self, Debug},
@@ -8,8 +9,9 @@ use std::{
 /// 下载重试器
 ///
 /// 根据 HTTP 客户端返回的错误，决定是否重试请求，重试决定由 [`RetryDecision`] 定义。
+#[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait DownloadRetrier: Debug + Sync + Send {
+pub trait DownloadRetrier: Clone + Debug + Sync + Send {
     /// 作出重试决定
     fn retry(&self, request: &mut dyn CallbackContext, opts: DownloadRetrierOptions<'_>) -> RetryResult;
 }
@@ -105,7 +107,9 @@ pub struct DownloadRetrierOptions<'a> {
 }
 
 impl<'a> DownloadRetrierOptions<'a> {
-    pub(super) fn new(response_error: &'a ResponseError, retried: &'a RetriedStatsInfo) -> Self {
+    /// 创建下载重试器选项
+    #[inline]
+    pub fn new(response_error: &'a ResponseError, retried: &'a RetriedStatsInfo) -> Self {
         Self {
             response_error,
             retried,
@@ -134,12 +138,16 @@ pub struct RetriedStatsInfo {
 }
 
 impl RetriedStatsInfo {
-    pub(super) fn increase(&mut self) {
+    /// 提升当前终端地址的重试次数
+    #[inline]
+    pub fn increase(&mut self) {
         self.retried_total += 1;
         self.retried_on_current_endpoint += 1;
     }
 
-    pub(super) fn switch_endpoint(&mut self) {
+    /// 切换终端地址
+    #[inline]
+    pub fn switch_endpoint(&mut self) {
         self.retried_on_current_endpoint = 0;
         self.abandoned_endpoints += 1;
     }

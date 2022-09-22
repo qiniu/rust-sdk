@@ -9,7 +9,7 @@ use futures::{future::BoxFuture, AsyncRead};
 /// 单请求上传器接口
 ///
 /// 仅通过一次 HTTP 请求即上传整个数据源，适合数据量较小的数据源，不提供断点恢复的能力。
-pub trait SinglePartUploader: UploaderWithCallbacks + Sync + Send + Debug {
+pub trait SinglePartUploader: __private::Sealed + UploaderWithCallbacks + Clone + Sync + Send + Debug {
     /// 创建单请求上传器
     fn new(upload_manager: UploadManager) -> Self;
 
@@ -44,3 +44,7 @@ pub trait SinglePartUploader: UploaderWithCallbacks + Sync + Send + Debug {
 
 mod form_uploader;
 pub use form_uploader::FormUploader;
+
+mod __private {
+    pub trait Sealed {}
+}

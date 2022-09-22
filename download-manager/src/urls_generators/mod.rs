@@ -1,4 +1,5 @@
 use auto_impl::auto_impl;
+use dyn_clonable::clonable;
 use http::Uri;
 use qiniu_apis::http_client::ApiResult;
 use std::{fmt::Debug, mem::take, time::Duration};
@@ -9,8 +10,9 @@ use futures::future::BoxFuture;
 /// 生成下载 URL 列表的接口
 ///
 /// 同时提供阻塞接口和异步接口，异步接口则需要启用 `async` 功能
+#[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait DownloadUrlsGenerator: Debug + Sync + Send {
+pub trait DownloadUrlsGenerator: Clone + Debug + Sync + Send {
     /// 生成下载 URL 列表
     ///
     /// 该方法的异步版本为 [`Self::async_generate`]。

@@ -18,14 +18,14 @@
 
 ```toml
 [dependencies]
-qiniu-reqwest = "0.1.4"
+qiniu-reqwest = "0.2.0"
 ```
 
 ### 启用异步接口
 
 ```toml
 [dependencies]
-qiniu-reqwest = { version = "0.1.4", features = ["async"] }
+qiniu-reqwest = { version = "0.2.0", features = ["async"] }
 ```
 
 ## 最低支持的 Rust 版本（MSRV）

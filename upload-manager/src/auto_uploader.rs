@@ -6,12 +6,15 @@ use super::{
     ResumablePolicyProvider, ResumableRecorder, SerialMultiPartsUploaderScheduler, SinglePartUploader, UploadManager,
     UploadedPart, UploaderWithCallbacks, UploadingProgressInfo,
 };
+use anyhow::Result as AnyResult;
 use assert_impl::assert_impl;
+use digest::Digest;
 use qiniu_apis::{
     http::ResponseParts,
-    http_client::{ApiResult, CallbackResult, RequestBuilderParts, ResponseError},
+    http_client::{ApiResult, RequestBuilderParts, ResponseError},
 };
 use serde_json::Value;
+use sha1::Sha1;
 use smart_default::SmartDefault;
 use std::{
     fmt::Debug,
@@ -28,12 +31,6 @@ use {async_std::fs::metadata as async_metadata, futures::AsyncRead};
 /// 自动上传器
 ///
 /// 使用设置的各种提供者，将文件或是二进制流数据上传。
-///
-/// 该类型包含多个泛型参数，
-/// `CP` 表示并发数提供者，默认为固定并发数提供者；
-/// `DPP` 表示分片大小提供者，默认为固定分片大小提供者；
-/// `RR` 表示断点恢复记录器，默认为文件系统断点恢复记录器；
-/// `RPP` 表示可恢复策略，默认为固定阀值可恢复策略。
 ///
 /// ### 用自动上传器上传文件
 ///
@@ -87,52 +84,45 @@ use {async_std::fs::metadata as async_metadata, futures::AsyncRead};
 /// # }
 /// ```
 #[derive(Debug)]
-pub struct AutoUploader<
-    CP = FixedConcurrencyProvider,
-    DPP = FixedDataPartitionProvider,
-    RR = FileSystemResumableRecorder,
-    RPP = FixedThresholdResumablePolicy,
-> {
+pub struct AutoUploader<H: Digest = Sha1> {
     upload_manager: UploadManager,
     callbacks: Callbacks<'static>,
-    concurrency_provider: Arc<CP>,
-    data_partition_provider: Arc<DPP>,
-    resumable_recorder: Arc<RR>,
-    resumable_policy_provider: RPP,
+    concurrency_provider: Arc<dyn ConcurrencyProvider>,
+    data_partition_provider: Arc<dyn DataPartitionProvider>,
+    resumable_recorder: Arc<dyn ResumableRecorder<HashAlgorithm = H>>,
+    resumable_policy_provider: Arc<dyn ResumablePolicyProvider>,
 }
 
-impl<CP: Default, DPP: Default, RR: Default, RPP: Default> AutoUploader<CP, DPP, RR, RPP> {
+impl<H: Digest + 'static> AutoUploader<H> {
     /// 创建自动上传器
     #[inline]
     pub fn new(upload_manager: UploadManager) -> Self {
         Self {
             upload_manager,
             callbacks: Default::default(),
-            concurrency_provider: Default::default(),
-            data_partition_provider: Default::default(),
-            resumable_recorder: Default::default(),
-            resumable_policy_provider: Default::default(),
+            concurrency_provider: Arc::new(FixedConcurrencyProvider::default()),
+            data_partition_provider: Arc::new(FixedDataPartitionProvider::default()),
+            resumable_recorder: Arc::new(FileSystemResumableRecorder::<H>::default()),
+            resumable_policy_provider: Arc::new(FixedThresholdResumablePolicy::default()),
         }
     }
 
     /// 构建自动上传构建器
     #[inline]
-    pub fn builder(upload_manager: UploadManager) -> AutoUploaderBuilder<CP, DPP, RR, RPP> {
+    pub fn builder(upload_manager: UploadManager) -> AutoUploaderBuilder<H> {
         AutoUploaderBuilder {
             upload_manager,
             callbacks: Default::default(),
-            concurrency_provider: Default::default(),
-            data_partition_provider: Default::default(),
-            resumable_recorder: Default::default(),
-            resumable_policy_provider: Default::default(),
+            concurrency_provider: Box::new(FixedConcurrencyProvider::default()),
+            data_partition_provider: Box::new(FixedDataPartitionProvider::default()),
+            resumable_recorder: Box::new(FileSystemResumableRecorder::<H>::default()),
+            resumable_policy_provider: Box::new(FixedThresholdResumablePolicy::default()),
         }
     }
 }
 
-impl<CP: ConcurrencyProvider, DPP: DataPartitionProvider, RR: ResumableRecorder, RPP: ResumablePolicyProvider>
-    UploaderWithCallbacks for AutoUploader<CP, DPP, RR, RPP>
-{
-    fn on_before_request<F: Fn(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'static>(
+impl<H: Digest> UploaderWithCallbacks for AutoUploader<H> {
+    fn on_before_request<F: Fn(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -140,7 +130,7 @@ impl<CP: ConcurrencyProvider, DPP: DataPartitionProvider, RR: ResumableRecorder,
         self
     }
 
-    fn on_upload_progress<F: Fn(&UploadingProgressInfo) -> CallbackResult + Send + Sync + 'static>(
+    fn on_upload_progress<F: Fn(&UploadingProgressInfo) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -148,7 +138,7 @@ impl<CP: ConcurrencyProvider, DPP: DataPartitionProvider, RR: ResumableRecorder,
         self
     }
 
-    fn on_response_ok<F: Fn(&mut ResponseParts) -> CallbackResult + Send + Sync + 'static>(
+    fn on_response_ok<F: Fn(&mut ResponseParts) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -156,7 +146,7 @@ impl<CP: ConcurrencyProvider, DPP: DataPartitionProvider, RR: ResumableRecorder,
         self
     }
 
-    fn on_response_error<F: Fn(&ResponseError) -> CallbackResult + Send + Sync + 'static>(
+    fn on_response_error<F: Fn(&mut ResponseError) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -165,10 +155,8 @@ impl<CP: ConcurrencyProvider, DPP: DataPartitionProvider, RR: ResumableRecorder,
     }
 }
 
-impl<CP: ConcurrencyProvider, DPP: DataPartitionProvider, RR: ResumableRecorder, RPP: ResumablePolicyProvider>
-    MultiPartsUploaderWithCallbacks for AutoUploader<CP, DPP, RR, RPP>
-{
-    fn on_part_uploaded<F: Fn(&dyn UploadedPart) -> CallbackResult + Send + Sync + 'static>(
+impl<H: Digest> MultiPartsUploaderWithCallbacks for AutoUploader<H> {
+    fn on_part_uploaded<F: Fn(&dyn UploadedPart) -> AnyResult<()> + Send + Sync + 'static>(
         &mut self,
         callback: F,
     ) -> &mut Self {
@@ -214,8 +202,8 @@ macro_rules! with_uploader {
                                 $uploader.callbacks.to_owned(),
                                 $uploader.resumable_recorder.to_owned(),
                             ));
-                        uploader.set_concurrency_provider($uploader.concurrency_provider.to_owned());
-                        uploader.set_data_partition_provider($uploader.data_partition_provider.to_owned());
+                        uploader.set_concurrency_provider(Box::new($uploader.concurrency_provider.to_owned()));
+                        uploader.set_data_partition_provider(Box::new($uploader.data_partition_provider.to_owned()));
                         $wrapper!({uploader.$method($($args),*)})
                     }
                     (MultiPartsUploaderPrefer::V1, MultiPartsUploaderSchedulerPrefer::Serial) => {
@@ -225,8 +213,8 @@ macro_rules! with_uploader {
                                 $uploader.callbacks.to_owned(),
                                 $uploader.resumable_recorder.to_owned(),
                             ));
-                        uploader.set_concurrency_provider($uploader.concurrency_provider.to_owned());
-                        uploader.set_data_partition_provider($uploader.data_partition_provider.to_owned());
+                        uploader.set_concurrency_provider(Box::new($uploader.concurrency_provider.to_owned()));
+                        uploader.set_data_partition_provider(Box::new($uploader.data_partition_provider.to_owned()));
                         $wrapper!({uploader.$method($($args),*)})
                     }
                     (MultiPartsUploaderPrefer::V2, MultiPartsUploaderSchedulerPrefer::Concurrent) => {
@@ -236,8 +224,8 @@ macro_rules! with_uploader {
                                 $uploader.callbacks.to_owned(),
                                 $uploader.resumable_recorder.to_owned(),
                             ));
-                        uploader.set_concurrency_provider($uploader.concurrency_provider.to_owned());
-                        uploader.set_data_partition_provider($uploader.data_partition_provider.to_owned());
+                        uploader.set_concurrency_provider(Box::new($uploader.concurrency_provider.to_owned()));
+                        uploader.set_data_partition_provider(Box::new($uploader.data_partition_provider.to_owned()));
                         $wrapper!({uploader.$method($($args),*)})
                     }
                     (MultiPartsUploaderPrefer::V2, MultiPartsUploaderSchedulerPrefer::Serial) => {
@@ -247,8 +235,8 @@ macro_rules! with_uploader {
                                 $uploader.callbacks.to_owned(),
                                 $uploader.resumable_recorder.to_owned(),
                             ));
-                        uploader.set_concurrency_provider($uploader.concurrency_provider.to_owned());
-                        uploader.set_data_partition_provider($uploader.data_partition_provider.to_owned());
+                        uploader.set_concurrency_provider(Box::new($uploader.concurrency_provider.to_owned()));
+                        uploader.set_data_partition_provider(Box::new($uploader.data_partition_provider.to_owned()));
                         $wrapper!({uploader.$method($($args),*)})
                     }
                 }
@@ -257,15 +245,7 @@ macro_rules! with_uploader {
     };
 }
 
-impl<
-        CP: ConcurrencyProvider + 'static,
-        DPP: DataPartitionProvider + 'static,
-        RR: ResumableRecorder + 'static,
-        RPP: ResumablePolicyProvider,
-    > AutoUploader<CP, DPP, RR, RPP>
-where
-    RR::HashAlgorithm: Send,
-{
+impl<H: Digest + Send + 'static> AutoUploader<H> {
     /// 阻塞上传指定路径的文件
     ///
     /// 该方法的异步版本为 [`Self::async_upload_path`]。
@@ -295,7 +275,7 @@ where
         let params = params.into();
         let (policy, reader) = self
             .resumable_policy_provider
-            .get_policy_from_reader(reader, Default::default())?;
+            .get_policy_from_reader(Box::new(reader), Default::default())?;
         with_uploader!(self, policy, params, sync_block, upload_reader, reader, params.into(),)
     }
 
@@ -332,7 +312,7 @@ where
         let params = params.into();
         let (policy, reader) = self
             .resumable_policy_provider
-            .get_policy_from_async_reader(reader, Default::default())
+            .get_policy_from_async_reader(Box::new(reader), Default::default())
             .await?;
         with_uploader!(
             self,
@@ -346,7 +326,7 @@ where
     }
 }
 
-impl<CP: Sync + Send, DPP: Sync + Send, RR: Sync + Send, RPP: Sync + Send> AutoUploader<CP, DPP, RR, RPP> {
+impl<H: Digest> AutoUploader<H> {
     #[allow(dead_code)]
     fn assert() {
         assert_impl!(Send: Self);
@@ -354,8 +334,22 @@ impl<CP: Sync + Send, DPP: Sync + Send, RR: Sync + Send, RPP: Sync + Send> AutoU
     }
 }
 
+impl<H: Digest> Clone for AutoUploader<H> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self {
+            upload_manager: self.upload_manager.to_owned(),
+            callbacks: self.callbacks.to_owned(),
+            concurrency_provider: self.concurrency_provider.to_owned(),
+            data_partition_provider: self.data_partition_provider.to_owned(),
+            resumable_recorder: self.resumable_recorder.to_owned(),
+            resumable_policy_provider: self.resumable_policy_provider.to_owned(),
+        }
+    }
+}
+
 /// 自动上传器对象参数
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct AutoUploaderObjectParams {
     object_params: ObjectParams,
     multi_parts_uploader_scheduler_prefer: MultiPartsUploaderSchedulerPrefer,
@@ -421,34 +415,16 @@ impl AutoUploaderObjectParams {
         self.multi_parts_uploader_scheduler_prefer
     }
 
-    /// 获取期望的分片上传调度器的可变引用
-    #[inline]
-    pub fn multi_parts_uploader_scheduler_prefer_mut(&mut self) -> &mut MultiPartsUploaderSchedulerPrefer {
-        &mut self.multi_parts_uploader_scheduler_prefer
-    }
-
     /// 期望的对象单请求上传器
     #[inline]
     pub fn single_part_uploader_prefer(&self) -> SinglePartUploaderPrefer {
         self.single_part_uploader_prefer
     }
 
-    /// 期望的对象单请求上传器的可变引用
-    #[inline]
-    pub fn single_part_uploader_prefer_mut(&mut self) -> &mut SinglePartUploaderPrefer {
-        &mut self.single_part_uploader_prefer
-    }
-
     /// 期望的对象分片上传器
     #[inline]
     pub fn multi_parts_uploader_prefer(&self) -> MultiPartsUploaderPrefer {
         self.multi_parts_uploader_prefer
-    }
-
-    /// 期望的对象分片上传器的可变引用
-    #[inline]
-    pub fn multi_parts_uploader_prefer_mut(&mut self) -> &mut MultiPartsUploaderPrefer {
-        &mut self.multi_parts_uploader_prefer
     }
 
     #[allow(dead_code)]
@@ -563,99 +539,86 @@ impl AutoUploaderObjectParamsBuilder {
 
 /// 自动上传构建器
 #[derive(Debug)]
-pub struct AutoUploaderBuilder<
-    CP = FixedConcurrencyProvider,
-    DPP = FixedDataPartitionProvider,
-    RR = FileSystemResumableRecorder,
-    RPP = FixedThresholdResumablePolicy,
-> {
+pub struct AutoUploaderBuilder<H: Digest = Sha1> {
     upload_manager: UploadManager,
     callbacks: Callbacks<'static>,
-    concurrency_provider: CP,
-    data_partition_provider: DPP,
-    resumable_recorder: RR,
-    resumable_policy_provider: RPP,
+    concurrency_provider: Box<dyn ConcurrencyProvider>,
+    data_partition_provider: Box<dyn DataPartitionProvider>,
+    resumable_recorder: Box<dyn ResumableRecorder<HashAlgorithm = H>>,
+    resumable_policy_provider: Box<dyn ResumablePolicyProvider>,
 }
 
-impl<CP, DPP, RR, RPP> AutoUploaderBuilder<CP, DPP, RR, RPP> {
+impl<H: Digest> AutoUploaderBuilder<H> {
     /// 设置并发数提供者
     #[inline]
-    pub fn concurrency_provider<CP2>(self, concurrency_provider: CP2) -> AutoUploaderBuilder<CP2, DPP, RR, RPP> {
-        AutoUploaderBuilder {
-            upload_manager: self.upload_manager,
-            callbacks: self.callbacks,
-            concurrency_provider,
-            data_partition_provider: self.data_partition_provider,
-            resumable_recorder: self.resumable_recorder,
-            resumable_policy_provider: self.resumable_policy_provider,
-        }
+    pub fn concurrency_provider(&mut self, concurrency_provider: impl ConcurrencyProvider + 'static) -> &mut Self {
+        self.concurrency_provider = Box::new(concurrency_provider);
+        self
     }
 
     /// 设置分片大小提供者
     #[inline]
-    pub fn data_partition_provider<DPP2>(
-        self,
-        data_partition_provider: DPP2,
-    ) -> AutoUploaderBuilder<CP, DPP2, RR, RPP> {
-        AutoUploaderBuilder {
-            upload_manager: self.upload_manager,
-            callbacks: self.callbacks,
-            concurrency_provider: self.concurrency_provider,
-            data_partition_provider,
-            resumable_recorder: self.resumable_recorder,
-            resumable_policy_provider: self.resumable_policy_provider,
-        }
+    pub fn data_partition_provider(
+        &mut self,
+        data_partition_provider: impl DataPartitionProvider + 'static,
+    ) -> &mut Self {
+        self.data_partition_provider = Box::new(data_partition_provider);
+        self
     }
 
     /// 设置断点恢复记录器
     #[inline]
-    pub fn resumable_recorder<RR2>(self, resumable_recorder: RR2) -> AutoUploaderBuilder<CP, DPP, RR2, RPP> {
-        AutoUploaderBuilder {
-            upload_manager: self.upload_manager,
-            callbacks: self.callbacks,
-            concurrency_provider: self.concurrency_provider,
-            data_partition_provider: self.data_partition_provider,
-            resumable_recorder,
-            resumable_policy_provider: self.resumable_policy_provider,
-        }
+    pub fn resumable_recorder(
+        &mut self,
+        resumable_recorder: impl ResumableRecorder<HashAlgorithm = H> + 'static,
+    ) -> &mut Self {
+        self.resumable_recorder = Box::new(resumable_recorder);
+        self
     }
 
     /// 设置可恢复策略
     #[inline]
-    pub fn resumable_policy_provider<RPP2>(
-        self,
-        resumable_policy_provider: RPP2,
-    ) -> AutoUploaderBuilder<CP, DPP, RR, RPP2> {
-        AutoUploaderBuilder {
-            upload_manager: self.upload_manager,
-            callbacks: self.callbacks,
-            concurrency_provider: self.concurrency_provider,
-            data_partition_provider: self.data_partition_provider,
-            resumable_recorder: self.resumable_recorder,
-            resumable_policy_provider,
-        }
+    pub fn resumable_policy_provider(
+        &mut self,
+        resumable_policy_provider: impl ResumablePolicyProvider + 'static,
+    ) -> &mut Self {
+        self.resumable_policy_provider = Box::new(resumable_policy_provider);
+        self
     }
 }
 
-impl<CP, DPP, RR, RPP> AutoUploaderBuilder<CP, DPP, RR, RPP> {
+impl<H: Digest> AutoUploaderBuilder<H> {
     /// 构建上传提供者
     #[inline]
-    pub fn build(self) -> AutoUploader<CP, DPP, RR, RPP> {
+    pub fn build(&self) -> AutoUploader<H> {
+        let owned: AutoUploaderBuilder<H> = self.to_owned();
         AutoUploader {
-            upload_manager: self.upload_manager,
-            callbacks: self.callbacks,
-            resumable_policy_provider: self.resumable_policy_provider,
-            concurrency_provider: Arc::new(self.concurrency_provider),
-            data_partition_provider: Arc::new(self.data_partition_provider),
-            resumable_recorder: Arc::new(self.resumable_recorder),
+            upload_manager: owned.upload_manager,
+            callbacks: owned.callbacks,
+            resumable_policy_provider: owned.resumable_policy_provider.into(),
+            concurrency_provider: owned.concurrency_provider.into(),
+            data_partition_provider: owned.data_partition_provider.into(),
+            resumable_recorder: owned.resumable_recorder.into(),
         }
     }
-}
 
-impl<CP: Sync + Send, DPP: Sync + Send, RR: Sync + Send, RPP: Sync + Send> AutoUploaderBuilder<CP, DPP, RR, RPP> {
     #[allow(dead_code)]
     fn assert() {
         assert_impl!(Send: Self);
         assert_impl!(Sync: Self);
+    }
+}
+
+impl<H: Digest> Clone for AutoUploaderBuilder<H> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self {
+            upload_manager: self.upload_manager.to_owned(),
+            callbacks: self.callbacks.to_owned(),
+            concurrency_provider: self.concurrency_provider.to_owned(),
+            data_partition_provider: self.data_partition_provider.to_owned(),
+            resumable_recorder: self.resumable_recorder.to_owned(),
+            resumable_policy_provider: self.resumable_policy_provider.to_owned(),
+        }
     }
 }

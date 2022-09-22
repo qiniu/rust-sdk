@@ -41,7 +41,7 @@ impl<C: Default> Default for NeverEmptyHandedChooser<C> {
     }
 }
 
-impl<C: Chooser> Chooser for NeverEmptyHandedChooser<C> {
+impl<C: Chooser + Clone> Chooser for NeverEmptyHandedChooser<C> {
     fn choose(&self, ips: &[IpAddrWithPort], opts: ChooseOptions) -> ChosenResults {
         let chosen = self.inner_chooser.choose(ips, opts);
         if chosen.is_empty() {
@@ -88,12 +88,11 @@ impl<C> NeverEmptyHandedChooser<C> {
 mod tests {
     use super::{
         super::{
-            super::{ResponseError, ResponseErrorKind, RetriedStatsInfo},
+            super::{ResponseError, ResponseErrorKind},
             IpChooser,
         },
         *,
     };
-    use qiniu_http::Extensions;
     use std::net::{IpAddr, Ipv4Addr};
 
     const IPS_WITHOUT_PORT: &[IpAddrWithPort] = &[
@@ -111,30 +110,30 @@ mod tests {
             ip_chooser.choose(IPS_WITHOUT_PORT, Default::default()).into_ip_addrs(),
             IPS_WITHOUT_PORT.to_vec()
         );
-        ip_chooser.feedback(ChooserFeedback::new(
-            &[
+        ip_chooser.feedback(
+            ChooserFeedback::builder(&[
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
-            ],
-            None,
-            &RetriedStatsInfo::default(),
-            &mut Extensions::default(),
-            None,
-            Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
-        ));
+            ])
+            .error(&ResponseError::new_with_msg(
+                ResponseErrorKind::ParseResponseError,
+                "Test Error",
+            ))
+            .build(),
+        );
         assert_eq!(
             ip_chooser.choose(IPS_WITHOUT_PORT, Default::default()).into_ip_addrs(),
             [IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)), None)].to_vec(),
         );
 
-        ip_chooser.feedback(ChooserFeedback::new(
-            IPS_WITHOUT_PORT,
-            None,
-            &RetriedStatsInfo::default(),
-            &mut Extensions::default(),
-            None,
-            Some(&ResponseError::new(ResponseErrorKind::ParseResponseError, "Test Error")),
-        ));
+        ip_chooser.feedback(
+            ChooserFeedback::builder(IPS_WITHOUT_PORT)
+                .error(&ResponseError::new_with_msg(
+                    ResponseErrorKind::ParseResponseError,
+                    "Test Error",
+                ))
+                .build(),
+        );
 
         assert_eq!(
             ip_chooser

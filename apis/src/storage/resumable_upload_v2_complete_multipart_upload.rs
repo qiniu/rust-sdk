@@ -501,8 +501,8 @@ impl<'req, B, E> RequestBuilder<'req, B, E> {
         &mut self,
         callback: impl Fn(
                 &dyn qiniu_http_client::SimplifiedCallbackContext,
-                &qiniu_http_client::http::TransferProgressInfo,
-            ) -> qiniu_http_client::CallbackResult
+                qiniu_http_client::http::TransferProgressInfo,
+            ) -> anyhow::Result<()>
             + Send
             + Sync
             + 'req,
@@ -517,7 +517,7 @@ impl<'req, B, E> RequestBuilder<'req, B, E> {
         callback: impl Fn(
                 &dyn qiniu_http_client::SimplifiedCallbackContext,
                 qiniu_http_client::http::StatusCode,
-            ) -> qiniu_http_client::CallbackResult
+            ) -> anyhow::Result<()>
             + Send
             + Sync
             + 'req,
@@ -533,7 +533,7 @@ impl<'req, B, E> RequestBuilder<'req, B, E> {
                 &dyn qiniu_http_client::SimplifiedCallbackContext,
                 &qiniu_http_client::http::HeaderName,
                 &qiniu_http_client::http::HeaderValue,
-            ) -> qiniu_http_client::CallbackResult
+            ) -> anyhow::Result<()>
             + Send
             + Sync
             + 'req,
@@ -545,10 +545,7 @@ impl<'req, B, E> RequestBuilder<'req, B, E> {
     #[doc = "设置域名解析前回调函数"]
     pub fn on_to_resolve_domain(
         &mut self,
-        callback: impl Fn(&mut dyn qiniu_http_client::CallbackContext, &str) -> qiniu_http_client::CallbackResult
-            + Send
-            + Sync
-            + 'req,
+        callback: impl Fn(&mut dyn qiniu_http_client::CallbackContext, &str) -> anyhow::Result<()> + Send + Sync + 'req,
     ) -> &mut Self {
         self.0.on_to_resolve_domain(callback);
         self
@@ -561,7 +558,7 @@ impl<'req, B, E> RequestBuilder<'req, B, E> {
                 &mut dyn qiniu_http_client::CallbackContext,
                 &str,
                 &qiniu_http_client::ResolveAnswers,
-            ) -> qiniu_http_client::CallbackResult
+            ) -> anyhow::Result<()>
             + Send
             + Sync
             + 'req,
@@ -573,10 +570,7 @@ impl<'req, B, E> RequestBuilder<'req, B, E> {
     #[doc = "设置 IP 地址选择前回调函数"]
     pub fn on_to_choose_ips(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::CallbackContext,
-                &[qiniu_http_client::IpAddrWithPort],
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::CallbackContext, &[qiniu_http_client::IpAddrWithPort]) -> anyhow::Result<()>
             + Send
             + Sync
             + 'req,
@@ -592,7 +586,7 @@ impl<'req, B, E> RequestBuilder<'req, B, E> {
                 &mut dyn qiniu_http_client::CallbackContext,
                 &[qiniu_http_client::IpAddrWithPort],
                 &[qiniu_http_client::IpAddrWithPort],
-            ) -> qiniu_http_client::CallbackResult
+            ) -> anyhow::Result<()>
             + Send
             + Sync
             + 'req,
@@ -604,10 +598,7 @@ impl<'req, B, E> RequestBuilder<'req, B, E> {
     #[doc = "设置 HTTP 请求签名前回调函数"]
     pub fn on_before_request_signed(
         &mut self,
-        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
-            + Send
-            + Sync
-            + 'req,
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> anyhow::Result<()> + Send + Sync + 'req,
     ) -> &mut Self {
         self.0.on_before_request_signed(callback);
         self
@@ -616,10 +607,7 @@ impl<'req, B, E> RequestBuilder<'req, B, E> {
     #[doc = "设置 HTTP 请求前回调函数"]
     pub fn on_after_request_signed(
         &mut self,
-        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> qiniu_http_client::CallbackResult
-            + Send
-            + Sync
-            + 'req,
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext) -> anyhow::Result<()> + Send + Sync + 'req,
     ) -> &mut Self {
         self.0.on_after_request_signed(callback);
         self
@@ -631,7 +619,7 @@ impl<'req, B, E> RequestBuilder<'req, B, E> {
         callback: impl Fn(
                 &mut dyn qiniu_http_client::ExtendedCallbackContext,
                 &qiniu_http_client::http::ResponseParts,
-            ) -> qiniu_http_client::CallbackResult
+            ) -> anyhow::Result<()>
             + Send
             + Sync
             + 'req,
@@ -645,8 +633,8 @@ impl<'req, B, E> RequestBuilder<'req, B, E> {
         &mut self,
         callback: impl Fn(
                 &mut dyn qiniu_http_client::ExtendedCallbackContext,
-                &qiniu_http_client::ResponseError,
-            ) -> qiniu_http_client::CallbackResult
+                &mut qiniu_http_client::ResponseError,
+            ) -> anyhow::Result<()>
             + Send
             + Sync
             + 'req,
@@ -658,10 +646,7 @@ impl<'req, B, E> RequestBuilder<'req, B, E> {
     #[doc = "设置退避前回调函数"]
     pub fn on_before_backoff(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-                std::time::Duration,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext, std::time::Duration) -> anyhow::Result<()>
             + Send
             + Sync
             + 'req,
@@ -673,10 +658,7 @@ impl<'req, B, E> RequestBuilder<'req, B, E> {
     #[doc = "设置退避后回调函数"]
     pub fn on_after_backoff(
         &mut self,
-        callback: impl Fn(
-                &mut dyn qiniu_http_client::ExtendedCallbackContext,
-                std::time::Duration,
-            ) -> qiniu_http_client::CallbackResult
+        callback: impl Fn(&mut dyn qiniu_http_client::ExtendedCallbackContext, std::time::Duration) -> anyhow::Result<()>
             + Send
             + Sync
             + 'req,

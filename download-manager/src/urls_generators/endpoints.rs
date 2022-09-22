@@ -4,6 +4,7 @@ use qiniu_apis::{
     http::ResponseErrorKind,
     http_client::{ApiResult, Endpoints, EndpointsProvider, ResponseError},
 };
+use std::sync::Arc;
 use url_escape::encode_path_to_string;
 
 #[cfg(feature = "async")]
@@ -11,29 +12,29 @@ use futures::future::BoxFuture;
 
 /// 终端地址下载 URL 列表生成器
 #[derive(Debug, Clone)]
-pub struct EndpointsUrlGenerator<E> {
-    endpoints: E,
+pub struct EndpointsUrlGenerator {
+    endpoints: Arc<dyn EndpointsProvider>,
     use_https: bool,
 }
 
 /// 终端地址下载 URL 列表生成构建器
 #[derive(Debug, Clone)]
-pub struct EndpointsUrlGeneratorBuilder<E>(EndpointsUrlGenerator<E>);
+pub struct EndpointsUrlGeneratorBuilder(EndpointsUrlGenerator);
 
-impl<E> EndpointsUrlGenerator<E> {
+impl EndpointsUrlGenerator {
     /// 创建终端地址下载 URL 列表生成构建器
     #[inline]
-    pub fn builder(endpoints: E) -> EndpointsUrlGeneratorBuilder<E> {
+    pub fn builder(endpoints: impl EndpointsProvider + 'static) -> EndpointsUrlGeneratorBuilder {
         EndpointsUrlGeneratorBuilder::new(endpoints)
     }
 }
 
-impl<E> EndpointsUrlGeneratorBuilder<E> {
+impl EndpointsUrlGeneratorBuilder {
     /// 创建终端地址下载 URL 列表生成构建器
     #[inline]
-    pub fn new(endpoints: E) -> Self {
+    pub fn new(endpoints: impl EndpointsProvider + 'static) -> Self {
         Self(EndpointsUrlGenerator {
-            endpoints,
+            endpoints: Arc::new(endpoints),
             use_https: true,
         })
     }
@@ -42,19 +43,19 @@ impl<E> EndpointsUrlGeneratorBuilder<E> {
     ///
     /// 默认为 HTTPS 协议
     #[inline]
-    pub fn use_https(mut self, use_https: bool) -> Self {
+    pub fn use_https(&mut self, use_https: bool) -> &mut Self {
         self.0.use_https = use_https;
         self
     }
 
     /// 构建终端地址下载 URL 列表生成器
     #[inline]
-    pub fn build(self) -> EndpointsUrlGenerator<E> {
-        self.0
+    pub fn build(&self) -> EndpointsUrlGenerator {
+        self.0.to_owned()
     }
 }
 
-impl<E: EndpointsProvider> DownloadUrlsGenerator for EndpointsUrlGenerator<E> {
+impl DownloadUrlsGenerator for EndpointsUrlGenerator {
     fn generate(&self, object_name: &str, _options: GeneratorOptions<'_>) -> ApiResult<Vec<Uri>> {
         let endpoints = self.endpoints.get_endpoints(Default::default())?;
         generate_public_urls(&endpoints, object_name, self.use_https).collect()

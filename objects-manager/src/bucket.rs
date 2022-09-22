@@ -11,13 +11,12 @@ use super::{
     },
     ObjectsManager,
 };
+use anyhow::Result as AnyResult;
 use assert_impl::assert_impl;
 use once_cell::sync::OnceCell;
 use qiniu_apis::{
     http::ResponseParts,
-    http_client::{
-        BucketName, BucketRegionsProvider, CallbackResult, RegionsProvider, RequestBuilderParts, ResponseError,
-    },
+    http_client::{BucketName, BucketRegionsProvider, RegionsProvider, RequestBuilderParts, ResponseError},
     upload_token::FileType,
 };
 use std::{borrow::Cow, io::Result as IOResult, mem::take, sync::Arc};
@@ -632,7 +631,7 @@ impl<'a> ListBuilder<'a> {
     #[inline]
     pub fn before_request_callback(
         &mut self,
-        callback: impl FnMut(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'a,
+        callback: impl FnMut(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'a,
     ) -> &mut Self {
         self.callbacks.insert_before_request_callback(callback);
         self
@@ -642,7 +641,7 @@ impl<'a> ListBuilder<'a> {
     #[inline]
     pub fn after_response_ok_callback(
         &mut self,
-        callback: impl FnMut(&mut ResponseParts) -> CallbackResult + Send + Sync + 'a,
+        callback: impl FnMut(&mut ResponseParts) -> AnyResult<()> + Send + Sync + 'a,
     ) -> &mut Self {
         self.callbacks.insert_after_response_ok_callback(callback);
         self
@@ -652,7 +651,7 @@ impl<'a> ListBuilder<'a> {
     #[inline]
     pub fn after_response_error_callback(
         &mut self,
-        callback: impl FnMut(&ResponseError) -> CallbackResult + Send + Sync + 'a,
+        callback: impl FnMut(&mut ResponseError) -> AnyResult<()> + Send + Sync + 'a,
     ) -> &mut Self {
         self.callbacks.insert_after_response_error_callback(callback);
         self

@@ -1,6 +1,7 @@
 use super::PartSize;
 use auto_impl::auto_impl;
 use digest::{Digest, Output as DigestOutput};
+use dyn_clonable::clonable;
 use qiniu_apis::http::Reset;
 use std::{
     fmt::Debug,
@@ -8,56 +9,30 @@ use std::{
     num::NonZeroUsize,
 };
 
-#[cfg(feature = "async")]
-use futures::future::BoxFuture;
-
 /// 数据源接口
 ///
 /// 提供上传所用的数据源
+///
+/// 该 Trait 的异步版本为 [`AsyncDataSource`]。
+#[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait DataSource<A: Digest>: Debug + Sync + Send {
+pub trait DataSource<A: Digest>: Clone + Debug + Sync + Send {
     /// 数据源切片
-    ///
-    /// 该方法的异步版本为 [`Self::async_slice`]。
     fn slice(&self, size: PartSize) -> IoResult<Option<DataSourceReader>>;
 
-    /// 异步数据源切片
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_slice(&self, size: PartSize) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>>;
+    /// 重置数据源
+    fn reset(&self) -> IoResult<()>;
 
     /// 获取数据源 KEY
     ///
     /// 用于区分不同的数据源
-    ///
-    /// 该方法的异步版本为 [`Self::async_source_key`]。
     #[inline]
     fn source_key(&self) -> IoResult<Option<SourceKey<A>>> {
         Ok(None)
     }
 
-    /// 异步获取数据源 KEY
-    ///
-    /// 用于区分不同的数据源
-    #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_source_key(&self) -> BoxFuture<IoResult<Option<SourceKey<A>>>> {
-        Box::pin(async move { self.source_key() })
-    }
-
     /// 获取数据源大小
-    ///
-    /// 该方法的异步版本为 [`Self::async_total_size`]。
     fn total_size(&self) -> IoResult<Option<u64>>;
-
-    /// 异步获取数据源大小
-    #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn async_total_size(&self) -> BoxFuture<IoResult<Option<u64>>> {
-        Box::pin(async move { self.total_size() })
-    }
 }
 
 pub(super) trait Digestible<A: Digest>: Read + Reset {
@@ -163,10 +138,18 @@ impl Reset for DataSourceReader {
     }
 }
 
+fn first_part_number() -> NonZeroUsize {
+    #[allow(unsafe_code)]
+    unsafe {
+        NonZeroUsize::new_unchecked(1)
+    }
+}
+
 #[cfg(feature = "async")]
 mod async_reader {
     use super::*;
     use futures::{
+        future::BoxFuture,
         io::{copy as async_io_copy, sink as async_sink, Cursor, SeekFrom},
         ready, AsyncRead, AsyncSeek, AsyncSeekExt,
     };
@@ -175,6 +158,28 @@ mod async_reader {
         pin::Pin,
         task::{Context, Poll},
     };
+
+    /// 异步数据源接口
+    ///
+    /// 提供上传所用的数据源
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[clonable]
+    #[auto_impl(&, &mut, Box, Rc, Arc)]
+    pub trait AsyncDataSource<A: Digest>: Clone + Debug + Sync + Send {
+        /// 异步数据源切片
+        fn slice(&self, size: PartSize) -> BoxFuture<IoResult<Option<AsyncDataSourceReader>>>;
+
+        /// 异步重置数据源
+        fn reset(&self) -> BoxFuture<IoResult<()>>;
+
+        /// 异步获取数据源 KEY
+        ///
+        /// 用于区分不同的数据源
+        fn source_key(&self) -> BoxFuture<IoResult<Option<SourceKey<A>>>>;
+
+        /// 异步获取数据源大小
+        fn total_size(&self) -> BoxFuture<IoResult<Option<u64>>>;
+    }
 
     pub(in super::super) trait AsyncDigestible<A: Digest + Unpin + Send>:
         AsyncRead + AsyncReset + Unpin + Send
@@ -430,10 +435,10 @@ mod seekable;
 pub use seekable::SeekableSource;
 
 mod unseekable;
-pub(crate) use unseekable::UnseekableDataSource;
+pub use unseekable::UnseekableDataSource;
 
 #[cfg(feature = "async")]
-pub use seekable::AsyncSeekableSource;
+pub use {file::AsyncFileDataSource, seekable::AsyncSeekableSource};
 
 #[cfg(feature = "async")]
-pub(crate) use unseekable::AsyncUnseekableDataSource;
+pub use unseekable::AsyncUnseekableDataSource;

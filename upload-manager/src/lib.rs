@@ -146,11 +146,11 @@ pub use data_partition_provider::{
     DataPartitionProvider, DataPartitionProviderFeedback, DataPartitionProviderFeedbackBuilder,
     FixedDataPartitionProvider, LimitedDataPartitionProvider, MultiplyDataPartitionProvider, PartSize,
 };
-pub use data_source::{DataSource, DataSourceReader, FileDataSource, SeekableSource, SourceKey};
+pub use data_source::{DataSource, DataSourceReader, FileDataSource, SeekableSource, SourceKey, UnseekableDataSource};
 pub use multi_parts_uploader::{
     InitializedParts, MultiPartsUploader, MultiPartsV1Uploader, MultiPartsV1UploaderInitializedObject,
     MultiPartsV1UploaderUploadedPart, MultiPartsV2Uploader, MultiPartsV2UploaderInitializedObject,
-    MultiPartsV2UploaderUploadedPart, UploadedPart,
+    MultiPartsV2UploaderUploadedPart, ReinitializeOptions, ReinitializeOptionsBuilder, UploadedPart,
 };
 pub use object_params::{ObjectParams, ObjectParamsBuilder};
 pub use resumable_policy::{
@@ -171,7 +171,9 @@ pub use upload_token::{UploadTokenSigner, UploadTokenSignerBuilder};
 
 #[cfg(feature = "async")]
 pub use {
-    data_source::{AsyncDataSourceReader, AsyncSeekableSource},
+    data_source::{
+        AsyncDataSource, AsyncDataSourceReader, AsyncFileDataSource, AsyncSeekableSource, AsyncUnseekableDataSource,
+    },
     resumable_policy::DynAsyncRead,
     resumable_recorder::{AppendOnlyAsyncResumableRecorderMedium, ReadOnlyAsyncResumableRecorderMedium},
 };
@@ -187,5 +189,7 @@ pub mod prelude {
     };
 
     #[cfg(feature = "async")]
-    pub use super::{AppendOnlyAsyncResumableRecorderMedium, DynAsyncRead, ReadOnlyAsyncResumableRecorderMedium};
+    pub use super::{
+        AppendOnlyAsyncResumableRecorderMedium, AsyncDataSource, DynAsyncRead, ReadOnlyAsyncResumableRecorderMedium,
+    };
 }

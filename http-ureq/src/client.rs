@@ -1,11 +1,11 @@
+use anyhow::Error as AnyError;
 use qiniu_http::{
     header::{CONTENT_LENGTH, USER_AGENT},
     HeaderName, HeaderValue, HttpCaller, RequestParts, ResponseError, ResponseErrorKind, StatusCode, SyncRequest,
     SyncResponse, SyncResponseBody, SyncResponseResult, TransferProgressInfo, Version,
 };
 use std::{
-    error::Error,
-    fmt,
+    fmt::{self, Display},
     io::{Error as IoError, ErrorKind as IoErrorKind, Read, Result as IoResult},
     mem::take,
 };
@@ -56,9 +56,8 @@ impl HttpCaller for Client {
                 let kind = err.kind();
                 match err {
                     UreqError::Status(_, response) => make_ureq_sync_response(response, request),
-                    UreqError::Transport(transport) => {
-                        user_cancelled_error.map_or_else(|| Err(from_ureq_error(kind, transport, request)), Err)
-                    }
+                    UreqError::Transport(transport) => user_cancelled_error
+                        .map_or_else(|| Err(from_ureq_error(kind, AnyError::new(transport), request)), Err),
                 }
             }
         }
@@ -74,7 +73,7 @@ impl HttpCaller for Client {
 
 fn make_user_agent(request: &RequestParts) -> Result<HeaderValue, ResponseError> {
     let user_agent = format!("{}/qiniu-ureq", request.user_agent());
-    HeaderValue::from_str(&user_agent).map_err(|err| build_header_value_error(request, &user_agent, err))
+    HeaderValue::from_str(&user_agent).map_err(|err| build_header_value_error(request, &user_agent, &err))
 }
 
 fn make_ureq_request(agent: &Agent, request: &SyncRequest) -> Result<UreqRequest, ResponseError> {
@@ -100,9 +99,9 @@ fn make_ureq_sync_response(response: UreqResponse, request: &mut SyncRequest) ->
     for header_name_str in response.headers_names().into_iter() {
         if let Some(header_value_str) = response.header(&header_name_str) {
             let header_name = HeaderName::from_bytes(header_name_str.as_bytes())
-                .map_err(|err| build_header_name_error(request, &header_name_str, err))?;
+                .map_err(|err| build_header_name_error(request, &header_name_str, &err))?;
             let header_value = HeaderValue::from_bytes(header_value_str.as_bytes())
-                .map_err(|err| build_header_value_error(request, header_value_str, err))?;
+                .map_err(|err| build_header_value_error(request, header_value_str, &err))?;
             response_builder.header(header_name, header_value);
         }
     }
@@ -139,46 +138,38 @@ fn add_extensions_to_request_builder(request: &RequestParts, mut request_builder
 
 fn call_response_callbacks(request: &RequestParts, response: &UreqResponse) -> Result<(), ResponseError> {
     if let Some(on_receive_response_status) = request.on_receive_response_status() {
-        if on_receive_response_status(status_code_of_response(response, request)?).is_cancelled() {
-            return Err(build_on_receive_response_status_error(request));
-        }
+        on_receive_response_status(status_code_of_response(response, request)?)
+            .map_err(|err| build_on_receive_response_status_error(request, err))?;
     }
     if let Some(on_receive_response_header) = request.on_receive_response_header() {
         for header_name_str in response.headers_names().into_iter() {
             if let Some(header_value_str) = response.header(&header_name_str) {
                 let header_name = HeaderName::from_bytes(header_name_str.as_bytes())
-                    .map_err(|err| build_header_name_error(request, &header_name_str, err))?;
+                    .map_err(|err| build_header_name_error(request, &header_name_str, &err))?;
                 let header_value = HeaderValue::from_bytes(header_value_str.as_bytes())
-                    .map_err(|err| build_header_value_error(request, header_value_str, err))?;
-                if on_receive_response_header(&header_name, &header_value).is_cancelled() {
-                    return Err(build_on_receive_response_header_error(request));
-                }
+                    .map_err(|err| build_header_value_error(request, header_value_str, &err))?;
+                on_receive_response_header(&header_name, &header_value)
+                    .map_err(|err| build_on_receive_response_header_error(request, err))?
             }
         }
     }
     Ok(())
 }
 
-fn build_on_receive_response_status_error(request: &RequestParts) -> ResponseError {
-    ResponseError::builder(
-        ResponseErrorKind::UserCanceled,
-        "Cancelled by on_receive_response_status() callback",
-    )
-    .uri(request.url())
-    .build()
+fn build_on_receive_response_status_error(request: &RequestParts, err: AnyError) -> ResponseError {
+    ResponseError::builder(ResponseErrorKind::CallbackError, err)
+        .uri(request.url())
+        .build()
 }
 
-fn build_on_receive_response_header_error(request: &RequestParts) -> ResponseError {
-    ResponseError::builder(
-        ResponseErrorKind::UserCanceled,
-        "Cancelled by on_receive_response_header() callback",
-    )
-    .uri(request.url())
-    .build()
+fn build_on_receive_response_header_error(request: &RequestParts, err: AnyError) -> ResponseError {
+    ResponseError::builder(ResponseErrorKind::CallbackError, err)
+        .uri(request.url())
+        .build()
 }
 
-fn build_status_code_error(request: &RequestParts, code: u16, err: impl Error) -> ResponseError {
-    ResponseError::builder(
+fn build_status_code_error(request: &RequestParts, code: u16, err: &dyn Display) -> ResponseError {
+    ResponseError::builder_with_msg(
         ResponseErrorKind::InvalidRequestResponse,
         format!("invalid status code({}): {}", code, err),
     )
@@ -186,8 +177,8 @@ fn build_status_code_error(request: &RequestParts, code: u16, err: impl Error) -
     .build()
 }
 
-fn build_header_name_error(request: &RequestParts, header_name: &str, err: impl Error) -> ResponseError {
-    ResponseError::builder(
+fn build_header_name_error(request: &RequestParts, header_name: &str, err: &dyn Display) -> ResponseError {
+    ResponseError::builder_with_msg(
         ResponseErrorKind::InvalidHeader,
         format!("invalid header name({}): {}", header_name, err),
     )
@@ -195,8 +186,8 @@ fn build_header_name_error(request: &RequestParts, header_name: &str, err: impl 
     .build()
 }
 
-fn build_header_value_error(request: &RequestParts, header_value: &str, err: impl Error) -> ResponseError {
-    ResponseError::builder(
+fn build_header_value_error(request: &RequestParts, header_value: &str, err: &dyn Display) -> ResponseError {
+    ResponseError::builder_with_msg(
         ResponseErrorKind::InvalidHeader,
         format!("invalid header value({}): {}", header_value, err),
     )
@@ -204,8 +195,8 @@ fn build_header_value_error(request: &RequestParts, header_value: &str, err: imp
     .build()
 }
 
-fn convert_header_value_error(request: &RequestParts, header_value: &HeaderValue, err: impl Error) -> ResponseError {
-    ResponseError::builder(
+fn convert_header_value_error(request: &RequestParts, header_value: &HeaderValue, err: &dyn Display) -> ResponseError {
+    ResponseError::builder_with_msg(
         ResponseErrorKind::InvalidHeader,
         format!("invalid header value({:?}): {}", header_value, err),
     )
@@ -223,12 +214,12 @@ fn set_header_for_request_builder(
         header_name.as_str(),
         header_value
             .to_str()
-            .map_err(|err| convert_header_value_error(request, header_value, err))?,
+            .map_err(|err| convert_header_value_error(request, header_value, &err))?,
     ))
 }
 
 fn status_code_of_response(response: &UreqResponse, request: &RequestParts) -> Result<StatusCode, ResponseError> {
-    StatusCode::from_u16(response.status()).map_err(|err| build_status_code_error(request, response.status(), err))
+    StatusCode::from_u16(response.status()).map_err(|err| build_status_code_error(request, response.status(), &err))
 }
 
 fn parse_http_version(version: &str, request: &RequestParts) -> Result<Version, ResponseError> {
@@ -238,7 +229,7 @@ fn parse_http_version(version: &str, request: &RequestParts) -> Result<Version, 
         "HTTP/1.1" => Ok(Version::HTTP_11),
         "HTTP/2.0" => Ok(Version::HTTP_2),
         "HTTP/3.0" => Ok(Version::HTTP_3),
-        _ => Err(ResponseError::builder(
+        _ => Err(ResponseError::builder_with_msg(
             ResponseErrorKind::InvalidRequestResponse,
             format!("invalid http version: {}", version),
         )
@@ -247,11 +238,7 @@ fn parse_http_version(version: &str, request: &RequestParts) -> Result<Version, 
     }
 }
 
-fn from_ureq_error(
-    kind: UreqErrorKind,
-    err: impl Error + Send + Sync + 'static,
-    request: &RequestParts,
-) -> ResponseError {
+fn from_ureq_error(kind: UreqErrorKind, err: AnyError, request: &RequestParts) -> ResponseError {
     let response_error_kind = match kind {
         UreqErrorKind::InvalidUrl => ResponseErrorKind::InvalidUrl,
         UreqErrorKind::UnknownScheme => ResponseErrorKind::InvalidUrl,
@@ -297,21 +284,19 @@ impl Read for RequestBodyWithCallbacks<'_, '_> {
                 self.have_read += n as u64;
                 let buf = &buf[..n];
                 if let Some(on_uploading_progress) = self.request.on_uploading_progress() {
-                    if on_uploading_progress(&TransferProgressInfo::new(
+                    on_uploading_progress(TransferProgressInfo::new(
                         self.have_read,
                         self.request.body().size(),
                         buf,
                     ))
-                    .is_cancelled()
-                    {
-                        const ERROR_MESSAGE: &str = "Cancelled by on_uploading_progress() callback";
+                    .map_err(|err| {
                         *self.user_cancelled_error = Some(
-                            ResponseError::builder(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
+                            ResponseError::builder(ResponseErrorKind::CallbackError, err)
                                 .uri(self.request.url())
                                 .build(),
                         );
-                        return Err(IoError::new(IoErrorKind::Other, ERROR_MESSAGE));
-                    }
+                        IoError::new(IoErrorKind::Other, "on_uploading_progress() callback returns error")
+                    })?;
                 }
                 Ok(n)
             }

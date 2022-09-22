@@ -83,7 +83,7 @@ impl<R: Default> Default for LimitedRetrier<R> {
     }
 }
 
-impl<R: RequestRetrier> RequestRetrier for LimitedRetrier<R> {
+impl<R: RequestRetrier + Clone> RequestRetrier for LimitedRetrier<R> {
     fn retry(&self, request: &mut HttpRequestParts, opts: RequestRetrierOptions) -> RetryResult {
         self.target
             .retry(self.retrier.retry(request, opts).decision(), self.retries, opts)
@@ -94,7 +94,7 @@ impl<R: RequestRetrier> RequestRetrier for LimitedRetrier<R> {
 #[cfg(test)]
 mod tests {
     use super::{
-        super::{ErrorRetrier, Idempotent, ResponseError, RetriedStatsInfo},
+        super::{ErrorRetrier, ResponseError, RetriedStatsInfo},
         *,
     };
     use qiniu_http::{
@@ -109,8 +109,8 @@ mod tests {
         let current_endpoint_retrier = LimitedRetrier::new(ErrorRetrier, 2);
         let total_retrier = LimitedRetrier::limit_total(ErrorRetrier, 2);
         let mut retried = RetriedStatsInfo::default();
-        retried.increase();
-        retried.increase();
+        retried.increase_current_endpoint();
+        retried.increase_current_endpoint();
 
         let (mut parts, _) = HttpRequest::builder()
             .url(uri)
@@ -120,21 +120,21 @@ mod tests {
             .into_parts_and_body();
         let result = current_endpoint_retrier.retry(
             &mut parts,
-            RequestRetrierOptions::new(
-                Idempotent::Default,
-                &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
+            RequestRetrierOptions::builder(
+                &ResponseError::new_with_msg(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,
-            ),
+            )
+            .build(),
         );
         assert_eq!(result.decision(), RetryDecision::TryNextServer);
 
         let result = total_retrier.retry(
             &mut parts,
-            RequestRetrierOptions::new(
-                Idempotent::Default,
-                &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
+            RequestRetrierOptions::builder(
+                &ResponseError::new_with_msg(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,
-            ),
+            )
+            .build(),
         );
         assert_eq!(result.decision(), RetryDecision::DontRetry);
 
@@ -142,21 +142,21 @@ mod tests {
 
         let result = current_endpoint_retrier.retry(
             &mut parts,
-            RequestRetrierOptions::new(
-                Idempotent::Default,
-                &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
+            RequestRetrierOptions::builder(
+                &ResponseError::new_with_msg(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,
-            ),
+            )
+            .build(),
         );
         assert_eq!(result.decision(), RetryDecision::RetryRequest);
 
         let result = total_retrier.retry(
             &mut parts,
-            RequestRetrierOptions::new(
-                Idempotent::Default,
-                &ResponseError::new(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
+            RequestRetrierOptions::builder(
+                &ResponseError::new_with_msg(HttpResponseErrorKind::ReceiveError.into(), "Test Error"),
                 &retried,
-            ),
+            )
+            .build(),
         );
         assert_eq!(result.decision(), RetryDecision::DontRetry);
 

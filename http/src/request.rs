@@ -1,14 +1,14 @@
 use super::{
-    callback::{OnHeader, OnProgress, OnStatusCode},
+    callback::{OnHeader, OnHeaderCallback, OnProgress, OnProgressCallback, OnStatusCode, OnStatusCodeCallback},
     LIBRARY_USER_AGENT,
 };
 use assert_impl::assert_impl;
 use http::{
-    header::HeaderMap,
+    header::{HeaderMap, IntoHeaderName},
     method::Method,
     request::{Parts as HttpRequestParts, Request as HttpRequest},
     uri::Uri,
-    Extensions, Version,
+    Extensions, HeaderValue, Version,
 };
 use once_cell::sync::Lazy;
 use qiniu_utils::{smallstr::SmallString, wrap_smallstr};
@@ -50,12 +50,18 @@ pub struct RequestParts<'r> {
     // 请求配置属性
     appended_user_agent: UserAgent,
     resolved_ip_addrs: Option<Cow<'r, [IpAddr]>>,
-    on_uploading_progress: Option<OnProgress<'r>>,
-    on_receive_response_status: Option<OnStatusCode<'r>>,
-    on_receive_response_header: Option<OnHeader<'r>>,
+    on_uploading_progress: Option<OnProgressCallback<'r>>,
+    on_receive_response_status: Option<OnStatusCodeCallback<'r>>,
+    on_receive_response_header: Option<OnHeaderCallback<'r>>,
 }
 
 impl<'r> RequestParts<'r> {
+    /// 创建 HTTP 请求信息构建器
+    #[inline]
+    pub fn builder() -> RequestPartsBuilder<'r> {
+        RequestPartsBuilder::default()
+    }
+
     /// 获取 HTTP 请求 URL
     #[inline]
     pub fn url(&self) -> &Uri {
@@ -153,37 +159,37 @@ impl<'r> RequestParts<'r> {
 
     /// 获取上传进度回调
     #[inline]
-    pub fn on_uploading_progress(&self) -> Option<OnProgress<'r>> {
-        self.on_uploading_progress
+    pub fn on_uploading_progress(&'r self) -> Option<OnProgress<'r>> {
+        self.on_uploading_progress.as_deref()
     }
 
     /// 获取上传进度回调的可变引用
     #[inline]
-    pub fn on_uploading_progress_mut(&mut self) -> &mut Option<OnProgress<'r>> {
+    pub fn on_uploading_progress_mut(&mut self) -> &mut Option<OnProgressCallback<'r>> {
         &mut self.on_uploading_progress
     }
 
     /// 获取接受到响应状态回调
     #[inline]
-    pub fn on_receive_response_status(&self) -> Option<OnStatusCode> {
-        self.on_receive_response_status
+    pub fn on_receive_response_status(&'r self) -> Option<OnStatusCode<'r>> {
+        self.on_receive_response_status.as_deref()
     }
 
     /// 获取接受到响应状态回调的可变引用
     #[inline]
-    pub fn on_receive_response_status_mut(&mut self) -> &mut Option<OnStatusCode<'r>> {
+    pub fn on_receive_response_status_mut(&mut self) -> &mut Option<OnStatusCodeCallback<'r>> {
         &mut self.on_receive_response_status
     }
 
     /// 获取接受到响应 Header 回调
     #[inline]
-    pub fn on_receive_response_header(&self) -> Option<OnHeader> {
-        self.on_receive_response_header
+    pub fn on_receive_response_header(&'r self) -> Option<OnHeader<'r>> {
+        self.on_receive_response_header.as_deref()
     }
 
     /// 获取接受到响应 Header 回调的可变引用
     #[inline]
-    pub fn on_receive_response_header_mut(&mut self) -> &mut Option<OnHeader<'r>> {
+    pub fn on_receive_response_header_mut(&mut self) -> &mut Option<OnHeaderCallback<'r>> {
         &mut self.on_receive_response_header
     }
 }
@@ -217,6 +223,7 @@ impl Debug for RequestParts<'_> {
                     $method_name,
                     &self
                         .$method
+                        .as_ref()
                         .map_or_else(|| Cow::Borrowed("Uninstalled"), |_| Cow::Borrowed("Installed")),
                 )
             };
@@ -229,6 +236,117 @@ impl Debug for RequestParts<'_> {
         closure_field!(s, "on_receive_response_status", on_receive_response_status);
         closure_field!(s, "on_receive_response_header", on_receive_response_header);
         s.finish()
+    }
+}
+
+/// HTTP 请求信息构建器
+///
+/// 不包含请求体信息
+#[derive(Debug, Default)]
+pub struct RequestPartsBuilder<'r>(RequestParts<'r>);
+
+impl<'r> RequestPartsBuilder<'r> {
+    /// 创建 HTTP 请求信息构建器
+    #[inline]
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// 设置 HTTP 请求 URL
+    #[inline]
+    pub fn url(&mut self, url: Uri) -> &mut Self {
+        self.0.inner.uri = url;
+        self
+    }
+
+    /// 设置请求 HTTP 版本
+    #[inline]
+    pub fn version(&mut self, version: Version) -> &mut Self {
+        self.0.inner.version = version;
+        self
+    }
+
+    /// 设置请求 HTTP 方法
+    #[inline]
+    pub fn method(&mut self, method: Method) -> &mut Self {
+        self.0.inner.method = method;
+        self
+    }
+
+    /// 设置请求 HTTP Headers
+    #[inline]
+    pub fn headers(&mut self, headers: HeaderMap) -> &mut Self {
+        self.0.inner.headers = headers;
+        self
+    }
+
+    /// 插入请求 HTTP Header
+    #[inline]
+    pub fn header(&mut self, header_name: impl IntoHeaderName, header_value: impl Into<HeaderValue>) -> &mut Self {
+        self.0.inner.headers.insert(header_name, header_value.into());
+        self
+    }
+
+    /// 设置扩展信息
+    #[inline]
+    pub fn extensions(&mut self, extensions: Extensions) -> &mut Self {
+        self.0.inner.extensions = extensions;
+        self
+    }
+
+    /// 追加扩展信息
+    #[inline]
+    pub fn add_extension<T: Sync + Send + 'static>(&mut self, val: T) -> &mut Self {
+        self.0.inner.extensions.insert(val);
+        self
+    }
+
+    /// 设置 UserAgent
+    #[inline]
+    pub fn appended_user_agent(&mut self, user_agent: impl Into<UserAgent>) -> &mut Self {
+        self.0.appended_user_agent = user_agent.into();
+        self
+    }
+
+    /// 设置预解析的服务器套接字地址
+    #[inline]
+    pub fn resolved_ip_addrs(&mut self, resolved_ip_addrs: impl Into<Cow<'r, [IpAddr]>>) -> &mut Self {
+        self.0.resolved_ip_addrs = Some(resolved_ip_addrs.into());
+        self
+    }
+
+    /// 设置上传进度回调
+    #[inline]
+    pub fn on_uploading_progress(&mut self, f: impl Into<OnProgressCallback<'r>>) -> &mut Self {
+        self.0.on_uploading_progress = Some(f.into());
+        self
+    }
+
+    /// 设置接受到响应状态回调
+    #[inline]
+    pub fn on_receive_response_status(&mut self, f: impl Into<OnStatusCodeCallback<'r>>) -> &mut Self {
+        self.0.on_receive_response_status = Some(f.into());
+        self
+    }
+
+    /// 设置接受到响应 Header 回调
+    #[inline]
+    pub fn on_receive_response_header(&mut self, f: impl Into<OnHeaderCallback<'r>>) -> &mut Self {
+        self.0.on_receive_response_header = Some(f.into());
+        self
+    }
+
+    /// 创建 HTTP 请求信息
+    #[inline]
+    pub fn build(&mut self) -> RequestParts<'r> {
+        take(&mut self.0)
+    }
+
+    /// 创建 HTTP 请求
+    #[inline]
+    pub fn build_with_body<B: 'r>(&mut self, body: B) -> Request<'r, B> {
+        let parts = self.build();
+        Request { parts, body }
     }
 }
 
@@ -363,6 +481,13 @@ impl<'r, B: 'r> RequestBuilder<'r, B> {
         self
     }
 
+    /// 插入请求 HTTP Header
+    #[inline]
+    pub fn header(&mut self, header_name: impl IntoHeaderName, header_value: impl Into<HeaderValue>) -> &mut Self {
+        self.inner.headers_mut().insert(header_name, header_value.into());
+        self
+    }
+
     /// 设置请求 HTTP 请求体
     #[inline]
     pub fn body(&mut self, body: B) -> &mut Self {
@@ -400,22 +525,22 @@ impl<'r, B: 'r> RequestBuilder<'r, B> {
 
     /// 设置上传进度回调
     #[inline]
-    pub fn on_uploading_progress(&mut self, f: OnProgress<'r>) -> &mut Self {
-        *self.inner.on_uploading_progress_mut() = Some(f);
+    pub fn on_uploading_progress(&mut self, f: impl Into<OnProgressCallback<'r>>) -> &mut Self {
+        *self.inner.on_uploading_progress_mut() = Some(f.into());
         self
     }
 
     /// 设置接受到响应状态回调
     #[inline]
-    pub fn on_receive_response_status(&mut self, f: OnStatusCode<'r>) -> &mut Self {
-        *self.inner.on_receive_response_status_mut() = Some(f);
+    pub fn on_receive_response_status(&mut self, f: impl Into<OnStatusCodeCallback<'r>>) -> &mut Self {
+        *self.inner.on_receive_response_status_mut() = Some(f.into());
         self
     }
 
     /// 设置接受到响应 Header 回调
     #[inline]
-    pub fn on_receive_response_header(&mut self, f: OnHeader<'r>) -> &mut Self {
-        *self.inner.on_receive_response_header_mut() = Some(f);
+    pub fn on_receive_response_header(&mut self, f: impl Into<OnHeaderCallback<'r>>) -> &mut Self {
+        *self.inner.on_receive_response_header_mut() = Some(f.into());
         self
     }
 }

@@ -1,9 +1,13 @@
-use super::{callbacks::Callbacks, Bucket, OperationProvider};
+use super::{callbacks::Callbacks, list::make_callback_error, Bucket, OperationProvider};
+use anyhow::{Error as AnyError, Result as AnyResult};
+use assert_impl::assert_impl;
+use auto_impl::auto_impl;
+use dyn_clonable::clonable;
 use qiniu_apis::{
     http::{ResponseErrorKind as HttpResponseErrorKind, ResponseParts, StatusCode},
     http_client::{
-        ApiResult, CallbackResult, RegionsProvider, RegionsProviderEndpoints, RequestBuilderParts, Response,
-        ResponseError, ResponseErrorKind,
+        ApiResult, RegionsProvider, RegionsProviderEndpoints, RequestBuilderParts, Response, ResponseError,
+        ResponseErrorKind,
     },
     storage::batch_ops::{
         OperationResponse, OperationResponseData, RequestBody, ResponseBody,
@@ -18,7 +22,9 @@ use std::{
 };
 
 /// 最大批量操作数获取接口
-pub trait BatchSizeProvider: Debug + Send + Sync {
+#[clonable]
+#[auto_impl(&, &mut, Box, Rc, Arc)]
+pub trait BatchSizeProvider: Clone + Debug + Send + Sync {
     /// 获取最大批量操作数
     fn batch_size(&self) -> usize;
 }
@@ -33,7 +39,7 @@ impl BatchSizeProvider for usize {
 /// 批量操作
 pub struct BatchOperations<'a> {
     bucket: &'a Bucket,
-    operations: Option<Box<dyn Iterator<Item = Box<dyn OperationProvider + 'a>> + 'a>>,
+    operations: Option<Box<dyn Iterator<Item = Box<dyn OperationProvider + 'a>> + Send + Sync + 'a>>,
     batch_size: Option<Box<dyn BatchSizeProvider + 'a>>,
     callbacks: Callbacks<'a>,
 }
@@ -64,10 +70,13 @@ impl<'a> BatchOperations<'a> {
 
     /// 批量添加操作提供者
     #[inline]
-    pub fn add_operations(
+    pub fn add_operations<I: IntoIterator<Item = Box<dyn OperationProvider + 'a>> + Send + Sync + 'a>(
         &mut self,
-        new_iter: impl IntoIterator<Item = Box<dyn OperationProvider + 'a>> + 'a,
-    ) -> &mut Self {
+        new_iter: I,
+    ) -> &mut Self
+    where
+        <I as IntoIterator>::IntoIter: Sync + Send,
+    {
         if let Some(iter) = take(&mut self.operations) {
             self.operations = Some(Box::new(iter.chain(new_iter.into_iter())));
         } else {
@@ -80,7 +89,7 @@ impl<'a> BatchOperations<'a> {
     #[inline]
     pub fn before_request_callback(
         &mut self,
-        callback: impl FnMut(&mut RequestBuilderParts<'_>) -> CallbackResult + Send + Sync + 'a,
+        callback: impl FnMut(&mut RequestBuilderParts<'_>) -> AnyResult<()> + Send + Sync + 'a,
     ) -> &mut Self {
         self.callbacks.insert_before_request_callback(callback);
         self
@@ -90,7 +99,7 @@ impl<'a> BatchOperations<'a> {
     #[inline]
     pub fn after_response_ok_callback(
         &mut self,
-        callback: impl FnMut(&mut ResponseParts) -> CallbackResult + Send + Sync + 'a,
+        callback: impl FnMut(&mut ResponseParts) -> AnyResult<()> + Send + Sync + 'a,
     ) -> &mut Self {
         self.callbacks.insert_after_response_ok_callback(callback);
         self
@@ -100,7 +109,7 @@ impl<'a> BatchOperations<'a> {
     #[inline]
     pub fn after_response_error_callback(
         &mut self,
-        callback: impl FnMut(&ResponseError) -> CallbackResult + Send + Sync + 'a,
+        callback: impl FnMut(&mut ResponseError) -> AnyResult<()> + Send + Sync + 'a,
     ) -> &mut Self {
         self.callbacks.insert_after_response_error_callback(callback);
         self
@@ -133,6 +142,12 @@ impl<'a> BatchOperations<'a> {
             batch_size: take(&mut self.batch_size),
             callbacks: take(&mut self.callbacks),
         }
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 
@@ -206,23 +221,15 @@ impl<'a> BatchOperationsIterator<'a> {
         mut request: BatchOpsSyncRequestBuilder<'_, RefRegionProviderEndpoints>,
         request_body: RequestBody,
     ) -> ApiResult<Response<ResponseBody>> {
-        if self
-            .operations
+        self.operations
             .callbacks
             .before_request(request.parts_mut())
-            .is_cancelled()
-        {
-            return Err(make_user_cancelled_error("Cancelled by before_request() callback"));
-        }
+            .map_err(make_callback_error)?;
         let mut response_result = request.call(request_body);
-        if self
-            .operations
+        self.operations
             .callbacks
             .after_response(&mut response_result)
-            .is_cancelled()
-        {
-            return Err(make_user_cancelled_error("Cancelled by after_response() callback"));
-        }
+            .map_err(make_callback_error)?;
         response_result
     }
 
@@ -256,6 +263,12 @@ impl<'a> BatchOperationsIterator<'a> {
         } else {
             None
         }
+    }
+
+    #[allow(dead_code)]
+    fn assert() {
+        assert_impl!(Send: Self);
+        assert_impl!(Sync: Self);
     }
 }
 
@@ -357,16 +370,9 @@ mod async_stream {
         fn wait_for_response(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<<Self as Stream>::Item>> {
             if let BatchOperationsStep::WaitForResponse { task } = &mut self.current_step {
                 let mut response_result = ready!(task.poll_unpin(cx));
-                if self
-                    .operations
-                    .callbacks
-                    .after_response(&mut response_result)
-                    .is_cancelled()
-                {
+                if let Err(err) = self.operations.callbacks.after_response(&mut response_result) {
                     self.current_step = BatchOperationsStep::Done;
-                    return Poll::Ready(Some(Err(make_user_cancelled_error(
-                        "Cancelled by after_response() callback",
-                    ))));
+                    return Poll::Ready(Some(Err(make_callback_error(err))));
                 }
                 match response_result {
                     Ok(response) => {
@@ -396,21 +402,15 @@ mod async_stream {
                     Ok(region_provider) => {
                         if let Some(request_body) = self.generate_request_body() {
                             let mut request = self.make_request(region_provider);
-                            if self
-                                .operations
-                                .callbacks
-                                .before_request(request.parts_mut())
-                                .is_cancelled()
-                            {
+                            if let Err(err) = self.operations.callbacks.before_request(request.parts_mut()) {
                                 self.current_step = BatchOperationsStep::Done;
-                                return Poll::Ready(Some(Err(make_user_cancelled_error(
-                                    "Cancelled by before_request() callback",
-                                ))));
+                                Poll::Ready(Some(Err(make_callback_error(err))))
+                            } else {
+                                self.current_step = BatchOperationsStep::WaitForResponse {
+                                    task: Box::pin(async move { request.call(request_body).await }),
+                                };
+                                self.poll_next(cx)
                             }
-                            self.current_step = BatchOperationsStep::WaitForResponse {
-                                task: Box::pin(async move { request.call(request_body).await }),
-                            };
-                            self.poll_next(cx)
                         } else {
                             self.current_step = BatchOperationsStep::Done;
                             self.poll_next(cx)
@@ -466,19 +466,19 @@ mod async_stream {
                     self.operations.bucket.objects_manager().credential(),
                 )
         }
+
+        #[allow(dead_code)]
+        fn assert() {
+            assert_impl!(Send: Self);
+            // assert_impl!(Sync: Self);
+        }
     }
 }
 
 #[cfg(feature = "async")]
 pub use async_stream::*;
 
-fn make_user_cancelled_error(message: &str) -> ResponseError {
-    ResponseError::new(HttpResponseErrorKind::UserCanceled.into(), message)
-}
-
 fn from_response_to_response_data_result(response: OperationResponse) -> ApiResult<OperationResponseData> {
-    type AnyError = Box<dyn StdError + Send + Sync>;
-
     let status_code = StatusCode::from_u16(
         response
             .get_code_as_u64()
@@ -494,8 +494,7 @@ fn from_response_to_response_data_result(response: OperationResponse) -> ApiResu
             ResponseErrorKind::StatusCodeError(status_code),
             response
                 .get_data()
-                .and_then(|data| data.get_error_as_str().map(|err| err.to_owned()))
-                .map(AnyError::from)
+                .and_then(|data| data.get_error_as_str().map(|err| AnyError::msg(err.to_owned())))
                 .unwrap_or_else(|| NoErrorMessageFromOperation.into()),
         ))
     };

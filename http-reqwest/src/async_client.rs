@@ -1,6 +1,6 @@
 use super::{
     extensions::TimeoutExtension,
-    sync_client::{call_response_callbacks, from_reqwest_error, make_user_agent},
+    sync_client::{call_response_callbacks, from_reqwest_error, make_callback_error, make_user_agent},
 };
 use bytes::Bytes;
 use futures::future::BoxFuture;
@@ -114,27 +114,23 @@ fn make_async_reqwest_request(
         fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
             const BUF_LEN: usize = 32 * 1024;
             let mut buf = [0u8; BUF_LEN];
-            match ready!(Pin::new(&mut self.as_mut().request.body_mut()).poll_read(cx, &mut buf)) {
+            match ready!(Pin::new(&mut self.request.body_mut()).poll_read(cx, &mut buf)) {
                 Err(err) => Poll::Ready(Some(Err(Box::new(err)))),
                 Ok(0) => Poll::Ready(None),
                 Ok(n) => {
                     let buf = &buf[..n];
-                    self.as_mut().have_read += n as u64;
-                    if let Some(on_uploading_progress) = self.as_ref().request.on_uploading_progress() {
-                        if on_uploading_progress(&TransferProgressInfo::new(
-                            self.as_mut().have_read,
-                            self.as_ref().request.body().size(),
+                    self.have_read += n as u64;
+                    if let Some(on_uploading_progress) = self.request.on_uploading_progress() {
+                        if let Err(err) = on_uploading_progress(TransferProgressInfo::new(
+                            self.have_read,
+                            self.request.body().size(),
                             buf,
-                        ))
-                        .is_cancelled()
-                        {
-                            const ERROR_MESSAGE: &str = "Cancelled by on_uploading_progress() callback";
-                            *self.user_cancelled_error = Some(
-                                ResponseError::builder(ResponseErrorKind::UserCanceled, ERROR_MESSAGE)
-                                    .uri(self.as_ref().request.url())
-                                    .build(),
-                            );
-                            return Poll::Ready(Some(Err(Box::new(IoError::new(IoErrorKind::Other, ERROR_MESSAGE)))));
+                        )) {
+                            *self.user_cancelled_error = Some(make_callback_error(err, self.request));
+                            return Poll::Ready(Some(Err(Box::new(IoError::new(
+                                IoErrorKind::Other,
+                                "on_uploading_progress() callback returns error",
+                            )))));
                         }
                     }
                     Poll::Ready(Some(Ok(buf.to_vec())))

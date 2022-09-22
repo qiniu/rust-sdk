@@ -765,7 +765,7 @@ enum SingleTryFlow<E> {
 
 fn no_try_error(retried: &RetriedStatsInfo) -> TryError {
     TryError::new(
-        ResponseError::new(ResponseErrorKind::NoTry, "None endpoint is tried").retried(retried),
+        ResponseError::new_with_msg(ResponseErrorKind::NoTry, "None endpoint is tried").retried(retried),
         RetryDecision::DontRetry.into(),
     )
 }

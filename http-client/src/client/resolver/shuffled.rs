@@ -20,7 +20,7 @@ impl<R> ShuffledResolver<R> {
     }
 }
 
-impl<R: Resolver> Resolver for ShuffledResolver<R> {
+impl<R: Resolver + Clone> Resolver for ShuffledResolver<R> {
     #[inline]
     fn resolve(&self, domain: &str, opts: ResolveOptions) -> ResolveResult {
         let mut answers = self.base_resolver.resolve(domain, opts)?;

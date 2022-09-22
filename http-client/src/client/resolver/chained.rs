@@ -52,7 +52,7 @@ impl Resolver for ChainedResolver {
 }
 
 fn no_try_error(opts: ResolveOptions) -> ResponseError {
-    let mut err = ResponseError::new(ResponseErrorKind::NoTry, "None resolver is tried");
+    let mut err = ResponseError::new_with_msg(ResponseErrorKind::NoTry, "None resolver is tried");
     if let Some(retried) = opts.retried() {
         err = err.retried(retried);
     }

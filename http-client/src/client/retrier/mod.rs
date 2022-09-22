@@ -4,6 +4,7 @@ mod never;
 
 use super::{Idempotent, ResponseError, RetriedStatsInfo};
 use auto_impl::auto_impl;
+use dyn_clonable::clonable;
 use qiniu_http::RequestParts as HttpRequestParts;
 use smart_default::SmartDefault;
 use std::{
@@ -14,8 +15,9 @@ use std::{
 /// 请求重试器
 ///
 /// 根据 HTTP 客户端返回的错误，决定是否重试请求，重试决定由 [`RetryDecision`] 定义。
+#[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait RequestRetrier: Debug + Sync + Send {
+pub trait RequestRetrier: Clone + Debug + Sync + Send {
     /// 作出重试决定
     fn retry(&self, request: &mut HttpRequestParts, opts: RequestRetrierOptions<'_>) -> RetryResult;
 }
@@ -50,16 +52,13 @@ pub struct RequestRetrierOptions<'a> {
 }
 
 impl<'a> RequestRetrierOptions<'a> {
-    pub(super) fn new(
-        idempotent: Idempotent,
+    /// 创建重试器选项构建器
+    #[inline]
+    pub fn builder(
         response_error: &'a ResponseError,
         retried: &'a RetriedStatsInfo,
-    ) -> Self {
-        Self {
-            idempotent,
-            response_error,
-            retried,
-        }
+    ) -> RequestRetrierOptionsBuilder<'a> {
+        RequestRetrierOptionsBuilder::new(response_error, retried)
     }
 
     /// 是否是幂等请求
@@ -78,6 +77,35 @@ impl<'a> RequestRetrierOptions<'a> {
     #[inline]
     pub fn retried(&self) -> &RetriedStatsInfo {
         self.retried
+    }
+}
+
+/// 重试器选项构建器
+#[derive(Copy, Debug, Clone)]
+pub struct RequestRetrierOptionsBuilder<'a>(RequestRetrierOptions<'a>);
+
+impl<'a> RequestRetrierOptionsBuilder<'a> {
+    /// 创建重试器选项构建器
+    #[inline]
+    pub fn new(response_error: &'a ResponseError, retried: &'a RetriedStatsInfo) -> Self {
+        Self(RequestRetrierOptions {
+            response_error,
+            retried,
+            idempotent: Default::default(),
+        })
+    }
+
+    /// 设置幂等请求
+    #[inline]
+    pub fn idempotent(&mut self, idempotent: Idempotent) -> &mut Self {
+        self.0.idempotent = idempotent;
+        self
+    }
+
+    /// 构建重试器选项
+    #[inline]
+    pub fn build(&self) -> RequestRetrierOptions<'a> {
+        self.0
     }
 }
 

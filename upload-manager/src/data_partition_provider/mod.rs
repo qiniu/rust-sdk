@@ -1,4 +1,5 @@
 use auto_impl::auto_impl;
+use dyn_clonable::clonable;
 use qiniu_apis::{http::Extensions, http_client::ResponseError};
 use std::{
     fmt::Debug,
@@ -8,8 +9,9 @@ use std::{
 };
 
 /// 分片大小获取接口
+#[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait DataPartitionProvider: Debug + Sync + Send {
+pub trait DataPartitionProvider: Clone + Debug + Sync + Send {
     /// 获取分片大小
     fn part_size(&self) -> PartSize;
     /// 反馈分片大小结果

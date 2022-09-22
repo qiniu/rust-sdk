@@ -7,7 +7,7 @@ use std::{
 #[cfg(feature = "async")]
 use {
     super::DynAsyncRead,
-    futures::{future::BoxFuture, io::Cursor as AsyncCursor, AsyncRead, AsyncReadExt},
+    futures::{future::BoxFuture, io::Cursor as AsyncCursor, AsyncReadExt},
 };
 
 /// 固定阀值的可恢复策略
@@ -51,9 +51,9 @@ impl ResumablePolicyProvider for FixedThresholdResumablePolicy {
         get_policy_from_size(self.threshold, source_size)
     }
 
-    fn get_policy_from_reader<'a, R: Read + Debug + Send + Sync + 'a>(
+    fn get_policy_from_reader<'a>(
         &self,
-        mut reader: R,
+        mut reader: Box<dyn DynRead + 'a>,
         opts: GetPolicyOptions,
     ) -> IoResult<(ResumablePolicy, Box<dyn DynRead + 'a>)> {
         let mut first_chunk = Vec::new();
@@ -64,9 +64,9 @@ impl ResumablePolicyProvider for FixedThresholdResumablePolicy {
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn get_policy_from_async_reader<'a, R: AsyncRead + Debug + Unpin + Send + Sync + 'a>(
+    fn get_policy_from_async_reader<'a>(
         &self,
-        mut reader: R,
+        mut reader: Box<dyn DynAsyncRead + 'a>,
         _opts: GetPolicyOptions,
     ) -> BoxFuture<'a, IoResult<(ResumablePolicy, Box<dyn DynAsyncRead + 'a>)>> {
         let threshold = self.threshold;

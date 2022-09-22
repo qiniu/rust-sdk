@@ -54,7 +54,7 @@ mod tests {
     use qiniu_http::HttpCaller;
     use qiniu_http::{
         header::{CONTENT_LENGTH, USER_AGENT},
-        CallbackResult, Method, SyncRequest, SyncRequestBody,
+        Method, OnProgressCallback, SyncRequest, SyncRequestBody, TransferProgressInfo,
     };
     use rand::{thread_rng, RngCore};
     use std::{
@@ -133,18 +133,18 @@ mod tests {
                 let mut response = {
                     let last_uploaded = last_uploaded.to_owned();
                     let last_total = last_total.to_owned();
-                    Client::default().call(
-                        &mut SyncRequest::builder()
-                            .method(Method::POST)
-                            .url(format!("http://{}/dir1/dir2/file", addr).parse().expect("invalid uri"))
-                            .body(SyncRequestBody::from_referenced_bytes(&request_body))
-                            .on_uploading_progress(&|info| {
-                                last_uploaded.store(info.transferred_bytes(), Relaxed);
-                                last_total.store(info.total_bytes(), Relaxed);
-                                CallbackResult::Continue
-                            })
-                            .build(),
-                    )?
+                    let callback = move |info: TransferProgressInfo| {
+                        last_uploaded.store(info.transferred_bytes(), Relaxed);
+                        last_total.store(info.total_bytes(), Relaxed);
+                        Ok(())
+                    };
+                    let mut request = SyncRequest::builder()
+                        .method(Method::POST)
+                        .url(format!("http://{}/dir1/dir2/file", addr).parse().expect("invalid uri"))
+                        .body(SyncRequestBody::from_referenced_bytes(&request_body))
+                        .on_uploading_progress(OnProgressCallback::reference(&callback))
+                        .build();
+                    Client::default().call(&mut request)?
                 };
                 assert_eq!(
                     response.header(&CONTENT_LENGTH).map(|h| h.as_bytes()),

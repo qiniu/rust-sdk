@@ -8,7 +8,7 @@ use std::{
 #[cfg(feature = "async")]
 use {
     super::DynAsyncRead,
-    futures::{future::BoxFuture, io::Cursor as AsyncCursor, AsyncRead, AsyncReadExt},
+    futures::{future::BoxFuture, io::Cursor as AsyncCursor, AsyncReadExt},
 };
 
 /// 整数倍分片大小的可恢复策略
@@ -41,15 +41,15 @@ impl<P> MultiplePartitionsResumablePolicyProvider<P> {
     }
 }
 
-impl<P: DataPartitionProvider> ResumablePolicyProvider for MultiplePartitionsResumablePolicyProvider<P> {
+impl<P: DataPartitionProvider + Clone> ResumablePolicyProvider for MultiplePartitionsResumablePolicyProvider<P> {
     #[inline]
     fn get_policy_from_size(&self, source_size: u64, _opts: GetPolicyOptions) -> ResumablePolicy {
         get_policy_from_size(self.threshold(), source_size)
     }
 
-    fn get_policy_from_reader<'a, R: Read + Debug + Send + Sync + 'a>(
+    fn get_policy_from_reader<'a>(
         &self,
-        mut reader: R,
+        mut reader: Box<dyn DynRead + 'a>,
         opts: GetPolicyOptions,
     ) -> IoResult<(ResumablePolicy, Box<dyn DynRead + 'a>)> {
         let mut first_chunk = Vec::new();
@@ -60,9 +60,9 @@ impl<P: DataPartitionProvider> ResumablePolicyProvider for MultiplePartitionsRes
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-    fn get_policy_from_async_reader<'a, R: AsyncRead + Debug + Unpin + Send + Sync + 'a>(
+    fn get_policy_from_async_reader<'a>(
         &self,
-        mut reader: R,
+        mut reader: Box<dyn DynAsyncRead + 'a>,
         _opts: GetPolicyOptions,
     ) -> BoxFuture<'a, IoResult<(ResumablePolicy, Box<dyn DynAsyncRead + 'a>)>> {
         let threshold = self.threshold();
