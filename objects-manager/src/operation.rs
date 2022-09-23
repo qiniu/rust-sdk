@@ -601,7 +601,7 @@ impl ModifyObjectStatus<'_> {
     fn to_path_params(&self) -> qiniu_apis::storage::modify_object_status::PathParams {
         qiniu_apis::storage::modify_object_status::PathParams::default()
             .set_entry_as_str(self.entry.to_string())
-            .set_status_as_usize(if self.disabled { 1 } else { 0 })
+            .set_status_as_usize(usize::from(self.disabled))
     }
 }
 

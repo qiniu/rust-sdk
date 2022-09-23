@@ -114,7 +114,7 @@ impl Chooser for SubnetChooser {
                 }
             }
         }
-        let chosen_ips = choose_group(subnets_map.into_iter().map(|(_, ips)| ips)).unwrap_or_default();
+        let chosen_ips = choose_group(subnets_map.into_values()).unwrap_or_default();
         do_some_work_async(&self.inner, need_to_shrink);
         return chosen_ips.into();
 
