@@ -27,6 +27,9 @@ doc_test:
 test:
 	set -e; \
 	for dir in $(SUBDIRS); do \
+		if [ -n "${CLEAN_BEFORE_EACH}" ]; then \
+			$(MAKE) clean; \
+		fi; \
 		$(MAKE) -C $$dir test; \
 	done
 clean:
