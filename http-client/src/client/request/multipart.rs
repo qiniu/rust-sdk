@@ -282,8 +282,8 @@ mod sync_part {
         /// 设置阻塞 Multipart 的请求体为文件
         pub fn file_path<S: AsRef<OsStr> + ?Sized>(path: &S) -> IoResult<Self> {
             let path = Path::new(path);
-            let file = File::open(&path)?;
-            let mut metadata = PartMetadata::default().mime(mime_guess::from_path(&path).first_or_octet_stream());
+            let file = File::open(path)?;
+            let mut metadata = PartMetadata::default().mime(mime_guess::from_path(path).first_or_octet_stream());
             if let Some(file_name) = path.file_name() {
                 let file_name = match file_name.to_string_lossy() {
                     Cow::Borrowed(str) => FileName::from(str),
@@ -420,7 +420,7 @@ mod async_part {
         pub async fn file_path<S: AsRef<OsStr> + ?Sized>(path: &S) -> IoResult<AsyncPart<'a>> {
             let path = Path::new(path);
             let file = File::open(&path).await?;
-            let mut metadata = PartMetadata::default().mime(mime_guess::from_path(&path).first_or_octet_stream());
+            let mut metadata = PartMetadata::default().mime(mime_guess::from_path(path).first_or_octet_stream());
             if let Some(file_name) = path.file_name() {
                 let file_name = match file_name.to_string_lossy() {
                     Cow::Borrowed(str) => FileName::from(str),

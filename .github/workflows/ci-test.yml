@@ -98,3 +98,4 @@ jobs:
           RUST_LOG: "debug"
           RUST_BACKTRACE: "1"
           SKIP_CLIPPY: "1"
+          CLEAN_BEFORE_EACH: "1"

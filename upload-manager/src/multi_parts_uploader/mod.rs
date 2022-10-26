@@ -1,8 +1,17 @@
 use super::{
-    DataPartitionProvider, DataSource, MultiPartsUploaderWithCallbacks, ObjectParams, ResumableRecorder, UploadManager,
+    upload_token::OwnedUploadTokenProviderOrReferenced, DataPartitionProvider, DataSource,
+    MultiPartsUploaderWithCallbacks, ObjectParams, ResumableRecorder, UploadManager,
 };
 use digest::Digest;
-use qiniu_apis::http_client::{ApiResult, RegionsProvider};
+use qiniu_apis::{
+    credential::AccessKey,
+    http_client::{
+        ApiResult, BucketRegionsProvider, Endpoints, EndpointsGetOptions, EndpointsProvider, GotRegions,
+        RegionsProvider, RegionsProviderEndpoints, ServiceName,
+    },
+    storage,
+};
+use qiniu_upload_token::{BucketName, ObjectName};
 use serde_json::Value;
 use smart_default::SmartDefault;
 use std::{fmt::Debug, num::NonZeroU64};
@@ -32,6 +41,9 @@ pub trait MultiPartsUploader:
         upload_manager: UploadManager,
         resumable_recorder: R,
     ) -> Self;
+
+    /// 获取初始化使用的上传管理器
+    fn upload_manager(&self) -> &UploadManager;
 
     /// 初始化分片信息
     ///
@@ -74,6 +86,17 @@ pub trait MultiPartsUploader:
         initialized: &mut Self::InitializedParts,
         options: ReinitializeOptions,
     ) -> ApiResult<()>;
+
+    /// 尝试恢复记录
+    ///
+    /// 如果提供了有效的断点续传记录器，该方法可以尝试在找到记录，如果找不到记录，或记录无法读取，则返回 `None`。
+    ///
+    /// 该方法的异步版本为 [`Self::try_to_async_resume_records`]。
+    fn try_to_resume_parts<D: DataSource<Self::HashAlgorithm> + 'static>(
+        &self,
+        source: D,
+        params: ObjectParams,
+    ) -> Option<Self::InitializedParts>;
 
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
@@ -130,12 +153,26 @@ pub trait MultiPartsUploader:
         initialized: &'r mut Self::AsyncInitializedParts,
         options: ReinitializeOptions,
     ) -> BoxFuture<'r, ApiResult<()>>;
+
+    /// 异步尝试恢复记录
+    ///
+    /// 如果提供了有效的断点续传记录器，该方法可以尝试在找到记录，如果找不到记录，或记录无法读取，则返回 `None`。
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    fn try_to_async_resume_parts<D: AsyncDataSource<Self::HashAlgorithm> + 'static>(
+        &self,
+        source: D,
+        params: ObjectParams,
+    ) -> BoxFuture<Option<Self::AsyncInitializedParts>>;
 }
 
 /// 初始化的分片信息
 pub trait InitializedParts: __private::Sealed + Clone + Send + Sync + Debug {
     /// 获取对象上传参数
     fn params(&self) -> &ObjectParams;
+
+    /// 上传地址列表
+    fn up_endpoints(&self) -> &Endpoints;
 }
 
 /// 已经上传的分片信息
@@ -170,6 +207,46 @@ enum ReinitializedUpEndpointsProvider {
     KeepOriginalUpEndpoints,
     RefreshUpEndpoints,
     SpecifiedRegionsProvider(Box<dyn RegionsProvider>),
+}
+
+impl ReinitializeOptions {
+    fn get_up_endpoints<M: MultiPartsUploader>(
+        &self,
+        uploader: &M,
+        initialized: &M::InitializedParts,
+    ) -> ApiResult<Endpoints> {
+        match &self.endpoints_provider {
+            ReinitializedUpEndpointsProvider::KeepOriginalUpEndpoints => Ok(initialized.up_endpoints().to_owned()),
+            ReinitializedUpEndpointsProvider::RefreshUpEndpoints => uploader.get_up_endpoints(initialized.params()),
+            ReinitializedUpEndpointsProvider::SpecifiedRegionsProvider(regions_provider) => {
+                let opts = EndpointsGetOptions::builder().service_names(&[ServiceName::Up]).build();
+                Ok(RegionsProviderEndpoints::new(regions_provider)
+                    .get_endpoints(opts)?
+                    .into_owned())
+            }
+        }
+    }
+
+    #[cfg(feature = "async")]
+    async fn async_get_up_endpoints<M: MultiPartsUploader>(
+        &self,
+        uploader: &M,
+        initialized: &M::AsyncInitializedParts,
+    ) -> ApiResult<Endpoints> {
+        match &self.endpoints_provider {
+            ReinitializedUpEndpointsProvider::KeepOriginalUpEndpoints => Ok(initialized.up_endpoints().to_owned()),
+            ReinitializedUpEndpointsProvider::RefreshUpEndpoints => {
+                uploader.async_get_up_endpoints(initialized.params()).await
+            }
+            ReinitializedUpEndpointsProvider::SpecifiedRegionsProvider(regions_provider) => {
+                let opts = EndpointsGetOptions::builder().service_names(&[ServiceName::Up]).build();
+                Ok(RegionsProviderEndpoints::new(regions_provider)
+                    .async_get_endpoints(opts)
+                    .await?
+                    .into_owned())
+            }
+        }
+    }
 }
 
 /// 重新初始化分片信息的选项构建器
@@ -216,3 +293,107 @@ mod progress;
 mod __private {
     pub trait Sealed {}
 }
+
+pub(super) trait MultiPartsUploaderExt: MultiPartsUploader {
+    fn storage(&self) -> storage::Client {
+        self.upload_manager().client().storage()
+    }
+
+    fn access_key(&self) -> ApiResult<AccessKey> {
+        self.upload_manager().upload_token().access_key()
+    }
+
+    fn bucket_name(&self) -> ApiResult<BucketName> {
+        self.upload_manager().upload_token().bucket_name()
+    }
+
+    #[cfg(feature = "async")]
+    fn async_access_key(&self) -> BoxFuture<ApiResult<AccessKey>> {
+        Box::pin(async move { self.upload_manager().upload_token().async_access_key().await })
+    }
+
+    #[cfg(feature = "async")]
+    fn async_bucket_name(&self) -> BoxFuture<ApiResult<BucketName>> {
+        Box::pin(async move { self.upload_manager().upload_token().async_bucket_name().await })
+    }
+
+    fn get_bucket_regions(&self, params: &ObjectParams) -> ApiResult<GotRegions> {
+        if let Some(region_provider) = params.region_provider() {
+            region_provider.get_all(Default::default())
+        } else {
+            self.get_bucket_region()?.get_all(Default::default())
+        }
+    }
+
+    #[cfg(feature = "async")]
+    fn async_get_bucket_regions<'a>(&'a self, params: &'a ObjectParams) -> BoxFuture<'a, ApiResult<GotRegions>> {
+        Box::pin(async move {
+            if let Some(region_provider) = params.region_provider() {
+                region_provider.async_get_all(Default::default()).await
+            } else {
+                self.async_get_bucket_region()
+                    .await?
+                    .async_get_all(Default::default())
+                    .await
+            }
+        })
+    }
+
+    fn get_up_endpoints(&self, params: &ObjectParams) -> ApiResult<Endpoints> {
+        let options = EndpointsGetOptions::builder().service_names(&[ServiceName::Up]).build();
+        let up_endpoints = if let Some(region_provider) = params.region_provider() {
+            RegionsProviderEndpoints::new(region_provider)
+                .get_endpoints(options)?
+                .into_owned()
+        } else {
+            RegionsProviderEndpoints::new(self.get_bucket_region()?)
+                .get_endpoints(options)?
+                .into_owned()
+        };
+        Ok(up_endpoints)
+    }
+
+    #[cfg(feature = "async")]
+    fn async_get_up_endpoints<'a>(&'a self, params: &'a ObjectParams) -> BoxFuture<'a, ApiResult<Endpoints>> {
+        Box::pin(async move {
+            let options = EndpointsGetOptions::builder().service_names(&[ServiceName::Up]).build();
+            let up_endpoints = if let Some(region_provider) = params.region_provider() {
+                RegionsProviderEndpoints::new(region_provider)
+                    .async_get_endpoints(options)
+                    .await?
+                    .into_owned()
+            } else {
+                RegionsProviderEndpoints::new(self.async_get_bucket_region().await?)
+                    .async_get_endpoints(options)
+                    .await?
+                    .into_owned()
+            };
+            Ok(up_endpoints)
+        })
+    }
+
+    fn get_bucket_region(&self) -> ApiResult<BucketRegionsProvider> {
+        Ok(self
+            .upload_manager()
+            .queryer()
+            .query(self.access_key()?, self.bucket_name()?))
+    }
+
+    #[cfg(feature = "async")]
+    fn async_get_bucket_region(&self) -> BoxFuture<ApiResult<BucketRegionsProvider>> {
+        Box::pin(async move {
+            Ok(self
+                .upload_manager()
+                .queryer()
+                .query(self.async_access_key().await?, self.async_bucket_name().await?))
+        })
+    }
+
+    fn make_upload_token_signer(&self, object_name: Option<ObjectName>) -> OwnedUploadTokenProviderOrReferenced<'_> {
+        self.upload_manager()
+            .upload_token()
+            .make_upload_token_provider(object_name)
+    }
+}
+
+impl<M: MultiPartsUploader> MultiPartsUploaderExt for M {}

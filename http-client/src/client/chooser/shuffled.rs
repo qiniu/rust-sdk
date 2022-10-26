@@ -101,7 +101,7 @@ mod tests {
         );
         assert_eq!(
             make_set(ip_chooser.choose(IPS_WITHOUT_PORT, Default::default())),
-            make_set(&[IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)), None)]),
+            make_set([IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 3)), None)]),
         );
 
         ip_chooser.feedback(
@@ -126,7 +126,7 @@ mod tests {
         );
         assert_eq!(
             make_set(ip_chooser.choose(IPS_WITHOUT_PORT, Default::default())),
-            make_set(&[
+            make_set([
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), None),
                 IpAddrWithPort::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 2)), None),
             ])

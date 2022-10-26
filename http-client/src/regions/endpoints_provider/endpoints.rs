@@ -66,6 +66,14 @@ impl Endpoints {
         &self.alternative
     }
 
+    /// 对比两组终端地址列表是否相似
+    ///
+    /// 相似指的是，两个终端地址列表内主要终端地址列表中的域名相同，备选终端地址列表中的域名也相同，但顺序可能不同
+    #[inline]
+    pub fn similar(&self, other: &Self) -> bool {
+        self.md5() == other.md5()
+    }
+
     fn from_region(region: &Region, services: &[ServiceName]) -> Self {
         let mut builder = EndpointsBuilder {
             preferred: vec![],
@@ -111,18 +119,25 @@ impl Endpoints {
 
     pub(in super::super) fn md5(&self) -> &Md5Value {
         self.md5.get_or_init(|| {
-            let mut all_endpoints: Vec<_> = self
-                .preferred()
-                .iter()
-                .chain(self.alternative().iter())
-                .map(|endpoint| endpoint.to_string())
-                .collect();
-            all_endpoints.sort();
+            let mut preferred_endpoints = self.preferred().iter().map(|e| e.to_string()).collect::<Vec<_>>();
+            let mut alternative_endpoints = self.alternative().iter().map(|e| e.to_string()).collect::<Vec<_>>();
 
-            all_endpoints
+            preferred_endpoints.sort();
+            alternative_endpoints.sort();
+
+            let mut md5 = preferred_endpoints
                 .into_iter()
                 .fold(Md5::default(), |mut md5, endpoint| {
                     md5.update(endpoint.as_bytes());
+                    md5.update(b"\0");
+                    md5
+                });
+            md5.update(b"\n");
+            alternative_endpoints
+                .into_iter()
+                .fold(md5, |mut md5, endpoint| {
+                    md5.update(endpoint.as_bytes());
+                    md5.update(b"\0");
                     md5
                 })
                 .finalize()

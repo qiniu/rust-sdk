@@ -16,21 +16,21 @@
 
 ```toml
 [dependencies]
-qiniu-download-manager = { version = "0.2.0", features = ["ureq"] }
+qiniu-download-manager = { version = "0.2.1", features = ["ureq"] }
 ```
 
 ### 启用 Isahc 异步接口
 
 ```toml
 [dependencies]
-qiniu-download-manager = { version = "0.2.0", features = ["async", "isahc"] }
+qiniu-download-manager = { version = "0.2.1", features = ["async", "isahc"] }
 ```
 
 ### 启用 Reqwest 异步接口
 
 ```toml
 [dependencies]
-qiniu-download-manager = { version = "0.2.0", features = ["async", "reqwest"] }
+qiniu-download-manager = { version = "0.2.1", features = ["async", "reqwest"] }
 ```
 
 ### 其他功能

@@ -1,10 +1,14 @@
 use super::{
     super::{
-        multi_parts_uploader::PartsExpiredError, ConcurrencyProvider, ConcurrencyProviderFeedback,
-        DataPartitionProvider, DataSource, FixedConcurrencyProvider, FixedDataPartitionProvider, MultiPartsUploader,
-        ObjectParams, UploadedPart,
+        multi_parts_uploader::{MultiPartsUploaderExt, PartsExpiredError},
+        Concurrency, ConcurrencyProvider, ConcurrencyProviderFeedback, DataPartitionProvider, DataSource,
+        FixedConcurrencyProvider, FixedDataPartitionProvider, MultiPartsUploader, ObjectParams, ReinitializeOptions,
+        UploadedPart,
     },
-    utils::keep_original_region_options,
+    utils::{
+        keep_original_region_options, need_to_retry, no_region_tried_error, remove_used_region_from_regions,
+        specify_region_options, UploadPartsError, UploadResumedPartsError,
+    },
     MultiPartsUploaderScheduler,
 };
 use qiniu_apis::http_client::{ApiResult, ResponseError, ResponseErrorKind};
@@ -16,15 +20,15 @@ use std::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Mutex,
     },
-    time::Instant,
+    time::{Duration, Instant},
 };
 use tap::Tap;
 
 #[cfg(feature = "async")]
 use {
-    super::{super::Concurrency, AsyncDataSource},
+    super::AsyncDataSource,
     async_std::task::spawn,
-    futures::future::{join_all, BoxFuture},
+    futures::future::{join_all, BoxFuture, OptionFuture},
     std::sync::Arc,
 };
 
@@ -150,159 +154,330 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler<M::HashAlgorit
             })
             .build()
             .map_err(|err| ResponseError::new(ResponseErrorKind::SystemCallError, err))?;
-        let begin_at = Instant::now();
-        let result = _upload(self, source, params, &thread_pool);
-        let mut elapsed = begin_at.elapsed();
-
-        let result = match result {
-            Ok(value) => Ok(value),
-            Err((err, uploaded_size, true, Some(mut initialized)))
-                if err.extensions().get::<PartsExpiredError>().is_some() =>
-            {
-                if self
-                    .multi_parts_uploader
-                    .reinitialize_parts(&mut initialized, keep_original_region_options())
-                    .is_ok()
-                {
-                    let begin_at = Instant::now();
-                    _upload_after_reinitialize(self, &initialized, &thread_pool).tap_mut(|_| {
-                        elapsed = begin_at.elapsed();
-                    })
-                } else {
-                    Err((err, uploaded_size))
+        let mut uploaded_size = Default::default();
+        let mut elapsed = Default::default();
+        return _upload(
+            self,
+            source,
+            params,
+            concurrency,
+            &thread_pool,
+            &mut elapsed,
+            &mut uploaded_size,
+        )
+        .tap(|result| {
+            if let Some(uploaded_size) = NonZeroU64::new(uploaded_size) {
+                let mut builder = ConcurrencyProviderFeedback::builder(concurrency, uploaded_size, elapsed);
+                if let Some(err) = result.as_ref().err() {
+                    builder.error(err);
                 }
+                self.concurrency_provider.feedback(builder.build())
             }
-            Err((err, uploaded_size, _, _)) => Err((err, uploaded_size)),
-        };
-
-        let (result, uploaded_size) = match result {
-            Ok((value, uploaded_size)) => (Ok(value), uploaded_size),
-            Err((err, uploaded_size)) => (Err(err), uploaded_size),
-        };
-
-        if let Some(uploaded_size) = NonZeroU64::new(uploaded_size) {
-            let mut builder = ConcurrencyProviderFeedback::builder(concurrency, uploaded_size, elapsed);
-            if let Some(err) = result.as_ref().err() {
-                builder.error(err);
-            }
-            self.concurrency_provider.feedback(builder.build())
-        }
-        return result;
-
-        type UploadResult<M> = Result<
-            (Value, u64),
-            (
-                ResponseError,
-                u64,
-                bool,
-                Option<<M as MultiPartsUploader>::InitializedParts>,
-            ),
-        >;
+        });
 
         fn _upload<M: MultiPartsUploader>(
             scheduler: &ConcurrentMultiPartsUploaderScheduler<M>,
             source: Box<dyn DataSource<M::HashAlgorithm>>,
             params: ObjectParams,
+            concurrency: Concurrency,
             thread_pool: &ThreadPool,
-        ) -> UploadResult<M> {
-            let initialized = scheduler
-                .multi_parts_uploader
-                .initialize_parts(source, params)
-                .map_err(|err| (err, 0, false, None))?;
-            let parts = Mutex::new(Vec::with_capacity(4));
-            let any_error = AtomicBool::new(false);
-            let uploaded_size = AtomicU64::new(0);
-            let resumed = AtomicBool::new(false);
-            thread_pool.scope_fifo(|s| {
-                s.spawn_fifo(|_| {
-                    while !any_error.load(Ordering::SeqCst) {
-                        match scheduler
-                            .multi_parts_uploader
-                            .upload_part(&initialized, &scheduler.data_partition_provider)
-                        {
-                            Ok(Some(uploaded_part)) => {
-                                if uploaded_part.resumed() {
-                                    if !resumed.load(Ordering::Relaxed) {
-                                        resumed.store(true, Ordering::Relaxed);
-                                    }
-                                } else {
-                                    uploaded_size.fetch_add(uploaded_part.size().get(), Ordering::Relaxed);
-                                }
-                                parts.lock().unwrap().push(Ok(uploaded_part));
-                            }
-                            Ok(None) => {
-                                return;
-                            }
-                            Err(err) => {
-                                parts.lock().unwrap().push(Err(err));
-                                any_error.store(false, Ordering::SeqCst);
-                                return;
-                            }
-                        }
+            elapsed: &mut Duration,
+            uploaded_size: &mut u64,
+        ) -> ApiResult<Value> {
+            match _resume_and_upload(
+                scheduler,
+                source.to_owned(),
+                params.to_owned(),
+                concurrency,
+                thread_pool,
+                elapsed,
+                uploaded_size,
+            ) {
+                None => {
+                    match _try_to_upload_to_all_regions(
+                        scheduler,
+                        source,
+                        params,
+                        None,
+                        concurrency,
+                        thread_pool,
+                        elapsed,
+                        uploaded_size,
+                    ) {
+                        Ok(None) => Err(no_region_tried_error()),
+                        Ok(Some(value)) => Ok(value),
+                        Err(err) => Err(err),
                     }
-                })
-            });
-            let uploaded_size = uploaded_size.into_inner();
-            let resumed = resumed.into_inner();
-            let parts = match parts.into_inner().unwrap().into_iter().collect::<ApiResult<Vec<_>>>() {
-                Ok(parts) => parts,
-                Err(err) => {
-                    return Err((err, uploaded_size, resumed, Some(initialized)));
                 }
-            };
-            match scheduler.multi_parts_uploader.complete_parts(&initialized, &parts) {
-                Ok(value) => Ok((value, uploaded_size)),
-                Err(err) => Err((err, uploaded_size, resumed, Some(initialized))),
+                Some(Err(UploadPartsError { err, .. })) if !need_to_retry(&err) => Err(err),
+                Some(Err(UploadPartsError { initialized, err })) => {
+                    match _try_to_upload_to_all_regions(
+                        scheduler,
+                        source,
+                        params,
+                        initialized,
+                        concurrency,
+                        thread_pool,
+                        elapsed,
+                        uploaded_size,
+                    ) {
+                        Ok(None) => Err(err),
+                        Ok(Some(value)) => Ok(value),
+                        Err(err) => Err(err),
+                    }
+                }
+                Some(Ok(value)) => Ok(value),
             }
         }
 
-        type ReinitializeResult = Result<(Value, u64), (ResponseError, u64)>;
-
-        fn _upload_after_reinitialize<M: MultiPartsUploader>(
+        fn _resume_and_upload<M: MultiPartsUploader>(
             scheduler: &ConcurrentMultiPartsUploaderScheduler<M>,
-            initialized: &M::InitializedParts,
+            source: Box<dyn DataSource<M::HashAlgorithm>>,
+            params: ObjectParams,
+            concurrency: Concurrency,
             thread_pool: &ThreadPool,
-        ) -> ReinitializeResult {
-            let parts = Mutex::new(Vec::with_capacity(4));
-            let any_error = AtomicBool::new(false);
-            let uploaded_size = AtomicU64::new(0);
-            thread_pool.scope_fifo(|s| {
-                s.spawn_fifo(|_| {
-                    while !any_error.load(Ordering::SeqCst) {
-                        match scheduler
-                            .multi_parts_uploader
-                            .upload_part(initialized, &scheduler.data_partition_provider)
-                        {
-                            Ok(Some(uploaded_part)) => {
-                                if !uploaded_part.resumed() {
-                                    uploaded_size.fetch_add(uploaded_part.size().get(), Ordering::Relaxed);
-                                }
-                                parts.lock().unwrap().push(Ok(uploaded_part));
-                            }
-                            Ok(None) => {
-                                return;
-                            }
-                            Err(err) => {
-                                parts.lock().unwrap().push(Err(err));
-                                any_error.store(false, Ordering::SeqCst);
-                                return;
-                            }
+            elapsed: &mut Duration,
+            uploaded_size: &mut u64,
+        ) -> Option<Result<Value, UploadPartsError<M::InitializedParts>>> {
+            _upload_resumed_parts(
+                scheduler,
+                source,
+                params,
+                concurrency,
+                thread_pool,
+                elapsed,
+                uploaded_size,
+            )
+            .map(|result| match result {
+                Ok(value) => Ok(value),
+                Err(UploadResumedPartsError {
+                    err,
+                    resumed: true,
+                    initialized: Some(mut initialized),
+                }) if err.extensions().get::<PartsExpiredError>().is_some() => {
+                    match _reinitialize_and_upload_again(
+                        scheduler,
+                        &mut initialized,
+                        keep_original_region_options(),
+                        concurrency,
+                        thread_pool,
+                        elapsed,
+                        uploaded_size,
+                    ) {
+                        Some(Ok(value)) => Ok(value),
+                        Some(Err(err)) => Err(UploadPartsError::new(err, Some(initialized))),
+                        None => Err(UploadPartsError::new(err, Some(initialized))),
+                    }
+                }
+                Err(UploadResumedPartsError { err, initialized, .. }) => Err(UploadPartsError::new(err, initialized)),
+            })
+        }
+
+        fn _upload_resumed_parts<M: MultiPartsUploader>(
+            scheduler: &ConcurrentMultiPartsUploaderScheduler<M>,
+            source: Box<dyn DataSource<M::HashAlgorithm>>,
+            params: ObjectParams,
+            concurrency: Concurrency,
+            thread_pool: &ThreadPool,
+            elapsed: &mut Duration,
+            uploaded_size: &mut u64,
+        ) -> Option<Result<Value, UploadResumedPartsError<M::InitializedParts>>> {
+            let begin_at = Instant::now();
+            scheduler
+                .multi_parts_uploader
+                .try_to_resume_parts(source, params)
+                .map(|initialized| {
+                    _upload_after_initialize(scheduler, &initialized, concurrency, thread_pool, uploaded_size)
+                        .map_err(|(err, resumed)| UploadResumedPartsError::new(err, resumed, Some(initialized)))
+                })
+                .tap(|_| {
+                    *elapsed = begin_at.elapsed();
+                })
+        }
+
+        #[allow(clippy::too_many_arguments)]
+        fn _try_to_upload_to_all_regions<M: MultiPartsUploader>(
+            scheduler: &ConcurrentMultiPartsUploaderScheduler<M>,
+            source: Box<dyn DataSource<M::HashAlgorithm>>,
+            params: ObjectParams,
+            mut initialized: Option<M::InitializedParts>,
+            concurrency: Concurrency,
+            thread_pool: &ThreadPool,
+            elapsed: &mut Duration,
+            uploaded_size: &mut u64,
+        ) -> ApiResult<Option<Value>> {
+            let mut regions = scheduler
+                .multi_parts_uploader
+                .get_bucket_regions(&params)
+                .map(|r| r.into_regions())?;
+            if let Some(initialized) = &initialized {
+                remove_used_region_from_regions(&mut regions, initialized);
+            }
+            let mut last_err = None;
+            for region in regions {
+                let begin_at = Instant::now();
+                let initialized_result = if let Some(mut initialized) = initialized.take() {
+                    scheduler
+                        .multi_parts_uploader
+                        .reinitialize_parts(&mut initialized, specify_region_options(region))
+                        .map(|_| initialized)
+                } else {
+                    scheduler
+                        .multi_parts_uploader
+                        .initialize_parts(source.to_owned(), params.to_owned())
+                };
+                let new_initialized = match initialized_result {
+                    Ok(new_initialized) => {
+                        initialized = Some(new_initialized.to_owned());
+                        new_initialized
+                    }
+                    Err(err) => {
+                        let to_retry = need_to_retry(&err);
+                        last_err = Some(err);
+                        if to_retry {
+                            continue;
+                        } else {
+                            break;
                         }
                     }
-                })
+                };
+                let result =
+                    _upload_after_reinitialize(scheduler, &new_initialized, concurrency, thread_pool, uploaded_size);
+                *elapsed = begin_at.elapsed();
+                match result {
+                    Ok(value) => {
+                        return Ok(Some(value));
+                    }
+                    Err(err) => {
+                        let to_retry = need_to_retry(&err);
+                        last_err = Some(err);
+                        if to_retry {
+                            continue;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+            last_err.map_or(Ok(None), Err)
+        }
+
+        fn _upload_after_initialize<M: MultiPartsUploader>(
+            scheduler: &ConcurrentMultiPartsUploaderScheduler<M>,
+            initialized: &M::InitializedParts,
+            concurrency: Concurrency,
+            thread_pool: &ThreadPool,
+            uploaded_size: &mut u64,
+        ) -> Result<Value, (ResponseError, bool)> {
+            let parts = Mutex::new(Vec::with_capacity(4));
+            let atomic_uploaded_size = AtomicU64::new(0);
+            let atomic_resumed = AtomicBool::new(false);
+            let any_error = AtomicBool::new(false);
+            thread_pool.scope_fifo(|s| {
+                for _ in 0..concurrency.as_usize() {
+                    s.spawn_fifo(|_| {
+                        while !any_error.load(Ordering::SeqCst) {
+                            match scheduler
+                                .multi_parts_uploader
+                                .upload_part(initialized, &scheduler.data_partition_provider)
+                            {
+                                Ok(Some(uploaded_part)) => {
+                                    if uploaded_part.resumed() {
+                                        if !atomic_resumed.load(Ordering::Relaxed) {
+                                            atomic_resumed.store(true, Ordering::Relaxed);
+                                        }
+                                    } else {
+                                        atomic_uploaded_size.fetch_add(uploaded_part.size().get(), Ordering::Relaxed);
+                                    }
+                                    parts.lock().unwrap().push(Ok(uploaded_part));
+                                }
+                                Ok(None) => {
+                                    return;
+                                }
+                                Err(err) => {
+                                    parts.lock().unwrap().push(Err(err));
+                                    any_error.store(false, Ordering::SeqCst);
+                                    return;
+                                }
+                            }
+                        }
+                    });
+                }
             });
-            let uploaded_size = uploaded_size.into_inner();
+            *uploaded_size = atomic_uploaded_size.into_inner();
+            let resumed = atomic_resumed.into_inner();
             let parts = parts
                 .into_inner()
                 .unwrap()
                 .into_iter()
                 .collect::<ApiResult<Vec<_>>>()
-                .map_err(|err| (err, uploaded_size))?;
+                .map_err(|err| (err, resumed))?;
             scheduler
                 .multi_parts_uploader
                 .complete_parts(initialized, &parts)
-                .map(|value| (value, uploaded_size))
-                .map_err(|err| (err, uploaded_size))
+                .map_err(|err| (err, resumed))
+        }
+
+        fn _reinitialize_and_upload_again<M: MultiPartsUploader>(
+            scheduler: &ConcurrentMultiPartsUploaderScheduler<M>,
+            initialized: &mut M::InitializedParts,
+            reinitialize_options: ReinitializeOptions,
+            concurrency: Concurrency,
+            thread_pool: &ThreadPool,
+            elapsed: &mut Duration,
+            uploaded_size: &mut u64,
+        ) -> Option<ApiResult<Value>> {
+            let begin_at = Instant::now();
+            scheduler
+                .multi_parts_uploader
+                .reinitialize_parts(initialized, reinitialize_options)
+                .ok()
+                .map(|_| _upload_after_reinitialize(scheduler, initialized, concurrency, thread_pool, uploaded_size))
+                .tap(|_| {
+                    *elapsed = begin_at.elapsed();
+                })
+        }
+
+        fn _upload_after_reinitialize<M: MultiPartsUploader>(
+            scheduler: &ConcurrentMultiPartsUploaderScheduler<M>,
+            initialized: &M::InitializedParts,
+            concurrency: Concurrency,
+            thread_pool: &ThreadPool,
+            uploaded_size: &mut u64,
+        ) -> ApiResult<Value> {
+            let parts = Mutex::new(Vec::with_capacity(4));
+            let atomic_uploaded_size = AtomicU64::new(0);
+            let any_error = AtomicBool::new(false);
+            thread_pool.scope_fifo(|s| {
+                for _ in 0..concurrency.as_usize() {
+                    s.spawn_fifo(|_| {
+                        while !any_error.load(Ordering::SeqCst) {
+                            match scheduler
+                                .multi_parts_uploader
+                                .upload_part(initialized, &scheduler.data_partition_provider)
+                            {
+                                Ok(Some(uploaded_part)) => {
+                                    if !uploaded_part.resumed() {
+                                        atomic_uploaded_size.fetch_add(uploaded_part.size().get(), Ordering::Relaxed);
+                                    }
+                                    parts.lock().unwrap().push(Ok(uploaded_part));
+                                }
+                                Ok(None) => {
+                                    return;
+                                }
+                                Err(err) => {
+                                    parts.lock().unwrap().push(Err(err));
+                                    any_error.store(false, Ordering::SeqCst);
+                                    return;
+                                }
+                            }
+                        }
+                    })
+                }
+            });
+            *uploaded_size = atomic_uploaded_size.into_inner();
+            let parts = parts.into_inner().unwrap().into_iter().collect::<ApiResult<Vec<_>>>()?;
+            scheduler.multi_parts_uploader.complete_parts(initialized, &parts)
         }
     }
 
@@ -315,45 +490,19 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler<M::HashAlgorit
     ) -> BoxFuture<ApiResult<Value>> {
         return Box::pin(async move {
             let concurrency = self.concurrency_provider.concurrency();
-            let begin_at = Instant::now();
-            let result = _upload(self, source, params, concurrency).await;
-            let mut elapsed = begin_at.elapsed();
-
-            let result = match result {
-                Ok(value) => Ok(value),
-                Err((err, uploaded_size, true, Some(mut initialized)))
-                    if err.extensions().get::<PartsExpiredError>().is_some() =>
-                {
-                    if self
-                        .multi_parts_uploader
-                        .async_reinitialize_parts(&mut initialized, keep_original_region_options())
-                        .await
-                        .is_ok()
-                    {
-                        let begin_at = Instant::now();
-                        _upload_after_reinitialize(self, initialized, concurrency)
-                            .await
-                            .tap_mut(|_| {
-                                elapsed = begin_at.elapsed();
-                            })
-                    } else {
-                        Err((err, uploaded_size))
+            let mut uploaded_size = Default::default();
+            let mut elapsed = Default::default();
+            _upload(self, source, params, concurrency, &mut elapsed, &mut uploaded_size)
+                .await
+                .tap(|result| {
+                    if let Some(uploaded_size) = NonZeroU64::new(uploaded_size) {
+                        let mut builder = ConcurrencyProviderFeedback::builder(concurrency, uploaded_size, elapsed);
+                        if let Some(err) = result.as_ref().err() {
+                            builder.error(err);
+                        }
+                        self.concurrency_provider.feedback(builder.build())
                     }
-                }
-                Err((err, uploaded_size, _, _)) => Err((err, uploaded_size)),
-            };
-            let (result, uploaded_size) = match result {
-                Ok((value, uploaded_size)) => (Ok(value), uploaded_size),
-                Err((err, uploaded_size)) => (Err(err), uploaded_size),
-            };
-            if let Some(uploaded_size) = NonZeroU64::new(uploaded_size) {
-                let mut builder = ConcurrencyProviderFeedback::builder(concurrency, uploaded_size, elapsed);
-                if let Some(err) = result.as_ref().err() {
-                    builder.error(err);
-                }
-                self.concurrency_provider.feedback(builder.build())
-            }
-            result
+                })
         });
 
         async fn _upload<M: MultiPartsUploader + 'static>(
@@ -361,23 +510,210 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler<M::HashAlgorit
             source: Box<dyn AsyncDataSource<M::HashAlgorithm>>,
             params: ObjectParams,
             concurrency: Concurrency,
-        ) -> Result<(Value, u64), (ResponseError, u64, bool, Option<M::AsyncInitializedParts>)> {
-            let initialized = Arc::new(
+            elapsed: &mut Duration,
+            uploaded_size: &mut u64,
+        ) -> ApiResult<Value> {
+            match _resume_and_upload(
+                scheduler,
+                source.to_owned(),
+                params.to_owned(),
+                concurrency,
+                elapsed,
+                uploaded_size,
+            )
+            .await
+            {
+                None => {
+                    match _try_to_upload_to_all_regions(
+                        scheduler,
+                        source,
+                        params,
+                        None,
+                        concurrency,
+                        elapsed,
+                        uploaded_size,
+                    )
+                    .await
+                    {
+                        Ok(None) => Err(no_region_tried_error()),
+                        Ok(Some(value)) => Ok(value),
+                        Err(err) => Err(err),
+                    }
+                }
+                Some(Err(UploadPartsError { err, .. })) if !need_to_retry(&err) => Err(err),
+                Some(Err(UploadPartsError { initialized, err })) => {
+                    match _try_to_upload_to_all_regions(
+                        scheduler,
+                        source,
+                        params,
+                        initialized,
+                        concurrency,
+                        elapsed,
+                        uploaded_size,
+                    )
+                    .await
+                    {
+                        Ok(None) => Err(err),
+                        Ok(Some(value)) => Ok(value),
+                        Err(err) => Err(err),
+                    }
+                }
+                Some(Ok(value)) => Ok(value),
+            }
+        }
+
+        async fn _resume_and_upload<M: MultiPartsUploader + 'static>(
+            scheduler: &ConcurrentMultiPartsUploaderScheduler<M>,
+            source: Box<dyn AsyncDataSource<M::HashAlgorithm>>,
+            params: ObjectParams,
+            concurrency: Concurrency,
+            elapsed: &mut Duration,
+            uploaded_size: &mut u64,
+        ) -> Option<Result<Value, UploadPartsError<M::AsyncInitializedParts>>> {
+            OptionFuture::from(
+                _upload_resumed_parts(scheduler, source, params, concurrency, elapsed, uploaded_size)
+                    .await
+                    .map(|result| async move {
+                        match result {
+                            Ok(value) => Ok(value),
+                            Err(UploadResumedPartsError {
+                                err,
+                                resumed: true,
+                                initialized: Some(mut initialized),
+                            }) if err.extensions().get::<PartsExpiredError>().is_some() => {
+                                match _reinitialize_and_upload_again(
+                                    scheduler,
+                                    &mut initialized,
+                                    keep_original_region_options(),
+                                    concurrency,
+                                    elapsed,
+                                    uploaded_size,
+                                )
+                                .await
+                                {
+                                    Some(Ok(value)) => Ok(value),
+                                    Some(Err(err)) => Err(UploadPartsError::new(err, Some(initialized))),
+                                    None => Err(UploadPartsError::new(err, Some(initialized))),
+                                }
+                            }
+                            Err(UploadResumedPartsError { err, initialized, .. }) => {
+                                Err(UploadPartsError::new(err, initialized))
+                            }
+                        }
+                    }),
+            )
+            .await
+        }
+
+        async fn _upload_resumed_parts<M: MultiPartsUploader + 'static>(
+            scheduler: &ConcurrentMultiPartsUploaderScheduler<M>,
+            source: Box<dyn AsyncDataSource<M::HashAlgorithm>>,
+            params: ObjectParams,
+            concurrency: Concurrency,
+            elapsed: &mut Duration,
+            uploaded_size: &mut u64,
+        ) -> Option<Result<Value, UploadResumedPartsError<M::AsyncInitializedParts>>> {
+            let begin_at = Instant::now();
+            OptionFuture::from(
                 scheduler
                     .multi_parts_uploader
-                    .async_initialize_parts(source, params)
+                    .try_to_async_resume_parts(source, params)
                     .await
-                    .map_err(|err| (err, 0, false, None))?,
-            );
-            let uploaded_size = Arc::new(AtomicU64::new(0));
-            let resumed = Arc::new(AtomicBool::new(false));
+                    .map(|initialized| async move {
+                        _upload_after_initialize(scheduler, initialized.to_owned(), concurrency, uploaded_size)
+                            .await
+                            .map_err(|(err, resumed)| UploadResumedPartsError::new(err, resumed, Some(initialized)))
+                    }),
+            )
+            .await
+            .tap(|_| {
+                *elapsed = begin_at.elapsed();
+            })
+        }
+
+        async fn _try_to_upload_to_all_regions<M: MultiPartsUploader + 'static>(
+            scheduler: &ConcurrentMultiPartsUploaderScheduler<M>,
+            source: Box<dyn AsyncDataSource<M::HashAlgorithm>>,
+            params: ObjectParams,
+            mut initialized: Option<M::AsyncInitializedParts>,
+            concurrency: Concurrency,
+            elapsed: &mut Duration,
+            uploaded_size: &mut u64,
+        ) -> ApiResult<Option<Value>> {
+            let mut regions = scheduler
+                .multi_parts_uploader
+                .async_get_bucket_regions(&params)
+                .await
+                .map(|r| r.into_regions())?;
+            if let Some(initialized) = &initialized {
+                remove_used_region_from_regions(&mut regions, initialized);
+            }
+            let mut last_err = None;
+            for region in regions {
+                let begin_at = Instant::now();
+                let initialized_result = if let Some(mut initialized) = initialized.take() {
+                    scheduler
+                        .multi_parts_uploader
+                        .async_reinitialize_parts(&mut initialized, specify_region_options(region))
+                        .await
+                        .map(|_| initialized)
+                } else {
+                    scheduler
+                        .multi_parts_uploader
+                        .async_initialize_parts(source.to_owned(), params.to_owned())
+                        .await
+                };
+                let new_initialized = match initialized_result {
+                    Ok(new_initialized) => {
+                        initialized = Some(new_initialized.to_owned());
+                        new_initialized
+                    }
+                    Err(err) => {
+                        let to_retry = need_to_retry(&err);
+                        last_err = Some(err);
+                        if to_retry {
+                            continue;
+                        } else {
+                            break;
+                        }
+                    }
+                };
+                let result = _upload_after_reinitialize(scheduler, new_initialized, concurrency, uploaded_size).await;
+                *elapsed = begin_at.elapsed();
+                match result {
+                    Ok(value) => {
+                        return Ok(Some(value));
+                    }
+                    Err(err) => {
+                        let to_retry = need_to_retry(&err);
+                        last_err = Some(err);
+                        if to_retry {
+                            continue;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+            last_err.map_or(Ok(None), Err)
+        }
+
+        async fn _upload_after_initialize<M: MultiPartsUploader + 'static>(
+            scheduler: &ConcurrentMultiPartsUploaderScheduler<M>,
+            initialized: M::AsyncInitializedParts,
+            concurrency: Concurrency,
+            uploaded_size: &mut u64,
+        ) -> Result<Value, (ResponseError, bool)> {
+            let initialized = Arc::new(initialized);
+            let atomic_uploaded_size = Arc::new(AtomicU64::new(0));
+            let atomic_resumed = Arc::new(AtomicBool::new(false));
             let any_error = Arc::new(AtomicBool::new(false));
             let results = join_all((0..concurrency.as_usize()).map(|_| {
                 let scheduler = scheduler.to_owned();
                 let initialized = initialized.to_owned();
                 let any_error = any_error.to_owned();
-                let uploaded_size = uploaded_size.to_owned();
-                let resumed = resumed.to_owned();
+                let atomic_uploaded_size = atomic_uploaded_size.to_owned();
+                let atomic_resumed = atomic_resumed.to_owned();
                 spawn(async move {
                     let mut parts = Vec::with_capacity(4);
                     while !any_error.load(Ordering::SeqCst) {
@@ -388,11 +724,11 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler<M::HashAlgorit
                         {
                             Ok(Some(uploaded_part)) => {
                                 if uploaded_part.resumed() {
-                                    if !resumed.load(Ordering::Relaxed) {
-                                        resumed.store(true, Ordering::Relaxed);
+                                    if !atomic_resumed.load(Ordering::Relaxed) {
+                                        atomic_resumed.store(true, Ordering::Relaxed);
                                     }
                                 } else {
-                                    uploaded_size.fetch_add(uploaded_part.size().get(), Ordering::Relaxed);
+                                    atomic_uploaded_size.fetch_add(uploaded_part.size().get(), Ordering::Relaxed);
                                 }
                                 parts.push(Ok(uploaded_part));
                             }
@@ -411,45 +747,60 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler<M::HashAlgorit
             }))
             .await;
             let initialized = Arc::try_unwrap(initialized).unwrap();
-            let uploaded_size = Arc::try_unwrap(uploaded_size).unwrap().into_inner();
-            let resumed = Arc::try_unwrap(resumed).unwrap().into_inner();
-            let mut parts = Vec::with_capacity(4);
-            for parts_results in results {
-                for uploaded_part in parts_results {
-                    match uploaded_part {
-                        Ok(uploaded_part) => parts.push(uploaded_part),
-                        Err(err) => {
-                            return Err((err, uploaded_size, resumed, Some(initialized)));
-                        }
-                    }
-                }
-            }
-            match scheduler
+            *uploaded_size = Arc::try_unwrap(atomic_uploaded_size).unwrap().into_inner();
+            let resumed = Arc::try_unwrap(atomic_resumed).unwrap().into_inner();
+            let parts = results
+                .into_iter()
+                .flatten()
+                .collect::<ApiResult<Vec<_>>>()
+                .map_err(|err| (err, resumed))?;
+            scheduler
                 .multi_parts_uploader
                 .async_complete_parts(&initialized, &parts)
                 .await
-            {
-                Ok(value) => Ok((value, uploaded_size)),
-                Err(err) => Err((err, uploaded_size, resumed, Some(initialized))),
-            }
+                .map_err(|err| (err, resumed))
+        }
+
+        async fn _reinitialize_and_upload_again<M: MultiPartsUploader + 'static>(
+            scheduler: &ConcurrentMultiPartsUploaderScheduler<M>,
+            initialized: &mut M::AsyncInitializedParts,
+            reinitialize_options: ReinitializeOptions,
+            concurrency: Concurrency,
+            elapsed: &mut Duration,
+            uploaded_size: &mut u64,
+        ) -> Option<ApiResult<Value>> {
+            let begin_at = Instant::now();
+            OptionFuture::from(
+                scheduler
+                    .multi_parts_uploader
+                    .async_reinitialize_parts(initialized, reinitialize_options)
+                    .await
+                    .ok()
+                    .map(|_| _upload_after_reinitialize(scheduler, initialized.to_owned(), concurrency, uploaded_size)),
+            )
+            .await
+            .tap(|_| {
+                *elapsed = begin_at.elapsed();
+            })
         }
 
         async fn _upload_after_reinitialize<M: MultiPartsUploader + 'static>(
             scheduler: &ConcurrentMultiPartsUploaderScheduler<M>,
             initialized: M::AsyncInitializedParts,
             concurrency: Concurrency,
-        ) -> Result<(Value, u64), (ResponseError, u64)> {
+            uploaded_size: &mut u64,
+        ) -> ApiResult<Value> {
             let initialized = Arc::new(initialized);
-            let uploaded_size = Arc::new(AtomicU64::new(0));
-            let any_error = Arc::new(AtomicBool::new(false));
+            let atomic_uploaded_size = Arc::new(AtomicU64::new(0));
+            let atomic_any_error = Arc::new(AtomicBool::new(false));
             let results = join_all((0..concurrency.as_usize()).map(|_| {
                 let scheduler = scheduler.to_owned();
                 let initialized = initialized.to_owned();
-                let any_error = any_error.to_owned();
-                let uploaded_size = uploaded_size.to_owned();
+                let atomic_any_error = atomic_any_error.to_owned();
+                let atomic_uploaded_size = atomic_uploaded_size.to_owned();
                 spawn(async move {
                     let mut parts = Vec::with_capacity(4);
-                    while !any_error.load(Ordering::SeqCst) {
+                    while !atomic_any_error.load(Ordering::SeqCst) {
                         match scheduler
                             .multi_parts_uploader
                             .async_upload_part(&initialized, &scheduler.data_partition_provider)
@@ -457,7 +808,7 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler<M::HashAlgorit
                         {
                             Ok(Some(uploaded_part)) => {
                                 if !uploaded_part.resumed() {
-                                    uploaded_size.fetch_add(uploaded_part.size().get(), Ordering::Relaxed);
+                                    atomic_uploaded_size.fetch_add(uploaded_part.size().get(), Ordering::Relaxed);
                                 }
                                 parts.push(Ok(uploaded_part));
                             }
@@ -466,7 +817,7 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler<M::HashAlgorit
                             }
                             Err(err) => {
                                 parts.push(Err(err));
-                                any_error.store(true, Ordering::SeqCst);
+                                atomic_any_error.store(true, Ordering::SeqCst);
                                 break;
                             }
                         }
@@ -476,19 +827,12 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler<M::HashAlgorit
             }))
             .await;
             let initialized = Arc::try_unwrap(initialized).unwrap();
-            let uploaded_size = Arc::try_unwrap(uploaded_size).unwrap().into_inner();
-            let mut parts = Vec::with_capacity(4);
-            for parts_results in results {
-                for uploaded_part in parts_results {
-                    parts.push(uploaded_part.map_err(|err| (err, uploaded_size))?);
-                }
-            }
+            *uploaded_size = Arc::try_unwrap(atomic_uploaded_size).unwrap().into_inner();
+            let parts = results.into_iter().flatten().collect::<ApiResult<Vec<_>>>()?;
             scheduler
                 .multi_parts_uploader
                 .async_complete_parts(&initialized, &parts)
                 .await
-                .map(|value| (value, uploaded_size))
-                .map_err(|err| (err, uploaded_size))
         }
     }
 }

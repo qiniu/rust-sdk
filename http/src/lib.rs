@@ -125,6 +125,7 @@ static LIBRARY_USER_AGENT: OnceCell<UserAgent> = OnceCell::new();
 /// 该方法只能调用一次，一旦调用，全局生效
 ///
 /// 每个请求的 UserAgent 由七牛 SDK 固定 UserAgent + 库 UserAgent + 请求的追加 UserAgent 三部分组成
+#[allow(clippy::result_large_err)]
 pub fn set_library_user_agent(user_agent: UserAgent) -> Result<(), UserAgent> {
     LIBRARY_USER_AGENT.set(user_agent)
 }
