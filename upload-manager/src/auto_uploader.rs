@@ -113,10 +113,10 @@ impl<H: Digest + 'static> AutoUploader<H> {
         AutoUploaderBuilder {
             upload_manager,
             callbacks: Default::default(),
-            concurrency_provider: Box::new(FixedConcurrencyProvider::default()),
-            data_partition_provider: Box::new(FixedDataPartitionProvider::default()),
-            resumable_recorder: Box::new(FileSystemResumableRecorder::<H>::default()),
-            resumable_policy_provider: Box::new(FixedThresholdResumablePolicy::default()),
+            concurrency_provider: Box::<FixedConcurrencyProvider>::default(),
+            data_partition_provider: Box::<FixedDataPartitionProvider>::default(),
+            resumable_recorder: Box::<FileSystemResumableRecorder<H>>::default(),
+            resumable_policy_provider: Box::<FixedThresholdResumablePolicy>::default(),
         }
     }
 }

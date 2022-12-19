@@ -423,11 +423,11 @@ fn do_some_work_with_locked_data<
         if let Some(value) = value {
             if value.is_cache_valid(cache_lifetime) {
                 let line = serde_json::to_string(&PersistentCacheEntry::new(key, Some(value)))?;
-                writeln!(writer, "{}", line)?;
+                writeln!(writer, "{line}")?;
             }
         } else {
             let line = serde_json::to_string(&PersistentCacheEntry::<_, V>::new(key, None))?;
-            writeln!(writer, "{}", line)?;
+            writeln!(writer, "{line}")?;
         }
         Ok(())
     }

@@ -147,10 +147,7 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler<M::HashAlgorit
         let thread_pool = ThreadPoolBuilder::new()
             .num_threads(concurrency.as_usize())
             .thread_name(|i| {
-                format!(
-                    "qiniu.rust-sdk.upload-manager.scheduler.concurrent_multi_parts_uploader_scheduler.{}",
-                    i
-                )
+                format!("qiniu.rust-sdk.upload-manager.scheduler.concurrent_multi_parts_uploader_scheduler.{i}",)
             })
             .build()
             .map_err(|err| ResponseError::new(ResponseErrorKind::SystemCallError, err))?;

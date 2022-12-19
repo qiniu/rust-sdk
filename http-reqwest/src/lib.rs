@@ -145,7 +145,7 @@ mod tests {
                     };
                     let mut request = SyncRequest::builder()
                         .method(Method::POST)
-                        .url(format!("http://{}/dir1/dir2/file", addr).parse().expect("invalid uri"))
+                        .url(format!("http://{addr}/dir1/dir2/file").parse().expect("invalid uri"))
                         .body(SyncRequestBody::from_referenced_bytes(&request_body))
                         .on_uploading_progress(&callback)
                         .add_extension(TimeoutExtension::new(Duration::from_secs(1)))
@@ -238,7 +238,7 @@ mod tests {
                 };
                 let mut request = AsyncRequest::builder()
                     .method(Method::POST)
-                    .url(format!("http://{}/dir1/dir2/file", addr).parse().expect("invalid uri"))
+                    .url(format!("http://{addr}/dir1/dir2/file").parse().expect("invalid uri"))
                     .body(AsyncRequestBody::from_referenced_bytes(&request_body))
                     .on_uploading_progress(OnProgressCallback::reference(&callback))
                     .add_extension(TimeoutExtension::new(Duration::from_secs(1)))

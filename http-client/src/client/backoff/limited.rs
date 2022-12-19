@@ -52,8 +52,7 @@ impl<P: Backoff + Clone> Backoff for LimitedBackoff<P> {
         self.base_backoff
             .time(request, opts)
             .duration()
-            .max(self.min_backoff)
-            .min(self.max_backoff)
+            .clamp(self.min_backoff, self.max_backoff)
             .into()
     }
 }

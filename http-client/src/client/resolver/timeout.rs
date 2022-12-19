@@ -115,7 +115,7 @@ impl<R: Resolver + Clone + 'static> Resolver for TimeoutResolver<R> {
         fn make_timeout_error(timeout: Duration, opts: ResolveOptions) -> ResponseError {
             let mut err = ResponseError::new_with_msg(
                 HttpResponseErrorKind::TimeoutError.into(),
-                format!("Failed to resolve domain in {:?}", timeout),
+                format!("Failed to resolve domain in {timeout:?}"),
             );
             if let Some(retried) = opts.retried() {
                 err = err.retried(retried);

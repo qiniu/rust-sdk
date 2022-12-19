@@ -1227,7 +1227,7 @@ mod tests {
                     let body_len = size_of_sync_reader(request.body_mut()).unwrap();
                     assert_eq!(body_len, blk_size);
                     json_to_vec(&json!({
-                        "ctx": format!("==={}===", mkblk_counts),
+                        "ctx": format!("==={mkblk_counts}==="),
                         "checksum": sha1_of_sync_reader(request.body_mut()).unwrap(),
                         "offset": blk_size,
                         "host": "http://fakeexample.com",
@@ -1237,7 +1237,7 @@ mod tests {
                 } else if request.url().path().starts_with("/mkfile/") {
                     assert_eq!(self.mkblk_counts.load(Ordering::Relaxed), BLOCK_COUNT - 1);
                     assert_eq!(self.mkfile_counts.fetch_add(1, Ordering::Relaxed), 0);
-                    assert_eq!(request.url().path(), &format!("/mkfile/{}", FILE_SIZE));
+                    assert_eq!(request.url().path(), &format!("/mkfile/{FILE_SIZE}"));
                     let mut req_body = Vec::new();
                     io_copy(request.body_mut(), &mut req_body).unwrap();
                     let req_body = String::from_utf8(req_body).unwrap();
@@ -1325,7 +1325,7 @@ mod tests {
                         let body_len = size_of_async_reader(request.body_mut()).await.unwrap();
                         assert_eq!(body_len, blk_size);
                         json_to_vec(&json!({
-                            "ctx": format!("==={}===", mkblk_counts),
+                            "ctx": format!("==={mkblk_counts}==="),
                             "checksum": sha1_of_async_reader(request.body_mut()).await.unwrap(),
                             "offset": blk_size,
                             "host": "http://fakeexample.com",
@@ -1335,7 +1335,7 @@ mod tests {
                     } else if request.url().path().starts_with("/mkfile/") {
                         assert_eq!(self.mkblk_counts.load(Ordering::Relaxed), BLOCK_COUNT - 1);
                         assert_eq!(self.mkfile_counts.fetch_add(1, Ordering::Relaxed), 0);
-                        assert_eq!(request.url().path(), &format!("/mkfile/{}", FILE_SIZE));
+                        assert_eq!(request.url().path(), &format!("/mkfile/{FILE_SIZE}"));
                         let mut req_body = Vec::new();
                         async_io_copy(request.body_mut(), &mut req_body).await.unwrap();
                         let req_body = String::from_utf8(req_body).unwrap();
@@ -1530,7 +1530,7 @@ mod tests {
                     } else if request.url().path().starts_with("/mkfile/") {
                         assert_eq!(self.mkblk_counts.load(Ordering::Relaxed), 1);
                         assert_eq!(self.mkfile_counts.fetch_add(1, Ordering::Relaxed), 0);
-                        assert_eq!(request.url().path(), &format!("/mkfile/{}", FILE_SIZE));
+                        assert_eq!(request.url().path(), &format!("/mkfile/{FILE_SIZE}"));
                         let mut req_body = Vec::new();
                         io_copy(request.body_mut(), &mut req_body).unwrap();
                         let req_body = String::from_utf8(req_body).unwrap();
@@ -1737,7 +1737,7 @@ mod tests {
                         } else if request.url().path().starts_with("/mkfile/") {
                             assert_eq!(self.mkblk_counts.load(Ordering::Relaxed), 1);
                             assert_eq!(self.mkfile_counts.fetch_add(1, Ordering::Relaxed), 0);
-                            assert_eq!(request.url().path(), &format!("/mkfile/{}", FILE_SIZE));
+                            assert_eq!(request.url().path(), &format!("/mkfile/{FILE_SIZE}"));
                             let mut req_body = Vec::new();
                             async_io_copy(request.body_mut(), &mut req_body).await.unwrap();
                             let req_body = String::from_utf8(req_body).unwrap();
@@ -1833,7 +1833,7 @@ mod tests {
                         } else if request.url().path().starts_with("/mkfile/") {
                             assert_eq!(self.mkblk_counts.load(Ordering::Relaxed), 3);
                             assert_eq!(self.mkfile_counts.fetch_add(1, Ordering::Relaxed), 0);
-                            assert_eq!(request.url().path(), &format!("/mkfile/{}", FILE_SIZE));
+                            assert_eq!(request.url().path(), &format!("/mkfile/{FILE_SIZE}"));
                             let mut req_body = Vec::new();
                             async_io_copy(request.body_mut(), &mut req_body).await.unwrap();
                             assert_eq!(String::from_utf8(req_body).unwrap().split(',').count(), BLOCK_COUNT);

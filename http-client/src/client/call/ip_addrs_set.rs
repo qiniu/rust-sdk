@@ -61,7 +61,7 @@ impl Display for IpAddrsSet {
             if i > 0 {
                 write!(f, ", ")?;
             }
-            write!(f, "{}", ip)?;
+            write!(f, "{ip}")?;
         }
         write!(f, "]")?;
         Ok(())

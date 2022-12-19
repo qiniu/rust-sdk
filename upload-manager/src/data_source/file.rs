@@ -235,7 +235,7 @@ mod async_reader {
                     AsyncSource::Seekable { .. } => {
                         let mut hasher = A::new();
                         hasher.update(b"file://");
-                        hasher.update(&self.get_async_path().await?.as_os_str().to_raw_bytes());
+                        hasher.update(self.get_async_path().await?.as_os_str().to_raw_bytes());
                         Ok(Some(hasher.finalize().into()))
                     }
                     AsyncSource::Unseekable(source) => source.source_key().await,

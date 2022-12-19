@@ -158,6 +158,6 @@ async fn main() -> Result<()> {
             }
         }
     };
-    println!("{:?}", body);
+    println!("{body:?}");
     Ok(())
 }

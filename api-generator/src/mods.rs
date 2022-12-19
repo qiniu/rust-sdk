@@ -46,7 +46,7 @@ impl Mods {
             if let Some(namespace_root) = namespace.pop_front() {
                 let entry = tree
                     .entry(namespace_root)
-                    .or_insert_with(|| DirOrFile::Dir(Box::new(Tree::new())));
+                    .or_insert_with(|| DirOrFile::Dir(Box::<Tree>::default()));
                 match entry {
                     DirOrFile::Dir(sub_tree) => add(base_name, namespace, file_property, sub_tree),
                     DirOrFile::File { .. } => unreachable!("Cannot insert entry into File"),

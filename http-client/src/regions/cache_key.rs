@@ -91,10 +91,10 @@ impl Visitor<'_> for CacheKeyVisitor {
                         access_key: ak.into(),
                     }),
                 }),
-                _ => Err(E::custom(format!("Invalid cache_key: {}", value))),
+                _ => Err(E::custom(format!("Invalid cache_key: {value}"))),
             }
         } else {
-            Err(E::custom(format!("Unrecognized version of cache_key: {}", value)))
+            Err(E::custom(format!("Unrecognized version of cache_key: {value}")))
         }
     }
 }

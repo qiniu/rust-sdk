@@ -329,7 +329,7 @@ impl UploadTokenProvider for StaticUploadTokenProvider {
                     .ok_or(ParseError::InvalidUploadTokenFormat)?;
                 let decoded_policy =
                     base64::decode(encoded_policy.as_bytes()).map_err(ParseError::Base64DecodeError)?;
-                UploadPolicy::from_json(&decoded_policy).map_err(ParseError::JsonDecodeError)
+                UploadPolicy::from_json(decoded_policy).map_err(ParseError::JsonDecodeError)
             })
             .map(Cow::Borrowed)
             .map(GotUploadPolicy::from)

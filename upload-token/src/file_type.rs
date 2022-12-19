@@ -52,6 +52,7 @@ impl From<FileType> for ty {
             FileType::InfrequentAccess => 1,
             FileType::Archive => 2,
             FileType::DeepArchive => 3,
+            #[allow(clippy::unnecessary_cast)]
             FileType::Other(ft) => ft as ty,
         }
     }
@@ -66,6 +67,7 @@ impl From<FileType> for ty {
 )]
 impl From<ty> for FileType {
     fn from(value: ty) -> Self {
+        #[allow(clippy::unnecessary_cast)]
         match value as u8 {
             0 => Self::Standard,
             1 => Self::InfrequentAccess,

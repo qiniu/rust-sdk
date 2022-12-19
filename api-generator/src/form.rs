@@ -326,7 +326,7 @@ mod tests {
 
     fn write_token_stream(name: &str, token_stream: &TokenStream) -> Result<NamedTempFile> {
         let mut file = TempFileBuilder::new()
-            .prefix(&format!("{}-", name))
+            .prefix(&format!("{name}-"))
             .suffix(".rs")
             .tempfile()?;
         let all_token_stream = quote! {

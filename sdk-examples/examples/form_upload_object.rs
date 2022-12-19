@@ -50,13 +50,13 @@ async fn main() -> Result<()> {
                     transferred_bytes as f64 * 100f64 / total_bytes as f64
                 );
             } else {
-                println!("{}", transferred_bytes);
+                println!("{transferred_bytes}");
             }
             Ok(())
         })
         .async_upload_path(&opt.file, ObjectParams::builder().object_name(&opt.object_name).build())
         .await?;
-    println!("{:?}", value);
+    println!("{value:?}");
 
     Ok(())
 }

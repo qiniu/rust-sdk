@@ -171,7 +171,7 @@ pub trait Reset {
 impl<T: Seek> Reset for T {
     #[inline]
     fn reset(&mut self) -> IoResult<()> {
-        self.seek(SeekFrom::Start(0))?;
+        self.rewind()?;
         Ok(())
     }
 }

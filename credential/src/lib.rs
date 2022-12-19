@@ -909,7 +909,7 @@ impl CredentialProvider for EnvCredentialProvider {
             }
             _ => {
                 static ERROR_MESSAGE: Lazy<String> = Lazy::new(|| {
-                    format!("EnvCredentialProvider is not setuped, please call EnvCredentialProvider::setup() to do it, or set environment variable `{}` and `{}`", QINIU_ACCESS_KEY_ENV_KEY, QINIU_SECRET_KEY_ENV_KEY)
+                    format!("EnvCredentialProvider is not setuped, please call EnvCredentialProvider::setup() to do it, or set environment variable `{QINIU_ACCESS_KEY_ENV_KEY}` and `{QINIU_SECRET_KEY_ENV_KEY}`")
                 });
                 Err(IoError::new(IoErrorKind::Other, ERROR_MESSAGE.as_str()))
             }

@@ -34,7 +34,7 @@ async fn main() -> Result<()> {
         .call()
         .await?;
     for bucket_name in response.body().to_str_vec().into_iter() {
-        println!("{}", bucket_name);
+        println!("{bucket_name}");
     }
 
     Ok(())

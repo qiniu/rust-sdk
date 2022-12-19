@@ -31,7 +31,7 @@ async fn main() -> Result<()> {
 
     let response = bucket.stat_object(&opt.object_name).async_call().await?;
     let entry = response.into_body();
-    println!("{:#?}", entry);
+    println!("{entry:#?}");
 
     Ok(())
 }
