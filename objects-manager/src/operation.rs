@@ -693,7 +693,7 @@ impl ModifyObjectMetadata<'_> {
             params = params.set_condition_as_str(self.condition_string());
         }
         for (key, value) in self.metadata.iter() {
-            params = params.append_meta_data_as_str(format!("x-qn-meta-{}", key), value.to_owned());
+            params = params.append_meta_data_as_str(format!("x-qn-meta-{key}"), value.to_owned());
         }
         params
     }
@@ -702,7 +702,7 @@ impl ModifyObjectMetadata<'_> {
         let conditions: Vec<_> = self
             .conditions
             .iter()
-            .map(|(key, value)| format!("{}={}", key, value))
+            .map(|(key, value)| format!("{key}={value}"))
             .collect();
         conditions.join("&")
     }

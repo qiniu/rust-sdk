@@ -523,7 +523,7 @@ impl InnerReader<SyncResponseBody> {
                         buf,
                         Some(ResponseError::new_with_msg(
                             ResponseErrorKind::UnexpectedEof,
-                            format!("Transfer closed with {} bytes remaining to read", unread),
+                            format!("Transfer closed with {unread} bytes remaining to read"),
                         )),
                     ),
                     _ => Ok(0),
@@ -616,7 +616,7 @@ impl InnerReader<AsyncResponseBody> {
                         Some(unread) if unread > 0 => {
                             let err = ResponseError::new_with_msg(
                                 ResponseErrorKind::UnexpectedEof,
-                                format!("Transfer closed with {} bytes remaining to read", unread),
+                                format!("Transfer closed with {unread} bytes remaining to read"),
                             );
                             self.response = Some(self.make_async_request(Some(err)).await?);
                         }
@@ -899,13 +899,13 @@ fn set_range_into_request(
 ) {
     let value = match (range_from, range_to) {
         (None, Some(range_to)) => {
-            format!("bytes=-{}", range_to)
+            format!("bytes=-{range_to}")
         }
         (Some(range_from), None) => {
-            format!("bytes={}-", range_from)
+            format!("bytes={range_from}-")
         }
         (Some(range_from), Some(range_to)) => {
-            format!("bytes={}-{}", range_from, range_to)
+            format!("bytes={range_from}-{range_to}")
         }
         _ => {
             return;
@@ -1332,7 +1332,7 @@ mod tests {
             match err {
                 DownloadError::ResponseError(err)
                     if matches!(err.kind(), ResponseErrorKind::StatusCodeError(StatusCode::NOT_FOUND)) => {}
-                _ => panic!("unexpected error: {:?}", err),
+                _ => panic!("unexpected error: {err:?}"),
             }
             Ok::<_, anyhow::Error>(())
         })
@@ -1347,7 +1347,7 @@ mod tests {
         match err {
             DownloadError::ResponseError(err)
                 if matches!(err.kind(), ResponseErrorKind::StatusCodeError(StatusCode::NOT_FOUND)) => {}
-            _ => panic!("unexpected error: {:?}", err),
+            _ => panic!("unexpected error: {err:?}"),
         }
 
         return Ok(());
@@ -1529,7 +1529,7 @@ mod tests {
             assert_eq!(inner_reader.read(&mut buf)?, 5);
             match inner_reader.read(&mut buf).unwrap_err() {
                 DownloadError::ContentChanged => (),
-                err => panic!("unexpected error: {:?}", err),
+                err => panic!("unexpected error: {err:?}"),
             }
             Ok::<_, anyhow::Error>(())
         })
@@ -1544,7 +1544,7 @@ mod tests {
             assert_eq!(inner_reader.async_read(&mut buf).await?, 5);
             match inner_reader.async_read(&mut buf).await.unwrap_err() {
                 DownloadError::ContentChanged => (),
-                err => panic!("unexpected error: {:?}", err),
+                err => panic!("unexpected error: {err:?}"),
             }
         }
 

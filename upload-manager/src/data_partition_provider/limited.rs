@@ -61,7 +61,7 @@ impl<P: DataPartitionProvider + Clone> DataPartitionProvider for LimitedDataPart
     #[inline]
     fn part_size(&self) -> PartSize {
         let base_partition = self.base.part_size().as_non_zero_u64();
-        base_partition.min(self.max).max(self.min).into()
+        base_partition.clamp(self.min, self.max).into()
     }
 
     #[inline]

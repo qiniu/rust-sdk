@@ -1067,8 +1067,8 @@ impl JsonType {
                     as_method_name: &TokenStream,
                     optional: bool,
                 ) -> TokenStream {
-                    let field_getter_method_name = format_ident!("get_{}_as_{}", field_name, type_suffix);
-                    let getter_documentation = format!("获取 {}", documentation);
+                    let field_getter_method_name = format_ident!("get_{field_name}_as_{type_suffix}");
+                    let getter_documentation = format!("获取 {documentation}");
                     if optional {
                         quote! {
                             impl #name {
@@ -1110,8 +1110,8 @@ impl JsonType {
                     as_method_name: &TokenStream,
                     optional: bool,
                 ) -> TokenStream {
-                    let field_setter_method_name = format_ident!("set_{}_as_{}", field_name, type_suffix);
-                    let setter_documentation = format!("设置 {}", documentation);
+                    let field_setter_method_name = format_ident!("set_{field_name}_as_{type_suffix}");
+                    let setter_documentation = format!("设置 {documentation}");
                     if optional {
                         quote! {
                             impl #name {
@@ -1148,8 +1148,8 @@ impl JsonType {
                     documentation: &str,
                     optional: bool,
                 ) -> TokenStream {
-                    let field_setter_method_name = format_ident!("set_{}_as_str", field_name);
-                    let setter_documentation = format!("设置 {}", documentation);
+                    let field_setter_method_name = format_ident!("set_{field_name}_as_str");
+                    let setter_documentation = format!("设置 {documentation}");
                     if optional {
                         quote! {
                             impl #name {
@@ -1192,10 +1192,10 @@ impl JsonType {
                     documentation: &str,
                     optional: bool,
                 ) -> TokenStream {
-                    let field_getter_method_name = format_ident!("get_{}", field_name);
-                    let field_setter_method_name = format_ident!("set_{}", field_name);
-                    let getter_documentation = format!("获取 {}", documentation);
-                    let setter_documentation = format!("设置 {}", documentation);
+                    let field_getter_method_name = format_ident!("get_{field_name}");
+                    let field_setter_method_name = format_ident!("set_{field_name}");
+                    let getter_documentation = format!("获取 {documentation}");
+                    let setter_documentation = format!("设置 {documentation}");
 
                     if optional {
                         quote! {
@@ -1241,10 +1241,10 @@ impl JsonType {
                     documentation: &str,
                     optional: bool,
                 ) -> TokenStream {
-                    let field_getter_method_name = format_ident!("get_{}", field_name);
-                    let field_setter_method_name = format_ident!("set_{}", field_name);
-                    let getter_documentation = format!("获取 {}", documentation);
-                    let setter_documentation = format!("设置 {}", documentation);
+                    let field_getter_method_name = format_ident!("get_{field_name}");
+                    let field_setter_method_name = format_ident!("set_{field_name}");
+                    let getter_documentation = format!("获取 {documentation}");
+                    let setter_documentation = format!("设置 {documentation}");
 
                     if optional {
                         quote! {
@@ -1378,8 +1378,8 @@ impl JsonType {
                     rust_type: &TokenStream,
                     optional: bool,
                 ) -> TokenStream {
-                    let field_getter_method_name = format_ident!("get_{}", field_name);
-                    let getter_documentation = format!("获取 {}", documentation);
+                    let field_getter_method_name = format_ident!("get_{field_name}");
+                    let getter_documentation = format!("获取 {documentation}");
                     if optional {
                         quote! {
                             impl #name {
@@ -1420,8 +1420,8 @@ impl JsonType {
                     rust_type: &TokenStream,
                     optional: bool,
                 ) -> TokenStream {
-                    let field_setter_method_name = format_ident!("set_{}", field_name);
-                    let setter_documentation = format!("设置 {}", documentation);
+                    let field_setter_method_name = format_ident!("set_{field_name}");
+                    let setter_documentation = format!("设置 {documentation}");
                     if optional {
                         quote! {
                             impl #name {
@@ -1842,7 +1842,7 @@ mod tests {
 
     fn write_token_stream(name: &str, token_stream: &TokenStream) -> Result<NamedTempFile> {
         let mut file = TempFileBuilder::new()
-            .prefix(&format!("{}-", name))
+            .prefix(&format!("{name}-"))
             .suffix(".rs")
             .tempfile()?;
         let all_token_stream = quote! {

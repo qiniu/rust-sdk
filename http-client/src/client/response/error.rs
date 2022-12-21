@@ -279,13 +279,13 @@ impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "[{:?}]", self.kind)?;
         if let Some(retried) = self.retried.as_ref() {
-            write!(f, "[{}]", retried)?;
+            write!(f, "[{retried}]")?;
         }
         if let Some(x_reqid) = self.x_headers.x_reqid.as_ref() {
-            write!(f, "[{:?}]", x_reqid)?;
+            write!(f, "[{x_reqid:?}]")?;
         }
         if let Some(x_log) = self.x_headers.x_log.as_ref() {
-            write!(f, "[{:?}]", x_log)?;
+            write!(f, "[{x_log:?}]")?;
         }
         write!(f, " {}", self.error)?;
         if !self.response_body_sample.is_empty() {

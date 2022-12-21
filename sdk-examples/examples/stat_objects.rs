@@ -38,10 +38,10 @@ async fn main() -> Result<()> {
     loop {
         match stream.try_next().await {
             Ok(Some(object_info)) => {
-                println!("{:?}", object_info);
+                println!("{object_info:?}");
             }
             Err(err) => {
-                println!("{:?}", err);
+                println!("{err:?}");
             }
             Ok(None) => {
                 break;

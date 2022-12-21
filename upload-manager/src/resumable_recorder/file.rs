@@ -145,7 +145,7 @@ impl<O: Digest> ResumableRecorder for FileSystemResumableRecorder<O> {
 
 impl<O: Digest> FileSystemResumableRecorder<O> {
     fn path_of(&self, source_key: &SourceKey<O>) -> PathBuf {
-        self.path.join(&hex::encode(source_key.as_slice()))
+        self.path.join(hex::encode(source_key.as_slice()))
     }
 }
 

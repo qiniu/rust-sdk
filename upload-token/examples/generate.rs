@@ -26,6 +26,6 @@ fn main() -> Result<()> {
 
     let upload_token = UploadPolicy::new_for_bucket(&opt.bucket_name, Duration::from_secs(opt.lifetime))
         .build_token(Credential::new(opt.access_key, opt.secret_key), Default::default());
-    println!("{}", upload_token);
+    println!("{upload_token}");
     Ok(())
 }

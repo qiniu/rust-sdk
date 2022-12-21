@@ -18,6 +18,9 @@ struct Opt {
     /// Qiniu List API Version
     #[structopt(long, default_value = "2")]
     version: u8,
+    /// Qiniu Object Name Prefix
+    #[structopt(long)]
+    prefix: String,
 }
 
 #[async_std::main]
@@ -35,7 +38,7 @@ async fn main() -> Result<()> {
     let credential = Credential::new(&opt.access_key, &opt.secret_key);
     let object_manager = ObjectsManager::new(credential);
     let bucket = object_manager.bucket(opt.bucket_name);
-    let mut stream = bucket.list().version(version).stream();
+    let mut stream = bucket.list().version(version).prefix(opt.prefix).stream();
 
     while let Some(entry) = stream.try_next().await? {
         println!(

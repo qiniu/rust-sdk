@@ -420,7 +420,7 @@ mod tests {
         let mut temp_file = TempfileBuilder::new().tempfile()?;
         let rng = &mut thread_rng() as &mut dyn RngCore;
         io_copy(&mut rng.take(FILE_SIZE), &mut temp_file)?;
-        temp_file.seek(SeekFrom::Start(0))?;
+        temp_file.rewind()?;
         Ok(temp_file)
     }
 }

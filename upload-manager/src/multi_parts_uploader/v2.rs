@@ -1520,7 +1520,7 @@ mod tests {
                     );
                     self.upload_part_counts.fetch_add(1, Ordering::Relaxed);
                     json_to_vec(&json!({
-                        "etag": format!("==={}===", page_number),
+                        "etag": format!("==={page_number}==="),
                         "md5": "fake-md5",
                     }))
                     .unwrap()
@@ -1639,7 +1639,7 @@ mod tests {
                         );
                         self.upload_part_counts.fetch_add(1, Ordering::Relaxed);
                         json_to_vec(&json!({
-                            "etag": format!("==={}===", page_number),
+                            "etag": format!("==={page_number}==="),
                             "md5": "fake-md5",
                         }))
                         .unwrap()
@@ -1764,7 +1764,7 @@ mod tests {
                         assert_eq!(body_len, BLOCK_SIZE);
                         assert_eq!(self.upload_part_counts.fetch_add(1, Ordering::Relaxed), 0);
                         json_to_vec(&json!({
-                            "etag": format!("==={}===", page_number),
+                            "etag": format!("==={page_number}==="),
                             "md5": "fake-md5",
                         }))
                         .unwrap()
@@ -1848,7 +1848,7 @@ mod tests {
                         assert_eq!(body_len, LAST_BLOCK_SIZE);
                         assert_eq!(self.upload_part_counts.fetch_add(1, Ordering::Relaxed), 0);
                         json_to_vec(&json!({
-                            "etag": format!("==={}===", page_number),
+                            "etag": format!("==={page_number}==="),
                             "md5": "fake-md5",
                         }))
                         .unwrap()
@@ -1978,7 +1978,7 @@ mod tests {
                             assert_eq!(body_len, BLOCK_SIZE);
                             assert_eq!(self.upload_part_counts.fetch_add(1, Ordering::Relaxed), 0);
                             json_to_vec(&json!({
-                                "etag": format!("==={}===", page_number),
+                                "etag": format!("==={page_number}==="),
                                 "md5": "fake-md5",
                             }))
                             .unwrap()
@@ -2066,7 +2066,7 @@ mod tests {
                             assert_eq!(body_len, LAST_BLOCK_SIZE);
                             assert_eq!(self.upload_part_counts.fetch_add(1, Ordering::Relaxed), 0);
                             json_to_vec(&json!({
-                                "etag": format!("==={}===", page_number),
+                                "etag": format!("==={page_number}==="),
                                 "md5": "fake-md5",
                             }))
                             .unwrap()
@@ -2164,7 +2164,7 @@ mod tests {
                                 _ => unimplemented!(),
                             }
                             json_to_vec(&json!({
-                                "etag": format!("==={}===", page_number),
+                                "etag": format!("==={page_number}==="),
                                 "md5": "fake-md5",
                             }))
                             .unwrap()

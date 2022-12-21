@@ -72,7 +72,7 @@ async fn main() -> Result<()> {
                 transferred_bytes as f64 * 100f64 / total_bytes as f64
             );
         } else {
-            println!("{}", transferred_bytes);
+            println!("{transferred_bytes}");
         }
         Ok(())
     });
@@ -89,7 +89,7 @@ async fn main() -> Result<()> {
             Some(2) => {
                 builder.multi_parts_uploader_prefer(MultiPartsUploaderPrefer::V2);
             }
-            Some(version) => panic!("Unrecognized version: {}", version),
+            Some(version) => panic!("Unrecognized version: {version}"),
             None => {}
         };
         builder
@@ -98,7 +98,7 @@ async fn main() -> Result<()> {
         builder.build()
     };
     let value = auto_uploader.async_upload_path(&opt.file, params).await?;
-    println!("{:?}", value);
+    println!("{value:?}");
 
     Ok(())
 }

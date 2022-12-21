@@ -137,7 +137,7 @@ pub enum DomainWithPortParseError {
 impl FromStr for DomainWithPort {
     type Err = DomainWithPortParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let url = Url::parse(&format!("https://{}/", s)).map_err(|err| match err {
+        let url = Url::parse(&format!("https://{s}/")).map_err(|err| match err {
             UrlParseError::InvalidPort => DomainWithPortParseError::InvalidPort,
             UrlParseError::EmptyHost => DomainWithPortParseError::EmptyHost,
             _ => DomainWithPortParseError::InvalidDomainCharacter,
@@ -149,7 +149,7 @@ impl FromStr for DomainWithPort {
                 }
             }
             (Some(domain), Some(port)) => {
-                if format!("{}:{}", domain, port) == s {
+                if format!("{domain}:{port}") == s {
                     return Ok(DomainWithPort::new(domain, NonZeroU16::new(port)));
                 }
             }
@@ -200,7 +200,7 @@ impl Display for IpAddrWithPort {
         } else {
             match self.ip_addr() {
                 IpAddr::V4(ip) => ip.fmt(f),
-                IpAddr::V6(ip) => write!(f, "[{}]", ip),
+                IpAddr::V6(ip) => write!(f, "[{ip}]"),
             }
         }
     }
@@ -373,8 +373,8 @@ impl Endpoint {
 impl Display for Endpoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::DomainWithPort(domain) => write!(f, "{}", domain),
-            Self::IpAddrWithPort(ip_addr) => write!(f, "{}", ip_addr),
+            Self::DomainWithPort(domain) => write!(f, "{domain}"),
+            Self::IpAddrWithPort(ip_addr) => write!(f, "{ip_addr}"),
         }
     }
 }

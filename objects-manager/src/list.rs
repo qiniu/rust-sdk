@@ -721,6 +721,7 @@ mod async_list_stream {
         },
         WaitForEntries {
             lines: AsyncLines<AsyncBufReader<AsyncResponseBody>>,
+            empty: bool,
         },
         Done,
     }
@@ -837,6 +838,7 @@ mod async_list_stream {
                         Ok(response) => {
                             self.current_step = AsyncListV2Step::WaitForEntries {
                                 lines: AsyncBufReader::new(response.into_body()).lines(),
+                                empty: true,
                             };
                             self.poll_next(cx)
                         }
@@ -852,11 +854,12 @@ mod async_list_stream {
         }
 
         fn wait_for_entries(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<<Self as Stream>::Item>> {
-            if let AsyncListV2Step::WaitForEntries { lines } = &mut self.current_step {
+            if let AsyncListV2Step::WaitForEntries { lines, ref mut empty } = &mut self.current_step {
                 match ready!(lines.poll_next_unpin(cx)) {
                     Some(Ok(line)) if line.is_empty() => self.wait_for_entries(cx),
                     Some(Ok(line)) => match serde_json::from_str::<ListedObjectEntryV2>(&line) {
                         Ok(parsed) => {
+                            *empty = false;
                             self.params.marker.set(parsed.marker.as_deref());
                             if let Some(item) = parsed.item {
                                 self.params.limit.saturating_decrease(1);
@@ -873,6 +876,10 @@ mod async_list_stream {
                     Some(Err(err)) => {
                         self.current_step = AsyncListV2Step::Done;
                         Poll::Ready(Some(Err(err.into())))
+                    }
+                    None if *empty => {
+                        self.current_step = AsyncListV2Step::Done;
+                        Poll::Ready(None)
                     }
                     None => {
                         self.current_step = AsyncListV2Step::Start;
@@ -1422,6 +1429,53 @@ mod tests {
         }
         assert_eq!(counter, 4usize);
         assert_eq!(iter.marker(), Some(""));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sync_list_v2_with_non_results() -> anyhow::Result<()> {
+        env_logger::builder().is_test(true).try_init().ok();
+
+        #[derive(Debug, Default)]
+        struct FakeHttpCaller {
+            counter: AtomicUsize,
+        }
+
+        impl HttpCaller for FakeHttpCaller {
+            fn call(&self, request: &mut SyncRequest<'_>) -> SyncResponseResult {
+                let n = self.counter.fetch_add(1, Ordering::SeqCst);
+                let body = match n {
+                    0 => {
+                        assert!(request
+                            .url()
+                            .to_string()
+                            .ends_with("/v2/list?bucket=fakebucketname&prefix=non-existed"));
+                        SyncResponseBody::from_bytes(Vec::new())
+                    }
+                    _ => unreachable!(),
+                };
+                Ok(SyncResponse::builder()
+                    .status_code(StatusCode::OK)
+                    .header("x-reqid", HeaderValue::from_static("FakeReqid"))
+                    .body(body)
+                    .build())
+            }
+
+            #[cfg(feature = "async")]
+            fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
+                unreachable!()
+            }
+        }
+
+        let mut counter = 0usize;
+        let bucket = get_bucket(FakeHttpCaller::default());
+        let mut iter = bucket.list().version(ListVersion::V2).prefix("non-existed").iter();
+        for (_i, _entry) in (&mut iter).enumerate() {
+            counter += 1;
+        }
+        assert_eq!(counter, 0usize);
+        assert_eq!(iter.marker(), None);
 
         Ok(())
     }
@@ -2180,6 +2234,56 @@ mod tests {
         }
         assert_eq!(stream.marker(), Some(""));
         assert_eq!(counter, 4usize);
+
+        Ok(())
+    }
+
+    #[async_std::test]
+    #[cfg(feature = "async")]
+    async fn test_async_list_v2_with_non_results() -> anyhow::Result<()> {
+        env_logger::builder().is_test(true).try_init().ok();
+
+        #[derive(Debug, Default)]
+        struct FakeHttpCaller {
+            counter: AtomicUsize,
+        }
+
+        impl HttpCaller for FakeHttpCaller {
+            fn call(&self, _request: &mut SyncRequest<'_>) -> SyncResponseResult {
+                unreachable!()
+            }
+
+            fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
+                Box::pin(async move {
+                    let n = self.counter.fetch_add(1, Ordering::SeqCst);
+                    let body = match n {
+                        0 => {
+                            assert!(request
+                                .url()
+                                .to_string()
+                                .ends_with("/v2/list?bucket=fakebucketname&prefix=non-exist"));
+                            AsyncResponseBody::from_bytes(Vec::new())
+                        }
+                        _ => unreachable!(),
+                    };
+                    Ok(AsyncResponse::builder()
+                        .status_code(StatusCode::OK)
+                        .header("x-reqid", HeaderValue::from_static("FakeReqid"))
+                        .body(body)
+                        .build())
+                })
+            }
+        }
+
+        let mut counter = 0usize;
+        let bucket = get_bucket(FakeHttpCaller::default());
+        let mut stream = bucket.list().version(ListVersion::V2).prefix("non-exist").stream();
+        let mut iter = (&mut stream).enumerate();
+        while let Some((_i, _entry)) = iter.next().await {
+            counter += 1;
+        }
+        assert_eq!(stream.marker(), None);
+        assert_eq!(counter, 0usize);
 
         Ok(())
     }

@@ -26,7 +26,7 @@ async fn main() -> Result<()> {
     let regions = AllRegionsProvider::new(credential)
         .async_get_all(Default::default())
         .await?;
-    println!("{:#?}", regions);
+    println!("{regions:#?}");
 
     Ok(())
 }

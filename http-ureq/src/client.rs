@@ -171,7 +171,7 @@ fn build_on_receive_response_header_error(request: &RequestParts, err: AnyError)
 fn build_status_code_error(request: &RequestParts, code: u16, err: &dyn Display) -> ResponseError {
     ResponseError::builder_with_msg(
         ResponseErrorKind::InvalidRequestResponse,
-        format!("invalid status code({}): {}", code, err),
+        format!("invalid status code({code}): {err}"),
     )
     .uri(request.url())
     .build()
@@ -180,7 +180,7 @@ fn build_status_code_error(request: &RequestParts, code: u16, err: &dyn Display)
 fn build_header_name_error(request: &RequestParts, header_name: &str, err: &dyn Display) -> ResponseError {
     ResponseError::builder_with_msg(
         ResponseErrorKind::InvalidHeader,
-        format!("invalid header name({}): {}", header_name, err),
+        format!("invalid header name({header_name}): {err}"),
     )
     .uri(request.url())
     .build()
@@ -189,7 +189,7 @@ fn build_header_name_error(request: &RequestParts, header_name: &str, err: &dyn 
 fn build_header_value_error(request: &RequestParts, header_value: &str, err: &dyn Display) -> ResponseError {
     ResponseError::builder_with_msg(
         ResponseErrorKind::InvalidHeader,
-        format!("invalid header value({}): {}", header_value, err),
+        format!("invalid header value({header_value}): {err}"),
     )
     .uri(request.url())
     .build()
@@ -198,7 +198,7 @@ fn build_header_value_error(request: &RequestParts, header_value: &str, err: &dy
 fn convert_header_value_error(request: &RequestParts, header_value: &HeaderValue, err: &dyn Display) -> ResponseError {
     ResponseError::builder_with_msg(
         ResponseErrorKind::InvalidHeader,
-        format!("invalid header value({:?}): {}", header_value, err),
+        format!("invalid header value({header_value:?}): {err}"),
     )
     .uri(request.url())
     .build()
@@ -231,7 +231,7 @@ fn parse_http_version(version: &str, request: &RequestParts) -> Result<Version, 
         "HTTP/3.0" => Ok(Version::HTTP_3),
         _ => Err(ResponseError::builder_with_msg(
             ResponseErrorKind::InvalidRequestResponse,
-            format!("invalid http version: {}", version),
+            format!("invalid http version: {version}"),
         )
         .uri(request.url())
         .build()),

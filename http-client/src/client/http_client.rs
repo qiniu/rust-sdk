@@ -360,7 +360,7 @@ impl HttpClientBuilder {
     #[inline]
     #[cfg(feature = "ureq")]
     pub fn ureq() -> Self {
-        Self::_new(Some(Box::new(qiniu_ureq::Client::default())))
+        Self::_new(Some(Box::<qiniu_ureq::Client>::default()))
     }
 
     /// 创建一个新的 HTTP 客户端构建器，使用 [`crate::isahc::Client`] 作为 [`HttpCaller`] 实现
@@ -374,14 +374,14 @@ impl HttpClientBuilder {
     #[inline]
     #[cfg(feature = "reqwest")]
     pub fn reqwest_sync() -> Self {
-        Self::_new(Some(Box::new(qiniu_reqwest::SyncClient::default())))
+        Self::_new(Some(Box::<qiniu_reqwest::SyncClient>::default()))
     }
 
     /// 创建一个新的 HTTP 客户端构建器，使用 [`crate::reqwest::SyncClient`] 作为 [`HttpCaller`] 实现
     #[inline]
     #[cfg(all(feature = "reqwest", feature = "async"))]
     pub fn reqwest_async() -> Self {
-        Self::_new(Some(Box::new(qiniu_reqwest::AsyncClient::default())))
+        Self::_new(Some(Box::<qiniu_reqwest::AsyncClient>::default()))
     }
 
     /// 创建一个新的 HTTP 客户端构建器，需要指定 [`HttpCaller`] 实现
@@ -663,7 +663,7 @@ impl HttpClient {
     /// 默认通过当前启用的功能来判定，并使用 [`CachedResolver`] 和 [`ShuffledResolver`] 对其进行包装。
     pub fn default_resolver() -> Box<dyn Resolver> {
         let chained_resolver = {
-            let base_resolver = Box::new(TimeoutResolver::<SimpleResolver>::default());
+            let base_resolver = Box::<TimeoutResolver<SimpleResolver>>::default();
 
             #[allow(unused_mut)]
             let mut builder = ChainedResolver::builder(base_resolver);
@@ -691,7 +691,7 @@ impl HttpClient {
     /// 默认使用 [`SubnetChooser`]，并使用 [`ShuffledChooser`] 和 [`NeverEmptyHandedChooser`] 对其进行包装。
     #[inline]
     pub fn default_chooser() -> Box<dyn Chooser> {
-        Box::new(NeverEmptyHandedChooser::<ShuffledChooser<SubnetChooser>>::default())
+        Box::<NeverEmptyHandedChooser<ShuffledChooser<SubnetChooser>>>::default()
     }
 
     /// 获得默认的 [`RequestRetrier`] 实例
@@ -699,7 +699,7 @@ impl HttpClient {
     /// 默认使用 [`ErrorRetrier`]，并使用 [`LimitedRetrier`] 对其进行包装。
     #[inline]
     pub fn default_retrier() -> Box<dyn RequestRetrier> {
-        Box::new(LimitedRetrier::<ErrorRetrier>::default())
+        Box::<LimitedRetrier<ErrorRetrier>>::default()
     }
 
     /// 获得默认的 [`Backoff`] 实例
@@ -707,6 +707,6 @@ impl HttpClient {
     /// 默认使用 [`ExponentialBackoff`]，并使用 [`LimitedBackoff`] 和 [`RandomizedBackoff`] 对其进行包装。
     #[inline]
     pub fn default_backoff() -> Box<dyn Backoff> {
-        Box::new(LimitedBackoff::<RandomizedBackoff<ExponentialBackoff>>::default())
+        Box::<LimitedBackoff<RandomizedBackoff<ExponentialBackoff>>>::default()
     }
 }
