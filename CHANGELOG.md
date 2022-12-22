@@ -1,5 +1,9 @@
 # Change log
 
+## v0.2.2
+
+- 修复 `qiniu_objects_manager::ListStream` 在使用 V2 API 列举时，当无法列举到结果时会导致无限循环的问题。
+
 ## v0.2.1
 
 - `qiniu_upload_manager::MultiPartsV1Uploader` 总是使用 4 MB 分片大小，无论 `qiniu_upload_manager::DataPartitionProvider` 返回多大的分片大小。

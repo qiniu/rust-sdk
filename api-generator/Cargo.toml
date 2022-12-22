@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-api-generator"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2021"
 rust-version = "1.60.0"
@@ -29,8 +29,8 @@ walkdir = "2.3.2"
 
 [dev-dependencies]
 serde_json = "1.0.68"
-qiniu-http = { version = "0.2.1", path = "../http" }
-qiniu-http-client = { version = "0.2.1", path = "../http-client" }
-qiniu-upload-token = { version = "0.2.1", path = "../upload-token" }
-qiniu-utils = { version = "0.2.1", path = "../utils" }
+qiniu-http = { version = "0.2.2", path = "../http" }
+qiniu-http-client = { version = "0.2.2", path = "../http-client" }
+qiniu-upload-token = { version = "0.2.2", path = "../upload-token" }
+qiniu-utils = { version = "0.2.2", path = "../utils" }
 indexmap = "1.7.0"

@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-apis"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2021"
 rust-version = "1.60.0"
@@ -22,8 +22,8 @@ indexmap = "1.7.0"
 futures = { version = "0.3.5", optional = true }
 async-std = { version = "1.9.0", optional = true }
 
-qiniu-http-client = { version = "0.2.1", path = "../http-client", default-features = false }
-qiniu-utils = { version = "0.2.1", path = "../utils" }
+qiniu-http-client = { version = "0.2.2", path = "../http-client", default-features = false }
+qiniu-utils = { version = "0.2.2", path = "../utils" }
 
 [features]
 default = ["ureq"]
