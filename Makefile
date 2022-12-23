@@ -40,5 +40,5 @@ clippy:
 publish:
 	set -e; \
 	for i in utils/ etag/ credential/ http/ upload-token/ http-isahc/ http-reqwest/ http-ureq/ http-client/ apis/ objects-manager/ upload-manager/ download-manager sdk/ ; do \
-		(cd $i && cargo publish && sleep 300) || break ; \
+		(cd $$i && cargo publish && sleep 300) || break ; \
 	done
