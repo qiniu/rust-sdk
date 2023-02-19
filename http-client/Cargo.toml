@@ -59,7 +59,7 @@ async-once-cell = { version = "0.3.0", optional = true }
 qiniu-http = { version = "0.2.2", path = "../http" }
 qiniu-credential = { version = "0.2.2", path = "../credential" }
 qiniu-upload-token = { version = "0.2.2", path = "../upload-token" }
-qiniu-reqwest = { version = "0.2.2", path = "../http-reqwest", optional = true }
+qiniu-reqwest = { version = "0.2.2", path = "../http-reqwest", optional = true, default-features = false }
 qiniu-isahc = { version = "0.2.2", path = "../http-isahc", optional = true }
 qiniu-ureq = { version = "0.2.2", path = "../http-ureq", optional = true }
 qiniu-utils = { version = "0.2.2", path = "../utils" }
@@ -88,6 +88,7 @@ dnssec-ring = ["trust_dns", "trust-dns-resolver/dnssec-ring"]
 dnssec = ["trust_dns", "trust-dns-resolver/dnssec"]
 
 reqwest = ["qiniu-reqwest"]
+rustls-tls = ["qiniu-reqwest?/rustls-tls"]
 isahc = ["qiniu-isahc"]
 ureq = ["qiniu-ureq"]
 async = ["async-std", "futures", "fs4/std-async", "async-once-cell", "futures-timer", "qiniu-http/async", "qiniu-credential/async", "qiniu-upload-token/async", "qiniu-reqwest?/async", "qiniu-isahc?/async", "qiniu-ureq?/async"]

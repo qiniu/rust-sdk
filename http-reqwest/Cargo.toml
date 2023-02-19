@@ -15,7 +15,7 @@ keywords = ["qiniu", "storage"]
 
 [dependencies]
 anyhow = "1.0.41"
-reqwest = { version = "0.11.4", features = ["blocking", "stream"] }
+reqwest = { version = "0.11.4", default-features = false, features = ["blocking", "stream"] }
 qiniu-http = { version = "0.2.2", path = "../http" }
 bytes = { version = "1.0.1", optional = true }
 futures = { version = "0.3.16", optional = true }
