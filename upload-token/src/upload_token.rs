@@ -724,8 +724,8 @@ macro_rules! sync_method {
         };
 
         #[allow(unused_lifetimes)]
-        fn update_cache<'a>(
-            provider: &'a CachedUploadTokenProvider<impl UploadTokenProvider + Clone>,
+        fn update_cache(
+            provider: &CachedUploadTokenProvider<impl UploadTokenProvider + Clone>,
             opts: $opts_type,
         ) -> $return_type {
             let mut guard = provider.sync_cache.0.$cache_field.write().unwrap();
@@ -802,7 +802,7 @@ impl<P: UploadTokenProvider + Clone> UploadTokenProvider for CachedUploadTokenPr
             opts,
             ToStringOptions,
             to_token_string,
-            ToStringResult<Cow<'a, str>>
+            ToStringResult<Cow<str>>
         )
     }
 
