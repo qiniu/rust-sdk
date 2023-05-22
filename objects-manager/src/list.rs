@@ -155,15 +155,15 @@ impl Debug for ListIter<'_> {
 
 /// 列举 API 版本
 ///
-/// 目前支持 V1 和 V2，默认为 V2
+/// 目前支持 V1 和 V2，默认为 V1
 #[derive(Copy, Clone, Debug, SmartDefault)]
 #[non_exhaustive]
 pub enum ListVersion {
     /// 列举 API V1
+    #[default]
     V1,
 
     /// 列举 API V2
-    #[default]
     V2,
 }
 

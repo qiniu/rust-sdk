@@ -1049,7 +1049,7 @@ mod tests {
             }
         }
 
-        let bucket = get_bucket(FakeHttpCaller::default());
+        let bucket = get_bucket(FakeHttpCaller);
         let object = bucket.stat_object("fakeobjectname").async_call().await?.into_body();
         assert_eq!(object.get_hash_as_str(), "fakehash");
         assert_eq!(object.get_size_as_u64(), 12345u64);
@@ -1085,7 +1085,7 @@ mod tests {
             }
         }
 
-        let bucket = get_bucket(FakeHttpCaller::default());
+        let bucket = get_bucket(FakeHttpCaller);
         bucket
             .copy_object_to("fakeobjectname", &get_bucket_name(), "fakeobjectname2")
             .is_force(true)
@@ -1123,7 +1123,7 @@ mod tests {
             }
         }
 
-        let bucket = get_bucket(FakeHttpCaller::default());
+        let bucket = get_bucket(FakeHttpCaller);
         bucket
             .move_object_to("fakeobjectname", &get_bucket_name(), "fakeobjectname2")
             .async_call()
@@ -1159,7 +1159,7 @@ mod tests {
             }
         }
 
-        let bucket = get_bucket(FakeHttpCaller::default());
+        let bucket = get_bucket(FakeHttpCaller);
         bucket.delete_object("fakeobjectname").async_call().await?;
 
         Ok(())
@@ -1192,7 +1192,7 @@ mod tests {
             }
         }
 
-        let bucket = get_bucket(FakeHttpCaller::default());
+        let bucket = get_bucket(FakeHttpCaller);
         bucket.restore_archived_object("fakeobjectname", 7).async_call().await?;
 
         Ok(())
@@ -1225,7 +1225,7 @@ mod tests {
             }
         }
 
-        let bucket = get_bucket(FakeHttpCaller::default());
+        let bucket = get_bucket(FakeHttpCaller);
         bucket
             .set_object_type("fakeobjectname", FileType::Archive)
             .async_call()
@@ -1261,7 +1261,7 @@ mod tests {
             }
         }
 
-        let bucket = get_bucket(FakeHttpCaller::default());
+        let bucket = get_bucket(FakeHttpCaller);
         bucket.modify_object_status("fakeobjectname", true).async_call().await?;
 
         Ok(())
@@ -1297,7 +1297,7 @@ mod tests {
             }
         }
 
-        let bucket = get_bucket(FakeHttpCaller::default());
+        let bucket = get_bucket(FakeHttpCaller);
         bucket
             .modify_object_metadata("fakeobjectname", mime::TEXT_PLAIN)
             .add_metadata("MetaKey-1", "MetaValue-1")
@@ -1336,7 +1336,7 @@ mod tests {
             }
         }
 
-        let bucket = get_bucket(FakeHttpCaller::default());
+        let bucket = get_bucket(FakeHttpCaller);
         bucket
             .modify_object_life_cycle("fakeobjectname")
             .ia_after_days(AfterDays::new(1))
