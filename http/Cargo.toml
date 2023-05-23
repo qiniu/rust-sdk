@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-http"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2021"
 rust-version = "1.60.0"
@@ -23,7 +23,7 @@ serde = "1.0.130"
 auto_impl = "1.0.0"
 futures-lite = { version = "1.11.2", optional = true }
 
-qiniu-utils = { version = "0.2.2", path = "../utils" }
+qiniu-utils = { version = "0.2.3", path = "../utils" }
 
 [build-dependencies]
 rustc_version = "0.4.0"
