@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-ureq"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2021"
 rust-version = "1.60.0"
@@ -17,7 +17,7 @@ keywords = ["qiniu", "storage"]
 anyhow = "1.0.41"
 ureq = "2.5.0"
 
-qiniu-http = { version = "0.2.2", path = "../http" }
+qiniu-http = { version = "0.2.3", path = "../http" }
 
 [features]
 async = ["qiniu-http/async"]

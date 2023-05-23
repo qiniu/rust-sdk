@@ -1,5 +1,12 @@
 # Change log
 
+## v0.2.3
+
+- 修复 `c-ares` 高版本在 `windows` 平台无法正常使用的问题
+- 修复 `fs4` 在 `windows` 平台编译失败的问题
+- 修复 `qiniu_upload_token` 中的一些 `clippy check` 的问题
+- 修改 `qiniu_objects_manager::ListVersion` 中的默认版本为 `V1`
+
 ## v0.2.2
 
 - 修复 `qiniu_objects_manager::ListStream` 在使用 V2 API 列举时，当无法列举到结果时会导致无限循环的问题。
