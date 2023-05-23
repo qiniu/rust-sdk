@@ -201,10 +201,10 @@ pub use timeout::TimeoutResolver;
 
 mod owned_resolver_options;
 
-#[cfg(any(feature = "c_ares"))]
+#[cfg(feature = "c_ares")]
 mod c_ares_impl;
 
-#[cfg(any(feature = "c_ares"))]
+#[cfg(feature = "c_ares")]
 pub use c_ares_impl::{c_ares, c_ares_resolver, CAresResolver};
 
 #[cfg(all(feature = "trust_dns", feature = "async"))]

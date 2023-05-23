@@ -53,7 +53,7 @@ impl CAresResolver {
 
     /// 创建 [`c-ares`](https://c-ares.org/) 域名解析器
     #[inline]
-    #[cfg(any(feature = "async"))]
+    #[cfg(feature = "async")]
     pub fn new_with_options(
         sync_options: CAresResolverOptions,
         async_options: CAresResolverOptions,
@@ -68,7 +68,7 @@ impl CAresResolver {
     #[inline]
     pub fn new() -> CAresResolverResult<Self> {
         cfg_if! {
-            if #[cfg(any(feature = "async"))] {
+            if #[cfg(feature = "async")] {
                 Self::new_with_options(CAresResolverOptions::new(), CAresResolverOptions::new())
             } else {
                 Self::new_with_options(CAresResolverOptions::new())
