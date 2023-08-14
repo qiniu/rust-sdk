@@ -18,12 +18,17 @@ use qiniu_apis::{
 };
 use qiniu_upload_token::{BucketName, ObjectName, UploadTokenProvider};
 use serde_json::Value;
-use std::{fmt::Debug, fs::File, io::Read, path::Path};
+use std::{
+    fmt::Debug,
+    fs::File,
+    io::{Read, Seek, SeekFrom},
+    path::Path,
+};
 
 #[cfg(feature = "async")]
 use {
     async_std::fs::File as AsyncFile,
-    futures::{future::BoxFuture, AsyncRead},
+    futures::{future::BoxFuture, AsyncRead, AsyncSeek, AsyncSeekExt},
     qiniu_apis::storage::put_object::{async_part::RequestBody as AsyncRequestBody, AsyncRequestBuilder},
 };
 
@@ -146,14 +151,35 @@ impl SinglePartUploader for FormUploader {
     fn upload_path(&self, path: impl AsRef<Path>, params: ObjectParams) -> ApiResult<Value> {
         self.upload(
             params.region_provider(),
-            self.make_request_body_from_path(path.as_ref(), self.make_upload_token_signer(&params).as_ref(), &params)?,
+            Self::make_request_body_from_path(path.as_ref(), self.make_upload_token_signer(&params).as_ref(), &params)?,
         )
     }
 
-    fn upload_reader<R: Read + 'static>(&self, reader: R, params: ObjectParams) -> ApiResult<Value> {
+    fn upload_reader<R: Read + Send + Sync>(&self, reader: R, params: ObjectParams) -> ApiResult<Value> {
         self.upload(
             params.region_provider(),
-            self.make_request_body_from_reader(reader, None, self.make_upload_token_signer(&params).as_ref(), &params)?,
+            Self::make_request_body_from_reader(
+                reader,
+                None,
+                self.make_upload_token_signer(&params).as_ref(),
+                &params,
+            )?,
+        )
+    }
+
+    fn upload_seekable_reader<R: Read + Seek + Send + Sync>(
+        &self,
+        reader: R,
+        params: ObjectParams,
+    ) -> ApiResult<Value> {
+        self.upload(
+            params.region_provider(),
+            Self::make_request_body_from_seekable_reader(
+                reader,
+                None,
+                self.make_upload_token_signer(&params).as_ref(),
+                &params,
+            )?,
         )
     }
 
@@ -188,7 +214,29 @@ impl SinglePartUploader for FormUploader {
         Box::pin(async move {
             self.async_upload(
                 params.region_provider(),
-                self.make_async_request_body_from_async_reader(
+                Self::make_async_request_body_from_async_reader(
+                    reader,
+                    None,
+                    self.make_upload_token_signer(&params).as_ref(),
+                    &params,
+                )
+                .await?,
+            )
+            .await
+        })
+    }
+
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    fn async_upload_seekable_reader<R: AsyncRead + AsyncSeek + Unpin + Send + Sync + 'static>(
+        &self,
+        reader: R,
+        params: ObjectParams,
+    ) -> BoxFuture<ApiResult<Value>> {
+        Box::pin(async move {
+            self.async_upload(
+                params.region_provider(),
+                Self::make_async_request_body_from_async_seekable_reader(
                     reader,
                     None,
                     self.make_upload_token_signer(&params).as_ref(),
@@ -220,7 +268,7 @@ impl FormUploader {
         fn _upload<'a, E: EndpointsProvider + Clone + 'a>(
             form_uploader: &'a FormUploader,
             mut request: SyncRequestBuilder<'a, E>,
-            body: SyncRequestBody<'_>,
+            body: SyncRequestBody<'a>,
         ) -> ApiResult<Value> {
             request.on_uploading_progress(|_, transfer| {
                 form_uploader
@@ -272,67 +320,19 @@ impl FormUploader {
     }
 
     fn make_request_body_from_path<'a>(
-        &'a self,
         path: &'a Path,
         token: &'a (dyn UploadTokenProvider + 'a),
         params: &'a ObjectParams,
     ) -> ApiResult<SyncRequestBody<'a>> {
-        let file = File::open(path)?;
-        self.make_request_body_from_reader(file, Some(path), token, params)
+        let mut file = File::open(path)?;
+        if file.stream_position().is_ok() {
+            Self::make_request_body_from_seekable_reader(file, Some(path), token, params)
+        } else {
+            Self::make_request_body_from_reader(file, Some(path), token, params)
+        }
     }
 
-    fn make_request_body_from_reader<'a, R: Read + 'static>(
-        &'a self,
-        reader: R,
-        path: Option<&'a Path>,
-        token: &'a (dyn UploadTokenProvider + 'a),
-        params: &'a ObjectParams,
-    ) -> ApiResult<SyncRequestBody<'a>> {
-        let mut file_metadata = PartMetadata::default();
-        if let Some(file_name) = params.file_name() {
-            file_metadata = file_metadata.file_name(file_name);
-        } else if let Some(path) = path {
-            if let Some(file_name) = path.file_name() {
-                file_metadata = file_metadata.file_name(Path::new(file_name).display().to_string());
-            }
-        }
-        if let Some(content_type) = params.content_type() {
-            file_metadata = file_metadata.mime(content_type.to_owned());
-        }
-        let mut request_body = SyncRequestBody::default().set_upload_token(token, Default::default())?;
-        if let Some(object_name) = params.object_name() {
-            request_body = request_body.set_object_name(object_name.to_string());
-        }
-        for (key, value) in params.metadata() {
-            request_body = request_body.append_custom_data("x-qn-meta-".to_owned() + key, value);
-        }
-        for (key, value) in params.custom_vars() {
-            request_body = request_body.append_custom_data("x:".to_owned() + key, value);
-        }
-        request_body = request_body.set_file_as_reader(reader, file_metadata);
-        Ok(request_body)
-    }
-
-    #[cfg(feature = "async")]
-    async fn make_async_request_body_from_path<'a>(
-        &'a self,
-        path: &'a Path,
-        token: &'a (dyn UploadTokenProvider + 'a),
-        params: &'a ObjectParams,
-    ) -> ApiResult<AsyncRequestBody<'a>> {
-        let file = AsyncFile::open(path).await?;
-        self.make_async_request_body_from_async_reader(file, Some(path), token, params)
-            .await
-    }
-
-    #[cfg(feature = "async")]
-    async fn make_async_request_body_from_async_reader<'a, R: AsyncRead + Unpin + Send + Sync + 'static>(
-        &'a self,
-        reader: R,
-        path: Option<&'a Path>,
-        token: &'a (dyn UploadTokenProvider + 'a),
-        params: &'a ObjectParams,
-    ) -> ApiResult<AsyncRequestBody<'a>> {
+    fn make_part_metadata<'a>(path: Option<&'a Path>, params: &'a ObjectParams) -> PartMetadata {
         let mut file_metadata = PartMetadata::default();
         let mut file_name_set = false;
         if let Some(file_name) = params.file_name() {
@@ -350,6 +350,67 @@ impl FormUploader {
         if let Some(content_type) = params.content_type() {
             file_metadata = file_metadata.mime(content_type.to_owned());
         }
+        file_metadata
+    }
+
+    fn make_request_body_from_token_and_params<'a>(
+        token: &'a (dyn UploadTokenProvider + 'a),
+        params: &'a ObjectParams,
+    ) -> ApiResult<SyncRequestBody<'a>> {
+        let mut request_body = SyncRequestBody::default().set_upload_token(token, Default::default())?;
+        if let Some(object_name) = params.object_name() {
+            request_body = request_body.set_object_name(object_name.to_string());
+        }
+        for (key, value) in params.metadata() {
+            request_body = request_body.append_custom_data("x-qn-meta-".to_owned() + key, value);
+        }
+        for (key, value) in params.custom_vars() {
+            request_body = request_body.append_custom_data("x:".to_owned() + key, value);
+        }
+        Ok(request_body)
+    }
+
+    fn make_request_body_from_reader<'a, R: Read + Send + Sync + 'a>(
+        reader: R,
+        path: Option<&'a Path>,
+        token: &'a (dyn UploadTokenProvider + 'a),
+        params: &'a ObjectParams,
+    ) -> ApiResult<SyncRequestBody<'a>> {
+        let file_metadata = Self::make_part_metadata(path, params);
+        Ok(Self::make_request_body_from_token_and_params(token, params)?.set_file_as_reader(reader, file_metadata))
+    }
+
+    fn make_request_body_from_seekable_reader<'a, R: Read + Seek + Send + Sync + 'a>(
+        reader: R,
+        path: Option<&'a Path>,
+        token: &'a (dyn UploadTokenProvider + 'a),
+        params: &'a ObjectParams,
+    ) -> ApiResult<SyncRequestBody<'a>> {
+        let file_metadata = Self::make_part_metadata(path, params);
+        Ok(Self::make_request_body_from_token_and_params(token, params)?
+            .set_file_as_seekable_reader(reader, file_metadata))
+    }
+
+    #[cfg(feature = "async")]
+    async fn make_async_request_body_from_path<'a>(
+        &'a self,
+        path: &'a Path,
+        token: &'a (dyn UploadTokenProvider + 'a),
+        params: &'a ObjectParams,
+    ) -> ApiResult<AsyncRequestBody<'a>> {
+        let mut file = AsyncFile::open(path).await?;
+        if file.seek(SeekFrom::Current(0)).await.is_ok() {
+            Self::make_async_request_body_from_async_seekable_reader(file, Some(path), token, params).await
+        } else {
+            Self::make_async_request_body_from_async_reader(file, Some(path), token, params).await
+        }
+    }
+
+    #[cfg(feature = "async")]
+    async fn make_async_request_body_from_token_and_params<'a>(
+        token: &'a (dyn UploadTokenProvider + 'a),
+        params: &'a ObjectParams,
+    ) -> ApiResult<AsyncRequestBody<'a>> {
         let mut request_body = AsyncRequestBody::default()
             .set_upload_token(token, Default::default())
             .await?;
@@ -362,8 +423,36 @@ impl FormUploader {
         for (key, value) in params.custom_vars() {
             request_body = request_body.append_custom_data("x:".to_owned() + key, value);
         }
-        request_body = request_body.set_file_as_reader(reader, file_metadata);
         Ok(request_body)
+    }
+
+    #[cfg(feature = "async")]
+    async fn make_async_request_body_from_async_reader<'a, R: AsyncRead + Unpin + Send + Sync + 'static>(
+        reader: R,
+        path: Option<&'a Path>,
+        token: &'a (dyn UploadTokenProvider + 'a),
+        params: &'a ObjectParams,
+    ) -> ApiResult<AsyncRequestBody<'a>> {
+        let file_metadata = Self::make_part_metadata(path, params);
+        Ok(Self::make_async_request_body_from_token_and_params(token, params)
+            .await?
+            .set_file_as_reader(reader, file_metadata))
+    }
+
+    #[cfg(feature = "async")]
+    async fn make_async_request_body_from_async_seekable_reader<
+        'a,
+        R: AsyncRead + AsyncSeek + Unpin + Send + Sync + 'static,
+    >(
+        reader: R,
+        path: Option<&'a Path>,
+        token: &'a (dyn UploadTokenProvider + 'a),
+        params: &'a ObjectParams,
+    ) -> ApiResult<AsyncRequestBody<'a>> {
+        let file_metadata = Self::make_part_metadata(path, params);
+        Ok(Self::make_async_request_body_from_token_and_params(token, params)
+            .await?
+            .set_file_as_seekable_reader(reader, file_metadata))
     }
 
     fn get_bucket_region(&self) -> ApiResult<BucketRegionsProvider> {
@@ -449,7 +538,10 @@ mod tests {
     };
     use rand::{thread_rng, RngCore};
     use serde_json::{json, to_vec as json_to_vec};
-    use std::time::Duration;
+    use std::{
+        io::{Read, Result as IoResult},
+        time::Duration,
+    };
 
     #[cfg(feature = "async")]
     use qiniu_apis::http::{AsyncRequest, AsyncResponseResult};
@@ -512,9 +604,8 @@ mod tests {
             }
         }
 
-        let rand_reader = Box::new(thread_rng()) as Box<dyn RngCore>;
         let value = get_upload_manager(FakeHttpCaller).form_uploader().upload_reader(
-            rand_reader.take(1 << 10),
+            RandReader.take(1 << 10),
             ObjectParams::builder()
                 .object_name("fakeobjectname")
                 .file_name("fakefilename")
@@ -552,5 +643,15 @@ mod tests {
         Region::builder("chaotic")
             .add_up_preferred_endpoint(("fakeup.example.com".to_owned(), 8080).into())
             .build()
+    }
+
+    struct RandReader;
+
+    impl Read for RandReader {
+        fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
+            let mut rng = thread_rng();
+            rng.fill_bytes(buf);
+            Ok(buf.len())
+        }
     }
 }

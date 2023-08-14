@@ -54,12 +54,25 @@ pub mod sync_part {
         #[inline]
         #[must_use]
         #[doc = "上传文件的内容"]
-        pub fn set_file_as_reader(
+        pub fn set_file_as_seekable_reader(
             self,
-            reader: impl std::io::Read + 'a,
+            reader: impl std::io::Read + std::io::Seek + Send + Sync + 'a,
             metadata: qiniu_http_client::PartMetadata,
         ) -> RequestBody<'a> {
-            self.add_part("file", qiniu_http_client::SyncPart::stream(reader).metadata(metadata))
+            self.add_part("file", qiniu_http_client::SyncPart::seekable(reader).metadata(metadata))
+        }
+        #[inline]
+        #[must_use]
+        #[doc = "上传文件的内容"]
+        pub fn set_file_as_reader(
+            self,
+            reader: impl std::io::Read + Send + Sync + 'a,
+            metadata: qiniu_http_client::PartMetadata,
+        ) -> RequestBody<'a> {
+            self.add_part(
+                "file",
+                qiniu_http_client::SyncPart::unseekable(reader).metadata(metadata),
+            )
         }
         #[inline]
         #[must_use]
@@ -152,12 +165,28 @@ pub mod async_part {
         #[inline]
         #[must_use]
         #[doc = "上传文件的内容"]
-        pub fn set_file_as_reader(
+        pub fn set_file_as_seekable_reader(
             self,
-            reader: impl futures::io::AsyncRead + Send + Unpin + 'a,
+            reader: impl futures::io::AsyncRead + futures::io::AsyncSeek + Send + Sync + Unpin + 'a,
             metadata: qiniu_http_client::PartMetadata,
         ) -> RequestBody<'a> {
-            self.add_part("file", qiniu_http_client::AsyncPart::stream(reader).metadata(metadata))
+            self.add_part(
+                "file",
+                qiniu_http_client::AsyncPart::seekable(reader).metadata(metadata),
+            )
+        }
+        #[inline]
+        #[must_use]
+        #[doc = "上传文件的内容"]
+        pub fn set_file_as_reader(
+            self,
+            reader: impl futures::io::AsyncRead + Send + Sync + Unpin + 'a,
+            metadata: qiniu_http_client::PartMetadata,
+        ) -> RequestBody<'a> {
+            self.add_part(
+                "file",
+                qiniu_http_client::AsyncPart::unseekable(reader).metadata(metadata),
+            )
         }
         #[inline]
         #[must_use]
@@ -522,7 +551,7 @@ impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> SyncRequestBu
     #[doc = "阻塞发起 HTTP 请求"]
     pub fn call(
         &mut self,
-        body: sync_part::RequestBody<'_>,
+        body: sync_part::RequestBody<'req>,
     ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = self.0.multipart(body)?;
         let response = request.call()?;
@@ -535,7 +564,7 @@ impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> AsyncRequestB
     #[doc = "异步发起 HTTP 请求"]
     pub async fn call(
         &mut self,
-        body: async_part::RequestBody<'_>,
+        body: async_part::RequestBody<'req>,
     ) -> qiniu_http_client::ApiResult<qiniu_http_client::Response<ResponseBody>> {
         let request = self.0.multipart(body).await?;
         let response = request.call().await?;

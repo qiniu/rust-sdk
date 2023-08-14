@@ -18,14 +18,20 @@ use sha1::Sha1;
 use std::{
     fmt::Debug,
     fs::metadata,
-    io::Read,
+    io::{copy, Cursor, Read, Result as IoResult},
     ops::{Deref, DerefMut},
     path::Path,
     sync::Arc,
 };
 
 #[cfg(feature = "async")]
-use {async_std::fs::metadata as async_metadata, futures::AsyncRead};
+use {
+    async_std::fs::metadata as async_metadata,
+    futures::{
+        io::{copy as async_copy, Cursor as AsyncCursor},
+        AsyncRead, AsyncReadExt,
+    },
+};
 
 /// 自动上传器
 ///
@@ -177,72 +183,113 @@ macro_rules! async_block {
     };
 }
 
-macro_rules! with_uploader {
-    ($uploader:ident, $resumable_policy:expr, $params:expr, $wrapper:ident, $method:ident, $($args:expr,)*) => {
-        match $resumable_policy {
-            ResumablePolicy::SinglePartUploading => match $params.single_part_uploader_prefer() {
-                SinglePartUploaderPrefer::Form => {
-                    let uploader = FormUploader::new_with_callbacks(
+macro_rules! with_single_part_uploader {
+    ($uploader:ident, $params:expr, $wrapper:ident, $method:ident, $first_arg:expr, $($args:expr,)*) => {
+        match $params.single_part_uploader_prefer() {
+            SinglePartUploaderPrefer::Form => {
+                let uploader = FormUploader::new_with_callbacks(
+                    $uploader.upload_manager.to_owned(),
+                    $uploader.callbacks.to_owned(),
+                );
+                $wrapper!({uploader.$method($first_arg, $($args),*)})
+            }
+        }
+    };
+}
+
+macro_rules! with_multi_parts_uploader {
+    ($uploader:ident, $params:expr, $wrapper:ident, $method:ident, $first_arg:expr, $($args:expr,)*) => {
+        match (
+            $params.multi_parts_uploader_prefer(),
+            $params.multi_parts_uploader_scheduler_prefer(),
+        ) {
+            (MultiPartsUploaderPrefer::V1, MultiPartsUploaderSchedulerPrefer::Concurrent) => {
+                let mut uploader =
+                    ConcurrentMultiPartsUploaderScheduler::new(MultiPartsV1Uploader::new_with_callbacks(
                         $uploader.upload_manager.to_owned(),
                         $uploader.callbacks.to_owned(),
-                    );
-                    $wrapper!({uploader.$method($($args),*)})
-                }
-            },
-            ResumablePolicy::MultiPartsUploading => {
-                match (
-                    $params.multi_parts_uploader_prefer(),
-                    $params.multi_parts_uploader_scheduler_prefer(),
-                ) {
-                    (MultiPartsUploaderPrefer::V1, MultiPartsUploaderSchedulerPrefer::Concurrent) => {
-                        let mut uploader =
-                            ConcurrentMultiPartsUploaderScheduler::new(MultiPartsV1Uploader::new_with_callbacks(
-                                $uploader.upload_manager.to_owned(),
-                                $uploader.callbacks.to_owned(),
-                                $uploader.resumable_recorder.to_owned(),
-                            ));
-                        uploader.set_concurrency_provider(Box::new($uploader.concurrency_provider.to_owned()));
-                        uploader.set_data_partition_provider(Box::new($uploader.data_partition_provider.to_owned()));
-                        $wrapper!({uploader.$method($($args),*)})
-                    }
-                    (MultiPartsUploaderPrefer::V1, MultiPartsUploaderSchedulerPrefer::Serial) => {
-                        let mut uploader =
-                            SerialMultiPartsUploaderScheduler::new(MultiPartsV1Uploader::new_with_callbacks(
-                                $uploader.upload_manager.to_owned(),
-                                $uploader.callbacks.to_owned(),
-                                $uploader.resumable_recorder.to_owned(),
-                            ));
-                        uploader.set_concurrency_provider(Box::new($uploader.concurrency_provider.to_owned()));
-                        uploader.set_data_partition_provider(Box::new($uploader.data_partition_provider.to_owned()));
-                        $wrapper!({uploader.$method($($args),*)})
-                    }
-                    (MultiPartsUploaderPrefer::V2, MultiPartsUploaderSchedulerPrefer::Concurrent) => {
-                        let mut uploader =
-                            ConcurrentMultiPartsUploaderScheduler::new(MultiPartsV2Uploader::new_with_callbacks(
-                                $uploader.upload_manager.to_owned(),
-                                $uploader.callbacks.to_owned(),
-                                $uploader.resumable_recorder.to_owned(),
-                            ));
-                        uploader.set_concurrency_provider(Box::new($uploader.concurrency_provider.to_owned()));
-                        uploader.set_data_partition_provider(Box::new($uploader.data_partition_provider.to_owned()));
-                        $wrapper!({uploader.$method($($args),*)})
-                    }
-                    (MultiPartsUploaderPrefer::V2, MultiPartsUploaderSchedulerPrefer::Serial) => {
-                        let mut uploader =
-                            SerialMultiPartsUploaderScheduler::new(MultiPartsV2Uploader::new_with_callbacks(
-                                $uploader.upload_manager.to_owned(),
-                                $uploader.callbacks.to_owned(),
-                                $uploader.resumable_recorder.to_owned(),
-                            ));
-                        uploader.set_concurrency_provider(Box::new($uploader.concurrency_provider.to_owned()));
-                        uploader.set_data_partition_provider(Box::new($uploader.data_partition_provider.to_owned()));
-                        $wrapper!({uploader.$method($($args),*)})
-                    }
+                        $uploader.resumable_recorder.to_owned(),
+                    ));
+                uploader.set_concurrency_provider(Box::new($uploader.concurrency_provider.to_owned()));
+                uploader.set_data_partition_provider(Box::new($uploader.data_partition_provider.to_owned()));
+                $wrapper!({uploader.$method($first_arg, $($args),*)})
+            }
+            (MultiPartsUploaderPrefer::V1, MultiPartsUploaderSchedulerPrefer::Serial) => {
+                let mut uploader =
+                    SerialMultiPartsUploaderScheduler::new(MultiPartsV1Uploader::new_with_callbacks(
+                        $uploader.upload_manager.to_owned(),
+                        $uploader.callbacks.to_owned(),
+                        $uploader.resumable_recorder.to_owned(),
+                    ));
+                uploader.set_concurrency_provider(Box::new($uploader.concurrency_provider.to_owned()));
+                uploader.set_data_partition_provider(Box::new($uploader.data_partition_provider.to_owned()));
+                $wrapper!({uploader.$method($first_arg, $($args),*)})
+            }
+            (MultiPartsUploaderPrefer::V2, MultiPartsUploaderSchedulerPrefer::Concurrent) => {
+                let mut uploader =
+                    ConcurrentMultiPartsUploaderScheduler::new(MultiPartsV2Uploader::new_with_callbacks(
+                        $uploader.upload_manager.to_owned(),
+                        $uploader.callbacks.to_owned(),
+                        $uploader.resumable_recorder.to_owned(),
+                    ));
+                uploader.set_concurrency_provider(Box::new($uploader.concurrency_provider.to_owned()));
+                uploader.set_data_partition_provider(Box::new($uploader.data_partition_provider.to_owned()));
+                $wrapper!({uploader.$method($first_arg, $($args),*)})
+            }
+            (MultiPartsUploaderPrefer::V2, MultiPartsUploaderSchedulerPrefer::Serial) => {
+                let mut uploader =
+                    SerialMultiPartsUploaderScheduler::new(MultiPartsV2Uploader::new_with_callbacks(
+                        $uploader.upload_manager.to_owned(),
+                        $uploader.callbacks.to_owned(),
+                        $uploader.resumable_recorder.to_owned(),
+                    ));
+                uploader.set_concurrency_provider(Box::new($uploader.concurrency_provider.to_owned()));
+                uploader.set_data_partition_provider(Box::new($uploader.data_partition_provider.to_owned()));
+                $wrapper!({uploader.$method($first_arg, $($args),*)})
+            }
+        }
+    };
+}
+
+macro_rules! with_uploader {
+    ($uploader:ident, $resumable_policy:expr, $use_multi_parts_uploading:expr, $params:expr, $wrapper:ident, $method:ident, $first_arg:expr, $($args:expr,)*) => {
+        match $resumable_policy {
+            ResumablePolicy::SinglePartUploading => with_single_part_uploader!(
+                $uploader,
+                $params,
+                $wrapper,
+                $method,
+                $first_arg,
+                $($args,)*
+            ),
+            ResumablePolicy::MultiPartsUploading => with_multi_parts_uploader!(
+                $uploader,
+                $params,
+                $wrapper,
+                $method,
+                $first_arg,
+                $($args,)*
+            ),
+            ResumablePolicy::MultiPartsUploadingThreshold(threshold) => {
+                let (first_arg, use_multi_parts) = $wrapper!({$use_multi_parts_uploading(threshold, $first_arg)})?;
+                if use_multi_parts {
+                    with_multi_parts_uploader!($uploader, $params, $wrapper, $method, first_arg, $($args,)*)
+                } else {
+                    with_single_part_uploader!($uploader, $params, $wrapper, $method, first_arg, $($args,)*)
                 }
             }
         }
     };
 }
+
+trait ReadDebug: Read + Debug {}
+impl<T: Read + Debug> ReadDebug for T {}
+
+#[cfg(feature = "async")]
+trait AsyncReadDebug: AsyncRead + Debug {}
+
+#[cfg(feature = "async")]
+impl<T: AsyncRead + Debug> AsyncReadDebug for T {}
 
 impl<H: Digest + Send + 'static> AutoUploader<H> {
     /// 阻塞上传指定路径的文件
@@ -250,20 +297,25 @@ impl<H: Digest + Send + 'static> AutoUploader<H> {
     /// 该方法的异步版本为 [`Self::async_upload_path`]。
     pub fn upload_path(&self, path: impl AsRef<Path>, params: impl Into<AutoUploaderObjectParams>) -> ApiResult<Value> {
         let params = params.into();
-        let size = metadata(path.as_ref())?.len();
-        with_uploader!(
+        return with_uploader!(
             self,
-            self.resumable_policy_provider
-                .get_policy_from_size(size, Default::default()),
+            self.resumable_policy_provider.get_policy(Default::default()),
+            use_multi_parts_uploading,
             params,
             sync_block,
             upload_path,
-            path.as_ref(),
+            path,
             params.into(),
-        )
+        );
+
+        fn use_multi_parts_uploading<P: AsRef<Path>>(threshold: u64, path: P) -> IoResult<(P, bool)> {
+            metadata(path.as_ref())
+                .map(|metadata| metadata.len() >= threshold)
+                .map(move |v| (path, v))
+        }
     }
 
-    /// 阻塞上传阅读器的数据
+    /// 阻塞上传不可寻址的阅读器的数据
     ///
     /// 该方法的异步版本为 [`Self::async_upload_reader`]。
     pub fn upload_reader<R: Read + Debug + Send + Sync + 'static>(
@@ -272,10 +324,31 @@ impl<H: Digest + Send + 'static> AutoUploader<H> {
         params: impl Into<AutoUploaderObjectParams>,
     ) -> ApiResult<Value> {
         let params = params.into();
-        let (policy, reader) = self
-            .resumable_policy_provider
-            .get_policy_from_reader(Box::new(reader), Default::default())?;
-        with_uploader!(self, policy, params, sync_block, upload_reader, reader, params.into(),)
+        return with_uploader!(
+            self,
+            self.resumable_policy_provider.get_policy(Default::default()),
+            use_multi_parts_uploading,
+            params,
+            sync_block,
+            upload_reader,
+            reader,
+            params.into(),
+        );
+
+        fn use_multi_parts_uploading<R: Read + Debug + Send + Sync + 'static>(
+            threshold: u64,
+            mut reader: R,
+        ) -> IoResult<(Box<dyn ReadDebug + Send + Sync + 'static>, bool)> {
+            let mut buf = Vec::with_capacity(usize::try_from(threshold + 1).unwrap_or(usize::MAX));
+            copy(&mut (&mut reader).take(threshold + 1), &mut buf)?;
+            if buf.len() == buf.capacity() {
+                let mut new_reader: Box<dyn ReadDebug + Send + Sync + 'static> = Box::new(reader);
+                take_mut::take(&mut new_reader, move |reader| Box::new(Cursor::new(buf).chain(reader)));
+                Ok((new_reader, true))
+            } else {
+                Ok((Box::new(Cursor::new(buf)), false))
+            }
+        }
     }
 
     /// 异步上传指定路径的文件
@@ -287,20 +360,26 @@ impl<H: Digest + Send + 'static> AutoUploader<H> {
         params: impl Into<AutoUploaderObjectParams>,
     ) -> ApiResult<Value> {
         let params = params.into();
-        let size = async_metadata(path.as_ref()).await?.len();
-        with_uploader!(
+        return with_uploader!(
             self,
-            self.resumable_policy_provider
-                .get_policy_from_size(size, Default::default()),
+            self.resumable_policy_provider.get_policy(Default::default()),
+            use_multi_parts_uploading,
             params,
             async_block,
             async_upload_path,
-            path.as_ref(),
+            path,
             params.into(),
-        )
+        );
+
+        async fn use_multi_parts_uploading<P: AsRef<Path>>(threshold: u64, path: P) -> IoResult<(P, bool)> {
+            async_metadata(path.as_ref())
+                .await
+                .map(|metadata| metadata.len() >= threshold)
+                .map(move |v| (path, v))
+        }
     }
 
-    /// 异步上传阅读器的数据
+    /// 异步上传不可寻址的阅读器的数据
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     pub async fn async_upload_reader<R: AsyncRead + Unpin + Debug + Send + Sync + 'static>(
@@ -309,19 +388,33 @@ impl<H: Digest + Send + 'static> AutoUploader<H> {
         params: impl Into<AutoUploaderObjectParams>,
     ) -> ApiResult<Value> {
         let params = params.into();
-        let (policy, reader) = self
-            .resumable_policy_provider
-            .get_policy_from_async_reader(Box::new(reader), Default::default())
-            .await?;
-        with_uploader!(
+        return with_uploader!(
             self,
-            policy,
+            self.resumable_policy_provider.get_policy(Default::default()),
+            use_multi_parts_uploading,
             params,
             async_block,
             async_upload_reader,
             reader,
             params.into(),
-        )
+        );
+
+        async fn use_multi_parts_uploading<R: AsyncRead + Unpin + Debug + Send + Sync + 'static>(
+            threshold: u64,
+            mut reader: R,
+        ) -> IoResult<(Box<dyn AsyncReadDebug + Unpin + Send + Sync + 'static>, bool)> {
+            let mut buf = Vec::with_capacity(usize::try_from(threshold + 1).unwrap_or(usize::MAX));
+            async_copy((&mut reader).take(threshold + 1), &mut buf).await?;
+            if buf.len() == buf.capacity() {
+                let mut new_reader: Box<dyn AsyncReadDebug + Unpin + Send + Sync + 'static> = Box::new(reader);
+                take_mut::take(&mut new_reader, move |reader| {
+                    Box::new(AsyncCursor::new(buf).chain(reader))
+                });
+                Ok((new_reader, true))
+            } else {
+                Ok((Box::new(AsyncCursor::new(buf)), false))
+            }
+        }
     }
 }
 

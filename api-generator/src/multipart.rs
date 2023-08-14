@@ -233,20 +233,35 @@ impl MultipartFormDataRequestStruct {
             key: &str,
             sync_version: bool,
         ) -> TokenStream {
-            let method_name = format_ident!("set_{}_as_reader", field_name);
+            let seekable_method_name = format_ident!("set_{}_as_seekable_reader", field_name);
+            let unseekable_method_name = format_ident!("set_{}_as_reader", field_name);
             if sync_version {
                 quote! {
                     #[inline]
                     #[must_use]
                     #[doc = #documentation]
-                    pub fn #method_name(
+                    pub fn #seekable_method_name(
                         self,
-                        reader: impl std::io::Read + 'a,
+                        reader: impl std::io::Read + std::io::Seek + Send + Sync + 'a,
                         metadata: qiniu_http_client::PartMetadata,
                     ) -> #struct_name<'a> {
                         self.add_part(
                             #key,
-                            qiniu_http_client::SyncPart::stream(reader).metadata(metadata),
+                            qiniu_http_client::SyncPart::seekable(reader).metadata(metadata),
+                        )
+                    }
+
+                    #[inline]
+                    #[must_use]
+                    #[doc = #documentation]
+                    pub fn #unseekable_method_name(
+                        self,
+                        reader: impl std::io::Read + Send + Sync + 'a,
+                        metadata: qiniu_http_client::PartMetadata,
+                    ) -> #struct_name<'a> {
+                        self.add_part(
+                            #key,
+                            qiniu_http_client::SyncPart::unseekable(reader).metadata(metadata),
                         )
                     }
                 }
@@ -255,14 +270,28 @@ impl MultipartFormDataRequestStruct {
                     #[inline]
                     #[must_use]
                     #[doc = #documentation]
-                    pub fn #method_name(
+                    pub fn #seekable_method_name(
                         self,
-                        reader: impl futures::io::AsyncRead + Send + Unpin + 'a,
+                        reader: impl futures::io::AsyncRead + futures::io::AsyncSeek + Send + Sync + Unpin + 'a,
                         metadata: qiniu_http_client::PartMetadata,
                     ) -> #struct_name<'a> {
                         self.add_part(
                             #key,
-                            qiniu_http_client::AsyncPart::stream(reader).metadata(metadata),
+                            qiniu_http_client::AsyncPart::seekable(reader).metadata(metadata),
+                        )
+                    }
+
+                    #[inline]
+                    #[must_use]
+                    #[doc = #documentation]
+                    pub fn #unseekable_method_name(
+                        self,
+                        reader: impl futures::io::AsyncRead + Send + Sync + Unpin + 'a,
+                        metadata: qiniu_http_client::PartMetadata,
+                    ) -> #struct_name<'a> {
+                        self.add_part(
+                            #key,
+                            qiniu_http_client::AsyncPart::unseekable(reader).metadata(metadata),
                         )
                     }
                 }

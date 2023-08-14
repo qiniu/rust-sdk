@@ -1,10 +1,14 @@
 use super::{ObjectParams, UploadManager, UploaderWithCallbacks};
 use qiniu_apis::http_client::ApiResult;
 use serde_json::Value;
-use std::{fmt::Debug, io::Read, path::Path};
+use std::{
+    fmt::Debug,
+    io::{Read, Seek},
+    path::Path,
+};
 
 #[cfg(feature = "async")]
-use futures::{future::BoxFuture, AsyncRead};
+use futures::{future::BoxFuture, AsyncRead, AsyncSeek};
 
 /// 单请求上传器接口
 ///
@@ -18,10 +22,16 @@ pub trait SinglePartUploader: __private::Sealed + UploaderWithCallbacks + Clone 
     /// 该方法的异步版本为 [`Self::async_upload_path`]。
     fn upload_path(&self, path: impl AsRef<Path>, params: ObjectParams) -> ApiResult<Value>;
 
-    /// 上传输入流的数据
+    /// 上传不可寻址的输入流的数据
     ///
     /// 该方法的异步版本为 [`Self::async_upload_reader`]。
-    fn upload_reader<R: Read + 'static>(&self, reader: R, params: ObjectParams) -> ApiResult<Value>;
+    fn upload_reader<R: Read + Send + Sync>(&self, reader: R, params: ObjectParams) -> ApiResult<Value>;
+
+    /// 上传可寻址的输入流的数据
+    ///
+    /// 该方法的异步版本为 [`Self::async_upload_seekable_reader`]。
+    fn upload_seekable_reader<R: Read + Seek + Send + Sync>(&self, reader: R, params: ObjectParams)
+        -> ApiResult<Value>;
 
     /// 异步上传指定路径的文件
     #[cfg(feature = "async")]
@@ -32,10 +42,19 @@ pub trait SinglePartUploader: __private::Sealed + UploaderWithCallbacks + Clone 
         params: ObjectParams,
     ) -> BoxFuture<'a, ApiResult<Value>>;
 
-    /// 上传异步输入流的数据
+    /// 上传不可寻址的异步输入流的数据
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_upload_reader<R: AsyncRead + Unpin + Send + Sync + 'static>(
+        &self,
+        reader: R,
+        params: ObjectParams,
+    ) -> BoxFuture<ApiResult<Value>>;
+
+    /// 上传可寻址的异步输入流的数据
+    #[cfg(feature = "async")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    fn async_upload_seekable_reader<R: AsyncRead + AsyncSeek + Unpin + Send + Sync + 'static>(
         &self,
         reader: R,
         params: ObjectParams,

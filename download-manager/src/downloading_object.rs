@@ -394,7 +394,6 @@ impl DownloadingObjectReader {
 mod async_reader {
     use super::*;
     use futures::{future::BoxFuture, io::Cursor, lock::Mutex, ready, AsyncRead, FutureExt};
-    use smart_default::Default;
     use std::{
         fmt::{self, Debug},
         pin::Pin,
@@ -422,9 +421,7 @@ mod async_reader {
         }
     }
 
-    #[derive(Default)]
     enum AsyncDownloadingObjectReaderStep {
-        #[default]
         Buffered(Cursor<Vec<u8>>),
         Waiting(BoxFuture<'static, IoResult<Vec<u8>>>),
         Done,
@@ -437,6 +434,13 @@ mod async_reader {
                 Self::Waiting(_) => f.debug_tuple("Waiting").finish(),
                 Self::Done => f.debug_tuple("Done").finish(),
             }
+        }
+    }
+
+    impl Default for AsyncDownloadingObjectReaderStep {
+        #[inline]
+        fn default() -> Self {
+            Self::Buffered(Default::default())
         }
     }
 

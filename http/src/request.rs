@@ -572,16 +572,16 @@ mod body {
     impl<T: Read + Reset + Debug + Send + Sync> ReadDebug for T {}
 
     #[derive(Debug)]
-    struct OwnedRequestBody(OwnedRequestBodyInner);
+    struct OwnedRequestBody<'a>(OwnedRequestBodyInner<'a>);
 
     #[derive(Debug)]
-    enum OwnedRequestBodyInner {
-        Reader { reader: Box<dyn ReadDebug>, size: u64 },
+    enum OwnedRequestBodyInner<'a> {
+        Reader { reader: Box<dyn ReadDebug + 'a>, size: u64 },
         Bytes(Cursor<Vec<u8>>),
     }
 
-    impl OwnedRequestBody {
-        fn from_reader(reader: impl Read + Reset + Debug + Send + Sync + 'static, size: u64) -> Self {
+    impl<'a> OwnedRequestBody<'a> {
+        fn from_reader(reader: impl Read + Reset + Debug + Send + Sync + 'a, size: u64) -> Self {
             Self(OwnedRequestBodyInner::Reader {
                 reader: Box::new(reader),
                 size,
@@ -600,14 +600,14 @@ mod body {
         }
     }
 
-    impl Default for OwnedRequestBody {
+    impl Default for OwnedRequestBody<'_> {
         #[inline]
         fn default() -> Self {
             Self::from_bytes(Default::default())
         }
     }
 
-    impl Read for OwnedRequestBody {
+    impl Read for OwnedRequestBody<'_> {
         fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
             match &mut self.0 {
                 OwnedRequestBodyInner::Reader { reader, .. } => reader.read(buf),
@@ -616,7 +616,7 @@ mod body {
         }
     }
 
-    impl Reset for OwnedRequestBody {
+    impl Reset for OwnedRequestBody<'_> {
         #[inline]
         fn reset(&mut self) -> IoResult<()> {
             match &mut self.0 {
@@ -634,7 +634,7 @@ mod body {
     enum RequestBodyInner<'a> {
         ReaderRef { reader: &'a mut dyn ReadDebug, size: u64 },
         BytesRef(Cursor<&'a [u8]>),
-        Owned(OwnedRequestBody),
+        Owned(OwnedRequestBody<'a>),
     }
 
     impl<'a> RequestBody<'a> {
@@ -655,7 +655,7 @@ mod body {
 
         /// 通过输入流创建 HTTP 请求体
         #[inline]
-        pub fn from_reader(reader: impl Read + Reset + Debug + Send + Sync + 'static, size: u64) -> Self {
+        pub fn from_reader(reader: impl Read + Reset + Debug + Send + Sync + 'a, size: u64) -> Self {
             Self(RequestBodyInner::Owned(OwnedRequestBody::from_reader(reader, size)))
         }
 
@@ -767,19 +767,19 @@ mod body {
 
         #[derive(Debug)]
         #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
-        struct OwnedAsyncRequestBody(OwnedAsyncRequestBodyInner);
+        struct OwnedAsyncRequestBody<'a>(OwnedAsyncRequestBodyInner<'a>);
 
         #[derive(Debug)]
-        enum OwnedAsyncRequestBodyInner {
-            Reader { reader: Box<dyn AsyncReadDebug>, size: u64 },
+        enum OwnedAsyncRequestBodyInner<'a> {
+            Reader {
+                reader: Box<dyn AsyncReadDebug + 'a>,
+                size: u64,
+            },
             Bytes(Cursor<Vec<u8>>),
         }
 
-        impl OwnedAsyncRequestBody {
-            fn from_reader(
-                reader: impl AsyncRead + AsyncReset + Unpin + Debug + Send + Sync + 'static,
-                size: u64,
-            ) -> Self {
+        impl<'a> OwnedAsyncRequestBody<'a> {
+            fn from_reader(reader: impl AsyncRead + AsyncReset + Unpin + Debug + Send + Sync + 'a, size: u64) -> Self {
                 Self(OwnedAsyncRequestBodyInner::Reader {
                     reader: Box::new(reader),
                     size,
@@ -799,14 +799,14 @@ mod body {
             }
         }
 
-        impl Default for OwnedAsyncRequestBody {
+        impl Default for OwnedAsyncRequestBody<'_> {
             #[inline]
             fn default() -> Self {
                 Self::from_bytes(Default::default())
             }
         }
 
-        impl AsyncRead for OwnedAsyncRequestBody {
+        impl AsyncRead for OwnedAsyncRequestBody<'_> {
             fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context, buf: &mut [u8]) -> Poll<IoResult<usize>> {
                 match &mut self.as_mut().0 {
                     OwnedAsyncRequestBodyInner::Reader { reader, .. } => {
@@ -821,7 +821,7 @@ mod body {
             }
         }
 
-        impl AsyncReset for OwnedAsyncRequestBody {
+        impl AsyncReset for OwnedAsyncRequestBody<'_> {
             #[inline]
             fn reset(&mut self) -> BoxFuture<IoResult<()>> {
                 Box::pin(async move {
@@ -845,7 +845,7 @@ mod body {
                 size: u64,
             },
             BytesRef(Cursor<&'a [u8]>),
-            Owned(OwnedAsyncRequestBody),
+            Owned(OwnedAsyncRequestBody<'a>),
         }
 
         impl<'a> AsyncRequestBody<'a> {
@@ -867,7 +867,7 @@ mod body {
             /// 通过异步输入流创建异步 HTTP 请求体
             #[inline]
             pub fn from_reader(
-                reader: impl AsyncRead + AsyncReset + Unpin + Debug + Send + Sync + 'static,
+                reader: impl AsyncRead + AsyncReset + Unpin + Debug + Send + Sync + 'a,
                 size: u64,
             ) -> Self {
                 Self(AsyncRequestBodyInner::Owned(OwnedAsyncRequestBody::from_reader(

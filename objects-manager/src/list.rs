@@ -192,12 +192,9 @@ impl From<ListVersion> for SyncListVersionWithStep {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub(super) enum SyncListV1Step {
-    #[default]
-    Buffer {
-        buffer: VecDeque<ListedObjectEntry>,
-    },
+    Buffer { buffer: VecDeque<ListedObjectEntry> },
     Done,
 }
 
@@ -496,9 +493,7 @@ mod async_list_stream {
         }
     }
 
-    #[derive(Default)]
     enum AsyncListV1Step<'a> {
-        #[default]
         FromBuffer {
             buffer: VecDeque<ListedObjectEntry>,
         },

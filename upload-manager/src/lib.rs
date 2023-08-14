@@ -154,7 +154,7 @@ pub use multi_parts_uploader::{
 };
 pub use object_params::{ObjectParams, ObjectParamsBuilder};
 pub use resumable_policy::{
-    AlwaysMultiParts, AlwaysSinglePart, DynRead, FixedThresholdResumablePolicy, GetPolicyOptions,
+    AlwaysMultiParts, AlwaysSinglePart, FixedThresholdResumablePolicy, GetPolicyOptions,
     MultiplePartitionsResumablePolicyProvider, ResumablePolicy, ResumablePolicyProvider,
 };
 pub use resumable_recorder::{
@@ -174,7 +174,6 @@ pub use {
     data_source::{
         AsyncDataSource, AsyncDataSourceReader, AsyncFileDataSource, AsyncSeekableSource, AsyncUnseekableDataSource,
     },
-    resumable_policy::DynAsyncRead,
     resumable_recorder::{AppendOnlyAsyncResumableRecorderMedium, ReadOnlyAsyncResumableRecorderMedium},
 };
 
@@ -189,7 +188,5 @@ pub mod prelude {
     };
 
     #[cfg(feature = "async")]
-    pub use super::{
-        AppendOnlyAsyncResumableRecorderMedium, AsyncDataSource, DynAsyncRead, ReadOnlyAsyncResumableRecorderMedium,
-    };
+    pub use super::{AppendOnlyAsyncResumableRecorderMedium, AsyncDataSource, ReadOnlyAsyncResumableRecorderMedium};
 }

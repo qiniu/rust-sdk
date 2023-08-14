@@ -640,7 +640,7 @@ impl<'r, E: 'r> SyncRequestBuilder<'r, E> {
     #[inline]
     pub fn stream_as_body(
         &mut self,
-        body: impl Read + Reset + Debug + Send + Sync + 'static,
+        body: impl Read + Reset + Debug + Send + Sync + 'r,
         content_length: u64,
         content_type: Option<Mime>,
     ) -> &mut Self {
@@ -707,14 +707,14 @@ impl<'r, E: 'r> SyncRequestBuilder<'r, E> {
 
     /// 设置 HTTP 请求体为 Multipart 表单对象
     #[inline]
-    pub fn multipart<'a>(&mut self, multipart: impl Into<SyncMultipart<'a>>) -> IoResult<&mut Self> {
-        let mut buf = Vec::new();
+    pub fn multipart(&mut self, multipart: impl Into<SyncMultipart<'r>>) -> IoResult<&mut Self> {
         let multipart = multipart.into();
         let mime = ("multipart/form-data; boundary=".to_owned() + multipart.boundary())
             .parse()
             .unwrap();
-        multipart.into_read().read_to_end(&mut buf)?;
-        Ok(self.bytes_as_body(buf, Some(mime)))
+        let reader = multipart.into_read()?;
+        let length = reader.len();
+        Ok(self.stream_as_body(reader, length, Some(mime)))
     }
 }
 
@@ -749,7 +749,7 @@ impl<'r, E: 'r> AsyncRequestBuilder<'r, E> {
     #[inline]
     pub fn stream_as_body(
         &mut self,
-        body: impl AsyncRead + AsyncReset + Unpin + Debug + Send + Sync + 'static,
+        body: impl AsyncRead + AsyncReset + Unpin + Debug + Send + Sync + 'r,
         content_length: u64,
         content_type: Option<Mime>,
     ) -> &mut Self {
@@ -816,19 +816,17 @@ impl<'r, E: 'r> AsyncRequestBuilder<'r, E> {
 
     /// 设置 HTTP 请求体为 Multipart 表单对象
     #[inline]
-    pub async fn multipart<'a>(
+    pub async fn multipart(
         &mut self,
-        multipart: impl Into<AsyncMultipart<'a>>,
+        multipart: impl Into<AsyncMultipart<'r>>,
     ) -> IoResult<&mut RequestBuilder<'r, AsyncRequestBody<'r>, E>> {
-        use futures::AsyncReadExt;
-
-        let mut buf = Vec::new();
         let multipart = multipart.into();
         let mime = ("multipart/form-data; boundary=".to_owned() + multipart.boundary())
             .parse()
             .unwrap();
-        multipart.into_async_read().read_to_end(&mut buf).await?;
-        Ok(self.bytes_as_body(buf, Some(mime)))
+        let reader = multipart.into_async_read().await?;
+        let length = reader.len();
+        Ok(self.stream_as_body(reader, length, Some(mime)))
     }
 }
 
