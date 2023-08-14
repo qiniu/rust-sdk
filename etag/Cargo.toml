@@ -1,9 +1,12 @@
 [package]
 name = "qiniu-etag"
 version = "0.2.3"
-authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
+authors = [
+    "Rong Zhou <zhourong@qiniu.com>",
+    "Shanghai Qiniu Information Technologies Co., Ltd.",
+]
 edition = "2021"
-rust-version = "1.60.0"
+rust-version = "1.64.0"
 readme = "README.md"
 license = "MIT"
 repository = "https://github.com/qiniu/rust-sdk.git"
