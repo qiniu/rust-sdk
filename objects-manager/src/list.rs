@@ -12,7 +12,6 @@ use qiniu_apis::{
     storage::get_objects_v2::SyncRequestBuilder as GetObjectsV2SyncRequestBuilder,
 };
 use serde::{Deserialize, Serialize};
-use smart_default::SmartDefault;
 use std::{
     borrow::Cow,
     collections::VecDeque,
@@ -156,7 +155,7 @@ impl Debug for ListIter<'_> {
 /// 列举 API 版本
 ///
 /// 目前支持 V1 和 V2，默认为 V1
-#[derive(Copy, Clone, Debug, SmartDefault)]
+#[derive(Copy, Clone, Debug, Default)]
 #[non_exhaustive]
 pub enum ListVersion {
     /// 列举 API V1
@@ -193,7 +192,7 @@ impl From<ListVersion> for SyncListVersionWithStep {
     }
 }
 
-#[derive(Clone, Debug, SmartDefault)]
+#[derive(Clone, Debug, Default)]
 pub(super) enum SyncListV1Step {
     #[default]
     Buffer {
@@ -202,7 +201,16 @@ pub(super) enum SyncListV1Step {
     Done,
 }
 
-#[derive(Debug, SmartDefault)]
+impl Default for SyncListV1Step {
+    #[inline]
+    fn default() -> Self {
+        Self::Buffer {
+            buffer: VecDeque::new(),
+        }
+    }
+}
+
+#[derive(Debug, Default)]
 pub(super) enum SyncListV2Step {
     #[default]
     Start,
@@ -488,7 +496,7 @@ mod async_list_stream {
         }
     }
 
-    #[derive(SmartDefault)]
+    #[derive(Default)]
     enum AsyncListV1Step<'a> {
         #[default]
         FromBuffer {
@@ -511,6 +519,15 @@ mod async_list_stream {
                 Self::WaitForResponse { .. } => f.debug_tuple("WaitForResponse").finish(),
                 Self::WaitForRegionProvider { .. } => f.debug_tuple("WaitForRegionProvider").finish(),
                 Self::Done => f.debug_tuple("Done").finish(),
+            }
+        }
+    }
+
+    impl Default for AsyncListV1Step<'_> {
+        #[inline]
+        fn default() -> Self {
+            Self::FromBuffer {
+                buffer: Default::default(),
             }
         }
     }
@@ -709,7 +726,7 @@ mod async_list_stream {
         }
     }
 
-    #[derive(SmartDefault)]
+    #[derive(Default)]
     enum AsyncListV2Step<'a> {
         #[default]
         Start,

@@ -394,7 +394,7 @@ impl DownloadingObjectReader {
 mod async_reader {
     use super::*;
     use futures::{future::BoxFuture, io::Cursor, lock::Mutex, ready, AsyncRead, FutureExt};
-    use smart_default::SmartDefault;
+    use smart_default::Default;
     use std::{
         fmt::{self, Debug},
         pin::Pin,
@@ -422,7 +422,7 @@ mod async_reader {
         }
     }
 
-    #[derive(SmartDefault)]
+    #[derive(Default)]
     enum AsyncDownloadingObjectReaderStep {
         #[default]
         Buffered(Cursor<Vec<u8>>),

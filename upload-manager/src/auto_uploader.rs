@@ -15,7 +15,6 @@ use qiniu_apis::{
 };
 use serde_json::Value;
 use sha1::Sha1;
-use smart_default::SmartDefault;
 use std::{
     fmt::Debug,
     fs::metadata,
@@ -358,7 +357,7 @@ pub struct AutoUploaderObjectParams {
 }
 
 /// 期望的分片上传调度器
-#[derive(Clone, Copy, Debug, PartialEq, Eq, SmartDefault)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 #[non_exhaustive]
 pub enum MultiPartsUploaderSchedulerPrefer {
     /// 串行上传调度器
@@ -376,7 +375,7 @@ pub enum MultiPartsUploaderSchedulerPrefer {
 }
 
 /// 期望的对象单请求上传器
-#[derive(Clone, Copy, Debug, PartialEq, Eq, SmartDefault)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 #[non_exhaustive]
 pub enum SinglePartUploaderPrefer {
     /// 表单上传器
@@ -387,7 +386,7 @@ pub enum SinglePartUploaderPrefer {
 }
 
 /// 期望的对象分片上传器
-#[derive(Clone, Copy, Debug, PartialEq, Eq, SmartDefault)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 #[non_exhaustive]
 pub enum MultiPartsUploaderPrefer {
     /// 分片上传器 V1

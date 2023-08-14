@@ -175,7 +175,6 @@ mod async_reader {
         ready, AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, Future,
     };
     use qiniu_apis::http::AsyncReset;
-    use smart_default::SmartDefault;
     use std::{
         fmt,
         pin::Pin,
@@ -208,7 +207,7 @@ mod async_reader {
         }
     }
 
-    #[derive(SmartDefault)]
+    #[derive(Default)]
     enum AsyncSeekableSourceReadStep {
         #[default]
         Buffered {
@@ -231,6 +230,16 @@ mod async_reader {
                     .finish(),
                 Self::Waiting { .. } => f.debug_struct("Waiting").finish(),
                 Self::Done => write!(f, "Done"),
+            }
+        }
+    }
+
+    impl Default for AsyncSeekableSourceReadStep {
+        #[inline]
+        fn default() -> Self {
+            Self::Buffered {
+                buffer: Vec::new(),
+                consumed: 0,
             }
         }
     }

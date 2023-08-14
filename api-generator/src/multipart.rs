@@ -3,9 +3,8 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use serde::{Deserialize, Serialize};
-use smart_default::SmartDefault;
 
-#[derive(SmartDefault, Clone, Debug, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 /// 复合表单字段请求类型
 enum MultipartFormDataRequestType {

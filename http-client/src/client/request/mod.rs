@@ -4,7 +4,6 @@ mod multipart;
 mod request_metadata;
 
 pub use qiniu_http::SyncRequestBody;
-use smart_default::SmartDefault;
 use std::borrow::Cow;
 
 #[cfg(feature = "async")]
@@ -20,7 +19,7 @@ pub type QueryPairValue<'q> = Cow<'q, str>;
 pub type QueryPair<'q> = (QueryPairKey<'q>, QueryPairValue<'q>);
 
 /// API 幂等性
-#[derive(Clone, Copy, Debug, SmartDefault)]
+#[derive(Clone, Copy, Debug, Default)]
 #[non_exhaustive]
 pub enum Idempotent {
     /// 总是幂等

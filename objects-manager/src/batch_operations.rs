@@ -277,7 +277,6 @@ mod async_stream {
     use super::*;
     use futures::{future::BoxFuture, ready, FutureExt, Stream};
     use qiniu_apis::storage::batch_ops::AsyncRequestBuilder as BatchOpsAsyncRequestBuilder;
-    use smart_default::SmartDefault;
     use std::{
         fmt::{self, Debug},
         io::Result as IOResult,
@@ -298,9 +297,7 @@ mod async_stream {
         closed: bool,
     }
 
-    #[derive(SmartDefault)]
     enum BatchOperationsStep<'a> {
-        #[default]
         FromBuffer {
             buffer: VecDeque<ApiResult<OperationResponseData>>,
         },
@@ -321,6 +318,15 @@ mod async_stream {
                 Self::WaitForResponse { .. } => f.debug_tuple("WaitForResponse").finish(),
                 Self::WaitForRegionProvider { .. } => f.debug_tuple("WaitForRegionProvider").finish(),
                 Self::Done => f.debug_tuple("Done").finish(),
+            }
+        }
+    }
+
+    impl Default for BatchOperationsStep<'_> {
+        #[inline]
+        fn default() -> Self {
+            Self::FromBuffer {
+                buffer: Default::default(),
             }
         }
     }
