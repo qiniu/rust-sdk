@@ -215,6 +215,11 @@ impl Region {
         RegionBuilder::new(region_id.into())
     }
 
+    /// 创建新的公有云区域，传入终端 ID
+    pub fn of(region_id: impl Into<String>) -> Self {
+        RegionBuilder::of(region_id.into()).build()
+    }
+
     #[allow(dead_code)]
     fn ignore() {
         assert_impl!(Send: Self);
@@ -262,7 +267,7 @@ pub struct RegionBuilder {
 }
 
 impl RegionBuilder {
-    /// 创建新的区域，传入终端 ID
+    /// 创建新的区域构建器，传入终端 ID
     pub fn new(region_id: impl Into<String>) -> Self {
         Self {
             region_id: region_id.into(),
@@ -282,6 +287,35 @@ impl RegionBuilder {
             s3_preferred: Default::default(),
             s3_alternative: Default::default(),
         }
+    }
+
+    /// 创建新的公有云区域构建器，传入终端 ID
+    pub fn of(region_id: impl Into<String>) -> Self {
+        let region_id = region_id.into();
+        let mut builder = Self::new(&region_id);
+        if region_id == "z0" {
+            builder
+                .add_up_preferred_endpoint(Endpoint::new_from_domain("upload.qiniup.com"))
+                .add_up_preferred_endpoint(Endpoint::new_from_domain("up.qiniup.com"))
+                .add_up_alternative_endpoint(Endpoint::new_from_domain("up.qbox.me"))
+                .add_io_preferred_endpoint(Endpoint::new_from_domain("iovip.qiniuio.com"))
+                .add_io_alternative_endpoint(Endpoint::new_from_domain("iovip.qbox.me"));
+        } else {
+            builder
+                .add_up_preferred_endpoint(Endpoint::new_from_domain(format!("upload-{}.qiniup.com", region_id)))
+                .add_up_preferred_endpoint(Endpoint::new_from_domain(format!("up-{}.qiniup.com", region_id)))
+                .add_up_alternative_endpoint(Endpoint::new_from_domain(format!("up-{}.qbox.me", region_id)))
+                .add_io_preferred_endpoint(Endpoint::new_from_domain(format!("iovip-{}.qiniuio.com", region_id)))
+                .add_io_alternative_endpoint(Endpoint::new_from_domain(format!("iovip-{}.qbox.me", region_id)));
+        }
+        builder
+            .add_rs_preferred_endpoint(Endpoint::new_from_domain(format!("rs-{}.qiniuapi.com", region_id)))
+            .add_rs_alternative_endpoint(Endpoint::new_from_domain(format!("rs-{}.qbox.me", region_id)))
+            .add_rsf_preferred_endpoint(Endpoint::new_from_domain(format!("rsf-{}.qiniuapi.com", region_id)))
+            .add_rsf_alternative_endpoint(Endpoint::new_from_domain(format!("rsf-{}.qbox.me", region_id)))
+            .add_api_preferred_endpoint(Endpoint::new_from_domain(format!("api-{}.qiniuapi.com", region_id)))
+            .add_api_alternative_endpoint(Endpoint::new_from_domain(format!("api-{}.qbox.me", region_id)));
+        builder
     }
 
     /// 设置 S3 区域 ID
