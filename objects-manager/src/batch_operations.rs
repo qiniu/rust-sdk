@@ -78,7 +78,7 @@ impl<'a> BatchOperations<'a> {
         <I as IntoIterator>::IntoIter: Sync + Send,
     {
         if let Some(iter) = take(&mut self.operations) {
-            self.operations = Some(Box::new(iter.chain(new_iter.into_iter())));
+            self.operations = Some(Box::new(iter.chain(new_iter)));
         } else {
             self.operations = Some(Box::new(new_iter.into_iter()));
         }

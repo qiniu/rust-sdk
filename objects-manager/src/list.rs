@@ -302,7 +302,7 @@ impl Iterator for ListIter<'_> {
         }
 
         fn v1_make_request<'a>(
-            params: &mut ListParams<'a>,
+            params: &ListParams<'a>,
         ) -> ApiResult<GetObjectsV1SyncRequestBuilder<'a, RefRegionProviderEndpoints<'a>>> {
             let mut request = params
                 .bucket
@@ -419,7 +419,7 @@ impl Iterator for ListIter<'_> {
         }
 
         fn v2_call(
-            params: &mut ListParams<'_>,
+            params: &ListParams<'_>,
             callbacks: &mut Callbacks<'_>,
         ) -> ApiResult<Option<Lines<BufReader<SyncResponseBody>>>> {
             if params.have_done() {
@@ -431,7 +431,7 @@ impl Iterator for ListIter<'_> {
         }
 
         fn v2_make_request<'a>(
-            params: &mut ListParams<'a>,
+            params: &ListParams<'a>,
         ) -> ApiResult<GetObjectsV2SyncRequestBuilder<'a, RefRegionProviderEndpoints<'a>>> {
             let mut request = params
                 .bucket

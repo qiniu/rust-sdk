@@ -602,6 +602,7 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler<M::HashAlgorit
             .await
         }
 
+        #[allow(clippy::needless_pass_by_ref_mut)]
         async fn _upload_resumed_parts<M: MultiPartsUploader + 'static>(
             scheduler: &ConcurrentMultiPartsUploaderScheduler<M>,
             source: Box<dyn AsyncDataSource<M::HashAlgorithm>>,
@@ -758,6 +759,7 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler<M::HashAlgorit
                 .map_err(|err| (err, resumed))
         }
 
+        #[allow(clippy::needless_pass_by_ref_mut)]
         async fn _reinitialize_and_upload_again<M: MultiPartsUploader + 'static>(
             scheduler: &ConcurrentMultiPartsUploaderScheduler<M>,
             initialized: &mut M::AsyncInitializedParts,

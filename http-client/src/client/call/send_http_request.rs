@@ -49,7 +49,7 @@ pub(super) fn send_http_request(
     fn backoff(
         http_request: &mut SyncHttpRequest<'_>,
         parts: &InnerRequestParts<'_>,
-        retried: &mut RetriedStatsInfo,
+        retried: &RetriedStatsInfo,
         err: &TryError,
     ) -> Result<(), TryError> {
         let delay = parts
@@ -111,6 +111,7 @@ mod async_send {
     use futures_timer::Delay as AsyncDelay;
     use qiniu_http::AsyncRequest as AsyncHttpRequest;
 
+    #[allow(clippy::needless_pass_by_ref_mut)]
     pub(in super::super) async fn async_send_http_request(
         http_request: &mut AsyncHttpRequest<'_>,
         parts: &InnerRequestParts<'_>,
@@ -151,7 +152,7 @@ mod async_send {
         async fn backoff(
             http_request: &mut AsyncHttpRequest<'_>,
             parts: &InnerRequestParts<'_>,
-            retried: &mut RetriedStatsInfo,
+            retried: &RetriedStatsInfo,
             err: &TryError,
         ) -> Result<(), TryError> {
             let delay = parts

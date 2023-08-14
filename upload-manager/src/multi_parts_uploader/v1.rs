@@ -541,6 +541,7 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> 
             }
         });
 
+        #[allow(clippy::needless_pass_by_ref_mut)]
         async fn _could_resume<H: Digest>(
             initialized: &MultiPartsV1UploaderInitializedObject<Box<dyn AsyncDataSource<H>>>,
             data_reader: &mut AsyncDataSourceReader,
@@ -1275,7 +1276,6 @@ mod tests {
             .build();
         let initialized_parts = Arc::new(uploader.initialize_parts(file_source, params)?);
 
-        #[allow(clippy::needless_collect)]
         let threads = (0..BLOCK_COUNT)
             .map(|_| {
                 let uploader = uploader.to_owned();
@@ -1567,7 +1567,6 @@ mod tests {
                     .region_provider(single_up_domain_region())
                     .build();
                 let initialized_parts = Arc::new(uploader.initialize_parts(file_source, params)?);
-                #[allow(clippy::needless_collect)]
                 let threads = (0..BLOCK_COUNT)
                     .map(|_| {
                         let uploader = uploader.to_owned();
