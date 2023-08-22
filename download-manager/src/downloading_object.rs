@@ -393,12 +393,12 @@ impl DownloadingObjectReader {
 #[cfg(feature = "async")]
 mod async_reader {
     use super::*;
-    use futures::{future::BoxFuture, io::Cursor, lock::Mutex, ready, AsyncRead, FutureExt};
+    use futures::{future::BoxFuture, io::Cursor, lock::Mutex, AsyncRead, FutureExt};
     use std::{
         fmt::{self, Debug},
         pin::Pin,
         sync::Arc,
-        task::{Context, Poll},
+        task::{ready, Context, Poll},
     };
 
     /// 下载对象的内容阅读器

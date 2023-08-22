@@ -1181,6 +1181,7 @@ mod tests {
     use serde_json::{json, to_vec as json_to_vec};
     use std::{
         io::{copy as io_copy, sink as io_sink, Read},
+        str::from_utf8 as str_from_utf8,
         sync::atomic::{AtomicUsize, Ordering},
         thread::spawn as spawn_thread,
         time::{Duration, SystemTime},
@@ -1241,7 +1242,7 @@ mod tests {
                     assert_eq!(request.url().path(), &format!("/mkfile/{FILE_SIZE}"));
                     let mut req_body = Vec::new();
                     io_copy(request.body_mut(), &mut req_body).unwrap();
-                    let req_body = String::from_utf8(req_body).unwrap();
+                    let req_body = str_from_utf8(&req_body).unwrap();
                     let contexts: Vec<_> = req_body.split(',').collect();
                     assert_eq!(contexts.len(), BLOCK_COUNT);
                     assert_eq!(*contexts.last().unwrap(), &format!("==={}===", BLOCK_COUNT - 1));
@@ -1338,7 +1339,7 @@ mod tests {
                         assert_eq!(request.url().path(), &format!("/mkfile/{FILE_SIZE}"));
                         let mut req_body = Vec::new();
                         async_io_copy(request.body_mut(), &mut req_body).await.unwrap();
-                        let req_body = String::from_utf8(req_body).unwrap();
+                        let req_body = str_from_utf8(&req_body).unwrap();
                         let contexts: Vec<_> = req_body.split(',').collect();
                         assert_eq!(contexts.len(), BLOCK_COUNT);
                         assert_eq!(*contexts.last().unwrap(), &format!("==={}===", BLOCK_COUNT - 1));
@@ -1533,7 +1534,7 @@ mod tests {
                         assert_eq!(request.url().path(), &format!("/mkfile/{FILE_SIZE}"));
                         let mut req_body = Vec::new();
                         io_copy(request.body_mut(), &mut req_body).unwrap();
-                        let req_body = String::from_utf8(req_body).unwrap();
+                        let req_body = str_from_utf8(&req_body).unwrap();
                         let contexts: Vec<_> = req_body.split(',').collect();
                         assert_eq!(contexts.len(), BLOCK_COUNT);
                         assert_eq!(*contexts.last().unwrap(), &format!("==={}===", self.blk_num));
@@ -1739,7 +1740,7 @@ mod tests {
                             assert_eq!(request.url().path(), &format!("/mkfile/{FILE_SIZE}"));
                             let mut req_body = Vec::new();
                             async_io_copy(request.body_mut(), &mut req_body).await.unwrap();
-                            let req_body = String::from_utf8(req_body).unwrap();
+                            let req_body = str_from_utf8(&req_body).unwrap();
                             let contexts: Vec<_> = req_body.split(',').collect();
                             assert_eq!(contexts.len(), BLOCK_COUNT);
                             assert_eq!(*contexts.last().unwrap(), &format!("==={}===", self.blk_num));
@@ -1835,7 +1836,7 @@ mod tests {
                             assert_eq!(request.url().path(), &format!("/mkfile/{FILE_SIZE}"));
                             let mut req_body = Vec::new();
                             async_io_copy(request.body_mut(), &mut req_body).await.unwrap();
-                            assert_eq!(String::from_utf8(req_body).unwrap().split(',').count(), BLOCK_COUNT);
+                            assert_eq!(str_from_utf8(&req_body).unwrap().split(',').count(), BLOCK_COUNT);
                             json_to_vec(&json!({
                                 "done": 1,
                             }))

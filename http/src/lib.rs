@@ -50,7 +50,6 @@ pub use http::{
     uri::{self, Uri},
     Extensions, Version,
 };
-use once_cell::sync::OnceCell;
 pub use request::{
     Request, RequestBody as SyncRequestBody, RequestBuilder, RequestParts, RequestPartsBuilder, UserAgent,
 };
@@ -61,6 +60,7 @@ pub use response::{
 use std::{
     fmt::Debug,
     io::{Result as IoResult, Seek},
+    sync::OnceLock,
 };
 
 /// 阻塞 HTTP 响应
@@ -116,7 +116,7 @@ use std::{future::Future, pin::Pin};
 #[cfg(feature = "async")]
 type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a + Send>>;
 
-static LIBRARY_USER_AGENT: OnceCell<UserAgent> = OnceCell::new();
+static LIBRARY_USER_AGENT: OnceLock<UserAgent> = OnceLock::new();
 
 /// 全局设置库 UserAgent
 ///

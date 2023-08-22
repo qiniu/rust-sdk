@@ -471,12 +471,12 @@ impl Iterator for ListIter<'_> {
 #[cfg(feature = "async")]
 mod async_list_stream {
     use super::*;
-    use futures::{future::BoxFuture, io::Lines as AsyncLines, ready, AsyncBufReadExt, FutureExt, Stream, StreamExt};
+    use futures::{future::BoxFuture, io::Lines as AsyncLines, AsyncBufReadExt, FutureExt, Stream, StreamExt};
     use std::{
         fmt::{self, Debug},
         io::Result as IOResult,
         pin::Pin,
-        task::{Context, Poll},
+        task::{ready, Context, Poll},
     };
 
     enum AsyncListVersionWithStep<'a> {

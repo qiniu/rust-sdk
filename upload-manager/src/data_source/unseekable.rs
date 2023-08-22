@@ -56,8 +56,10 @@ impl<R: Read + Debug + Send + Sync + 'static, A: Digest> DataSource<A> for Unsee
         if have_read > 0 {
             let source_reader = DataSourceReader::unseekable(guard.current_part_number, buf, guard.current_offset);
             guard.current_offset += have_read as u64;
-            guard.current_part_number =
-                NonZeroUsize::new(guard.current_part_number.get() + 1).expect("Page number is too big");
+            guard.current_part_number = guard
+                .current_part_number
+                .checked_add(1)
+                .expect("Page number is too big");
             Ok(Some(source_reader))
         } else {
             Ok(None)

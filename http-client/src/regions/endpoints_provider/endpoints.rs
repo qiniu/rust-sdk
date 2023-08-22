@@ -9,9 +9,12 @@ use md5::{
     digest::{generic_array::GenericArray, FixedOutputDirty},
     Digest, Md5,
 };
-use once_cell::sync::{Lazy, OnceCell};
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, mem::take, sync::Arc};
+use std::{
+    borrow::Cow,
+    mem::take,
+    sync::{Arc, OnceLock},
+};
 
 type Md5Value = GenericArray<u8, <Md5 as FixedOutputDirty>::OutputSize>;
 
@@ -23,7 +26,7 @@ pub struct Endpoints {
     preferred: Arc<[Endpoint]>,
     alternative: Arc<[Endpoint]>,
     #[serde(skip)]
-    md5: Arc<OnceCell<Md5Value>>,
+    md5: Arc<OnceLock<Md5Value>>,
 }
 
 impl Endpoints {
@@ -39,13 +42,14 @@ impl Endpoints {
     }
 
     pub(in super::super) fn public_uc_endpoints() -> &'static Self {
-        static DEFAULT_UC_ENDPOINTS: Lazy<Endpoints> = Lazy::new(|| {
+        static DEFAULT_UC_ENDPOINTS: OnceLock<Endpoints> = OnceLock::new();
+
+        DEFAULT_UC_ENDPOINTS.get_or_init(|| {
             Endpoints::builder(Endpoint::new_from_domain("kodo-config.qiniuapi.com"))
                 .add_preferred_endpoint(Endpoint::new_from_domain("api.qiniu.com"))
                 .add_alternative_endpoint(Endpoint::new_from_domain("uc.qbox.me"))
                 .build()
-        });
-        &DEFAULT_UC_ENDPOINTS
+        })
     }
 
     /// 创建只包含一个主要终端地址的终端地址列表

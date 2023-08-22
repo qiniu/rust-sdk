@@ -8,7 +8,7 @@ use digest::Digest;
 use futures::{
     future::{BoxFuture, FutureExt},
     lock::Mutex,
-    ready, AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, Future,
+    AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, Future,
 };
 use qiniu_apis::http::AsyncReset;
 use std::{
@@ -20,7 +20,7 @@ use std::{
         atomic::{AtomicU64, Ordering::SeqCst},
         Arc,
     },
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 
 #[derive(Debug, Clone)]

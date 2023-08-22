@@ -71,7 +71,7 @@ impl<D: Digest> DataSource<D> for SeekableDataSource {
                 self.source.clone_with_new_offset_and_length(cur.offset, size),
             );
             *cur.offset_mut() += size;
-            *cur.part_number_mut() = NonZeroUsize::new(cur.part_number().get() + 1).expect("Page number is too big");
+            *cur.part_number_mut() = cur.part_number().checked_add(1).expect("Page number is too big");
             Ok(Some(source_reader))
         } else {
             Ok(None)

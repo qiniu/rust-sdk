@@ -3,6 +3,7 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use serde::{Deserialize, Serialize};
+use std::str::from_utf8 as str_from_utf8;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1858,7 +1859,7 @@ mod tests {
 
         let base_types_code = format!(
             "pub mod base_types {{ {} }}",
-            String::from_utf8(fs::read("src/base_types.rs")?)?
+            str_from_utf8(&fs::read("src/base_types.rs")?)?
         );
         file.write_all(base_types_code.as_bytes())?;
         Ok(file)

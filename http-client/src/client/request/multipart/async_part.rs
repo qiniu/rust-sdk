@@ -2,7 +2,7 @@ use super::{encode_headers, Boundary, FileName, Multipart, Part, PartMetadata};
 use async_std::{fs::File, io::copy, path::Path};
 use futures::{
     io::{AsyncRead, Cursor, SeekFrom},
-    ready, AsyncSeek, AsyncSeekExt,
+    AsyncSeek, AsyncSeekExt,
 };
 use qiniu_http::AsyncReset;
 use std::{
@@ -13,7 +13,7 @@ use std::{
     io::Result as IoResult,
     mem::take,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 
 trait AsyncReadSeek: AsyncRead + AsyncSeek {}

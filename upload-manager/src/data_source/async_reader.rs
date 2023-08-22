@@ -5,7 +5,7 @@ use dyn_clonable::clonable;
 use futures::{
     future::BoxFuture,
     io::{copy as async_io_copy, sink as async_sink, Cursor, SeekFrom},
-    ready, AsyncRead, AsyncSeek, AsyncSeekExt,
+    AsyncRead, AsyncSeek, AsyncSeekExt,
 };
 use qiniu_apis::http::AsyncReset;
 use std::{
@@ -13,7 +13,7 @@ use std::{
     io::Result as IoResult,
     num::NonZeroUsize,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 
 /// 异步数据源接口

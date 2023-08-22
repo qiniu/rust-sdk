@@ -4,7 +4,7 @@ use super::{
 };
 use bytes::Bytes;
 use futures::future::BoxFuture;
-use futures::{ready, AsyncRead, Stream};
+use futures::{AsyncRead, Stream};
 use qiniu_http::{
     AsyncRequest, AsyncResponse, AsyncResponseBody, AsyncResponseResult, HttpCaller, ResponseError, ResponseErrorKind,
     SyncRequest, SyncResponseResult, TransferProgressInfo,
@@ -20,7 +20,7 @@ use std::{
     mem::{take, transmute},
     num::NonZeroU16,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 
 /// Reqwest 异步客户端

@@ -21,7 +21,7 @@ type IsahcSyncResponse = isahc::Response<IsahcBody>;
 
 #[cfg(feature = "async")]
 use {
-    futures::{future::BoxFuture, ready, AsyncRead},
+    futures::{future::BoxFuture, AsyncRead},
     isahc::AsyncBody as IsahcAsyncBody,
     qiniu_http::{AsyncRequest, AsyncResponse, AsyncResponseBody, AsyncResponseResult},
     std::{
@@ -332,6 +332,8 @@ fn make_async_isahc_request(
     ip_addr: Option<IpAddr>,
     user_cancelled_error: &mut Option<ResponseError>,
 ) -> Result<IsahcAsyncRequest, ResponseError> {
+    use std::task::ready;
+
     use futures::pin_mut;
 
     let mut isahc_request_builder = isahc::Request::builder().uri(request.url()).method(request.method());

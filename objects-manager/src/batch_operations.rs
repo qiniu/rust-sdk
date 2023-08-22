@@ -275,13 +275,13 @@ impl<'a> BatchOperationsIterator<'a> {
 #[cfg(feature = "async")]
 mod async_stream {
     use super::*;
-    use futures::{future::BoxFuture, ready, FutureExt, Stream};
+    use futures::{future::BoxFuture, FutureExt, Stream};
     use qiniu_apis::storage::batch_ops::AsyncRequestBuilder as BatchOpsAsyncRequestBuilder;
     use std::{
         fmt::{self, Debug},
         io::Result as IOResult,
         pin::Pin,
-        task::{Context, Poll},
+        task::{ready, Context, Poll},
     };
 
     /// 批量操作流

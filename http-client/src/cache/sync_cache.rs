@@ -10,7 +10,6 @@ use crossbeam_queue::SegQueue;
 use dashmap::DashMap;
 use fs4::FileExt;
 use log::{info, warn};
-use once_cell::sync::OnceCell;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
     borrow::Borrow,
@@ -19,7 +18,7 @@ use std::{
     hash::Hash,
     io::{BufRead, BufReader, BufWriter, Seek, SeekFrom, Write},
     path::Path,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock},
     time::{Duration, Instant},
 };
 use tap::prelude::*;
@@ -38,7 +37,7 @@ struct CacheInner<
 > {
     cache_lifetime: Duration,
     shrink_interval: Duration,
-    cache: OnceCell<DashMap<K, CacheValue<V>>>,
+    cache: OnceLock<DashMap<K, CacheValue<V>>>,
     locked_data: Mutex<CacheInnerLockedData>,
     persistent: Option<PersistentFile<K, V>>,
 }
