@@ -24,7 +24,19 @@ impl Resolver for SimpleResolver {
     #[cfg(feature = "async")]
     #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
     fn async_resolve<'a>(&'a self, domain: &'a str, opts: ResolveOptions<'a>) -> BoxFuture<'a, ResolveResult> {
-        Box::pin(async move { self.resolve(domain, opts) })
+        let resolver = self.to_owned();
+        let domain = domain.to_owned();
+        let retried = opts.retried.cloned();
+        Box::pin(async move {
+            async_std::task::spawn_blocking(move || {
+                let mut opts_builder = ResolveOptions::builder();
+                if let Some(retried) = &retried {
+                    opts_builder.retried(retried);
+                }
+                resolver.resolve(&domain, opts_builder.build())
+            })
+            .await
+        })
     }
 }
 
