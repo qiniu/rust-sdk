@@ -1,4 +1,4 @@
-use duplicate::duplicate;
+use duplicate::duplicate_item;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
 
@@ -30,7 +30,7 @@ impl Display for FileType {
     }
 }
 
-#[duplicate(
+#[duplicate_item(
     ty;
     [u8];
     [u16];
@@ -57,7 +57,7 @@ impl From<FileType> for ty {
     }
 }
 
-#[duplicate(
+#[duplicate_item(
     ty;
     [u8];
     [u16];

@@ -16,23 +16,23 @@ keywords = ["qiniu", "storage"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.41"
-convert_case = "0.4.0"
-env_logger = "0.9.0"
-log = "0.4.14"
-proc-macro2 = "1.0.60"
-quote = "1.0.10"
-serde = { version = "1.0.130", features = ["derive"] }
-serde_json = "1.0.68"
-serde_yaml = "0.8.21"
-tempfile = "3.2.0"
-trybuild = "1.0.50"
-walkdir = "2.3.2"
+anyhow = "1.0.75"
+convert_case = "0.6.0"
+env_logger = "0.10.0"
+log = "0.4.20"
+proc-macro2 = "1.0.66"
+quote = "1.0.33"
+serde = { version = "1.0.185", features = ["derive"] }
+serde_json = "1.0.105"
+serde_yaml = "0.9.25"
+tempfile = "3.8.0"
+trybuild = "1.0.83"
+walkdir = "2.3.3"
 
 [dev-dependencies]
-serde_json = "1.0.68"
+serde_json = "1.0.105"
 qiniu-http = { version = "0.2.3", path = "../http" }
 qiniu-http-client = { version = "0.2.3", path = "../http-client" }
 qiniu-upload-token = { version = "0.2.3", path = "../upload-token" }
 qiniu-utils = { version = "0.2.3", path = "../utils" }
-indexmap = "1.7.0"
+indexmap = "2.0.0"

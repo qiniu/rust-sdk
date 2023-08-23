@@ -6,7 +6,7 @@ use super::{
     ServiceName,
 };
 use md5::{
-    digest::{generic_array::GenericArray, FixedOutputDirty},
+    digest::{generic_array::GenericArray, OutputSizeUser},
     Digest, Md5,
 };
 use serde::{Deserialize, Serialize};
@@ -16,7 +16,7 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
-type Md5Value = GenericArray<u8, <Md5 as FixedOutputDirty>::OutputSize>;
+type Md5Value = GenericArray<u8, <Md5 as OutputSizeUser>::OutputSize>;
 
 /// 终端地址列表
 ///

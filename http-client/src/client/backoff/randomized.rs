@@ -73,7 +73,7 @@ impl<P: Backoff + Clone> Backoff for RandomizedBackoff<P> {
             .try_into()
             .unwrap_or(u64::MAX);
 
-        let randomized = thread_rng().gen_range(minified, magnified);
+        let randomized = thread_rng().gen_range(minified..magnified);
         Duration::from_nanos(randomized).into()
     }
 }

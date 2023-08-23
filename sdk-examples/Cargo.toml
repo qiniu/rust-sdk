@@ -14,10 +14,10 @@ description = "Qiniu SDK Examples"
 keywords = ["qiniu", "storage"]
 
 [dev-dependencies]
-anyhow = "1.0.41"
-async-std = { version = "1.6.3", features = ["attributes"] }
-env_logger = "0.9.0"
-log = "0.4.14"
+anyhow = "1.0.75"
+async-std = { version = "1.12.0", features = ["attributes"] }
+env_logger = "0.10.0"
+log = "0.4.20"
 qiniu-sdk = { version = "0.2.3", path = "../sdk", features = [
     "apis",
     "upload",
@@ -26,7 +26,7 @@ qiniu-sdk = { version = "0.2.3", path = "../sdk", features = [
     "isahc",
     "trust_dns",
 ] }
-structopt = "0.3.23"
+structopt = "0.3.26"
 
 [dependencies]
-futures = "0.3.17"
+futures = "0.3.28"

@@ -98,7 +98,7 @@
 use assert_impl::assert_impl;
 use auto_impl::auto_impl;
 use dyn_clonable::clonable;
-use hmac::{Hmac, Mac, NewMac};
+use hmac::{Hmac, Mac};
 use http::header::CONTENT_TYPE;
 pub use http::{
     header::{HeaderMap, HeaderName, HeaderValue},

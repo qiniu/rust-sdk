@@ -27,6 +27,7 @@ use std::{
     io::SeekFrom,
     mem::{swap, take},
     path::Path,
+    pin::Pin,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -40,6 +41,8 @@ pub(in super::super) struct AsyncCache<
 }
 
 type RwLockedMap<K, V> = RwLock<HashMap<K, V>>;
+type CacheMap<K, V> = RwLockedMap<K, CacheValue<V>>;
+type LazyCacheMap<K, V> = Lazy<CacheMap<K, V>, Pin<Box<dyn Future<Output = CacheMap<K, V>> + Send + 'static>>>;
 
 struct CacheInner<
     K: Eq + PartialEq + Hash + Clone + Debug + Serialize + Send + Sync + 'static,
@@ -47,7 +50,7 @@ struct CacheInner<
 > {
     cache_lifetime: Duration,
     shrink_interval: Duration,
-    cache: Lazy<RwLockedMap<K, CacheValue<V>>>,
+    cache: LazyCacheMap<K, V>,
     persistent: Option<PersistentFile<K, V>>,
     locked_data: Mutex<CacheInnerLockedData>,
     have_dropped: bool,
@@ -78,7 +81,7 @@ impl<
         >(
             path: &Path,
             cache_lifetime: Duration,
-        ) -> RwLockedMap<K, CacheValue<V>> {
+        ) -> CacheMap<K, V> {
             load_cache_from_persistent_file(path, cache_lifetime)
                 .await
                 .unwrap_or_default()
@@ -90,7 +93,7 @@ impl<
         >(
             path: &Path,
             cache_lifetime: Duration,
-        ) -> PersistentResult<RwLockedMap<K, CacheValue<V>>> {
+        ) -> PersistentResult<CacheMap<K, V>> {
             let mut cache = HashMap::new();
             let mut file = File::open(path).await?;
             file = spawn_blocking(move || file.lock_shared().map(|_| file)).await?;
@@ -121,7 +124,7 @@ impl<
         Self::new(cache_lifetime, shrink_interval, None, async move { Default::default() })
     }
 
-    fn new<Fut: Future<Output = RwLockedMap<K, CacheValue<V>>> + Send + 'static>(
+    fn new<Fut: Future<Output = CacheMap<K, V>> + Send + 'static>(
         cache_lifetime: Duration,
         shrink_interval: Duration,
         persistent: Option<PersistentFile<K, V>>,
@@ -281,8 +284,8 @@ impl<
         V: IsCacheValid + Clone + Serialize + Send + Sync + 'static,
     > CacheInner<K, V>
 {
-    async fn cache(&self) -> &RwLockedMap<K, CacheValue<V>> {
-        self.cache.get().await
+    async fn cache(&self) -> &CacheMap<K, V> {
+        self.cache.get_unpin().await
     }
 
     fn push_command_if_persistent_enabled(&self, get_cmd: impl FnOnce() -> PersistentCacheCommand<K, V>) {
@@ -304,7 +307,7 @@ impl<
         if self.have_dropped {
             return;
         }
-        let mut cache: Lazy<RwLockedMap<K, CacheValue<V>>> = Lazy::new(Box::pin(async move { Default::default() }));
+        let mut cache: LazyCacheMap<K, V> = Lazy::with_value(Default::default());
         swap(&mut self.cache, &mut cache);
         let new_cache_inner = CacheInner {
             cache,
