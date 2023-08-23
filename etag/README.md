@@ -18,14 +18,14 @@
 
 ```toml
 [dependencies]
-qiniu-etag = "0.2.1"
+qiniu-etag = "0.3.0"
 ```
 
 ### 启用异步接口
 
 ```toml
 [dependencies]
-qiniu-etag = { version = "0.2.1", features = ["async"] }
+qiniu-etag = { version = "0.3.0", features = ["async"] }
 ```
 
 ## 代码示例

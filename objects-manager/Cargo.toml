@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-objects-manager"
-version = "0.2.3"
+version = "0.3.0"
 authors = [
     "Rong Zhou <zhourong@qiniu.com>",
     "Shanghai Qiniu Information Technologies Co., Ltd.",
@@ -30,8 +30,8 @@ async-once-cell = { version = "0.5.3", optional = true }
 dyn-clonable = "0.9.0"
 auto_impl = "1.1.0"
 
-qiniu-apis = { version = "0.2.3", path = "../apis", default-features = false }
-qiniu-utils = { version = "0.2.3", path = "../utils" }
+qiniu-apis = { version = "0.3.0", path = "../apis", default-features = false }
+qiniu-utils = { version = "0.3.0", path = "../utils" }
 
 [dev-dependencies]
 env_logger = "0.10.0"

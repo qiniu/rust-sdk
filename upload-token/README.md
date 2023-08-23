@@ -24,14 +24,14 @@
 
 ```toml
 [dependencies]
-qiniu-upload-token = "0.2.1"
+qiniu-upload-token = "0.3.0"
 ```
 
 ### 启用异步接口
 
 ```toml
 [dependencies]
-qiniu-upload-token = { version = "0.2.1", features = ["async"] }
+qiniu-upload-token = { version = "0.3.0", features = ["async"] }
 ```
 
 ## 代码示例

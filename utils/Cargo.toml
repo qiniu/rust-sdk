@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-utils"
-version = "0.2.3"
+version = "0.3.0"
 authors = [
     "Rong Zhou <zhourong@qiniu.com>",
     "Shanghai Qiniu Information Technologies Co., Ltd.",

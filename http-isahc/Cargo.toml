@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-isahc"
-version = "0.2.3"
+version = "0.3.0"
 authors = [
     "Rong Zhou <zhourong@qiniu.com>",
     "Shanghai Qiniu Information Technologies Co., Ltd.",
@@ -19,7 +19,7 @@ keywords = ["qiniu", "storage"]
 [dependencies]
 anyhow = "1.0.75"
 isahc = { version = "1.7.2", default-features = false }
-qiniu-http = { version = "0.2.3", path = "../http" }
+qiniu-http = { version = "0.3.0", path = "../http" }
 futures = { version = "0.3.28", optional = true }
 
 [features]

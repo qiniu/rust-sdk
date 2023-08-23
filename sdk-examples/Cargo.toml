@@ -1,6 +1,6 @@
 [package]
 name = "qiniu-sdk-examples"
-version = "0.2.3"
+version = "0.3.0"
 authors = [
     "Rong Zhou <zhourong@qiniu.com>",
     "Shanghai Qiniu Information Technologies Co., Ltd.",
@@ -18,7 +18,7 @@ anyhow = "1.0.75"
 async-std = { version = "1.12.0", features = ["attributes"] }
 env_logger = "0.10.0"
 log = "0.4.20"
-qiniu-sdk = { version = "0.2.3", path = "../sdk", features = [
+qiniu-sdk = { version = "0.3.0", path = "../sdk", features = [
     "apis",
     "upload",
     "objects",
