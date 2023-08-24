@@ -1,0 +1,626 @@
+use async_std::{fs, path, task};
+use futures::{future::TryFutureExt, stream::Stream, AsyncRead, AsyncSeek, AsyncWrite, FutureExt};
+use std::{
+    error::Error as StdError,
+    ffi::OsString,
+    fmt::{self, Debug, Display},
+    fs::{FileType, Metadata},
+    future::Future,
+    io::{IoSliceMut, Result as IoResult, SeekFrom},
+    path::{Path as StdPath, PathBuf as StdPathBuf},
+    pin::Pin,
+    task::{ready, Context, Poll},
+    time::Duration,
+};
+
+/// A builder for opening files with configurable options.
+///
+/// Files can be opened in [`read`] and/or [`write`] mode.
+///
+/// The [`append`] option opens files in a special writing mode that moves the file cursor to the
+/// end of file before every write operation.
+///
+/// It is also possible to [`truncate`] the file right after opening, to [`create`] a file if it
+/// doesn't exist yet, or to always create a new file with [`create_new`].
+///
+/// This type is an async version of [`std::fs::OpenOptions`].
+///
+/// [`read`]: #method.read
+/// [`write`]: #method.write
+/// [`append`]: #method.append
+/// [`truncate`]: #method.truncate
+/// [`create`]: #method.create
+/// [`create_new`]: #method.create_new
+/// [`std::fs::OpenOptions`]: https://doc.rust-lang.org/std/fs/struct.OpenOptions.html
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
+pub struct OpenOptions(fs::OpenOptions);
+
+impl OpenOptions {
+    /// Creates a blank set of options.
+    ///
+    /// All options are initially set to `false`.
+    #[inline]
+    pub fn new() -> Self {
+        Self(fs::OpenOptions::new())
+    }
+
+    /// Configures the option for append mode.
+    ///
+    /// When set to `true`, this option means the file will be writable after opening and the file
+    /// cursor will be moved to the end of file before every write operation.
+    #[inline]
+    pub fn append(&mut self, append: bool) -> &mut OpenOptions {
+        self.0.append(append);
+        self
+    }
+
+    /// Configures the option for creating a new file if it doesn't exist.
+    ///
+    /// When set to `true`, this option means a new file will be created if it doesn't exist.
+    ///
+    /// The file must be opened in [`write`] or [`append`] mode for file creation to work.
+    ///
+    /// [`write`]: #method.write
+    /// [`append`]: #method.append
+    #[inline]
+    pub fn create(&mut self, create: bool) -> &mut OpenOptions {
+        self.0.create(create);
+        self
+    }
+
+    /// Configures the option for creating a new file or failing if it already exists.
+    ///
+    /// When set to `true`, this option means a new file will be created, or the open operation
+    /// will fail if the file already exists.
+    ///
+    /// The file must be opened in [`write`] or [`append`] mode for file creation to work.
+    ///
+    /// [`write`]: #method.write
+    /// [`append`]: #method.append
+    #[inline]
+    pub fn create_new(&mut self, create_new: bool) -> &mut OpenOptions {
+        self.0.create_new(create_new);
+        self
+    }
+
+    /// Configures the option for read mode.
+    ///
+    /// When set to `true`, this option means the file will be readable after opening.
+    #[inline]
+    pub fn read(&mut self, read: bool) -> &mut OpenOptions {
+        self.0.read(read);
+        self
+    }
+
+    /// Configures the option for write mode.
+    ///
+    /// When set to `true`, this option means the file will be writable after opening.
+    ///
+    /// If the file already exists, write calls on it will overwrite the previous contents without
+    /// truncating it.
+    #[inline]
+    pub fn write(&mut self, write: bool) -> &mut OpenOptions {
+        self.0.write(write);
+        self
+    }
+
+    /// Configures the option for truncating the previous file.
+    ///
+    /// When set to `true`, the file will be truncated to the length of 0 bytes.
+    ///
+    /// The file must be opened in [`write`] or [`append`] mode for truncation to work.
+    ///
+    /// [`write`]: #method.write
+    /// [`append`]: #method.append
+    #[inline]
+    pub fn truncate(&mut self, truncate: bool) -> &mut OpenOptions {
+        self.0.truncate(truncate);
+        self
+    }
+
+    /// Opens a file with the configured options.
+    ///
+    /// # Errors
+    ///
+    /// An error will be returned in the following situations:
+    ///
+    /// * The file does not exist and neither [`create`] nor [`create_new`] were set.
+    /// * The file's parent directory does not exist.
+    /// * The current process lacks permissions to open the file in the configured mode.
+    /// * The file already exists and [`create_new`] was set.
+    /// * Invalid combination of options was used, like [`truncate`] was set but [`write`] wasn't,
+    ///   or none of [`read`], [`write`], and [`append`] modes was set.
+    /// * An OS-level occurred, like too many files are open or the file name is too long.
+    /// * Some other I/O error occurred.
+    ///
+    /// [`read`]: #method.read
+    /// [`write`]: #method.write
+    /// [`append`]: #method.append
+    /// [`truncate`]: #method.truncate
+    /// [`create`]: #method.create
+    /// [`create_new`]: #method.create_new
+    #[inline]
+    pub fn open<'a, P: AsRef<StdPath> + 'a>(&'a mut self, path: P) -> impl Future<Output = IoResult<File>> + 'a {
+        let path = path.as_ref().to_owned().into_os_string();
+        self.0.open(path::PathBuf::from(path)).map_ok(File)
+    }
+}
+
+/// An open file on the filesystem.
+///
+/// Depending on what options the file was opened with, this type can be used for reading and/or
+/// writing.
+///
+/// Files are automatically closed when they get dropped and any errors detected on closing are
+/// ignored. Use the [`sync_all`] method before dropping a file if such errors need to be handled.
+///
+/// This type is an async version of [`std::fs::File`].
+///
+/// [`sync_all`]: #method.sync_all
+/// [`std::fs::File`]: https://doc.rust-lang.org/std/fs/struct.File.html
+#[derive(Debug)]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
+pub struct File(fs::File);
+
+impl File {
+    /// Opens a file in read-only mode.
+    ///
+    /// See the [`OpenOptions::open`] function for more options.
+    ///
+    /// # Errors
+    ///
+    /// An error will be returned in the following situations:
+    ///
+    /// * `path` does not point to an existing file.
+    /// * The current process lacks permissions to read the file.
+    /// * Some other I/O error occurred.
+    ///
+    /// For more details, see the list of errors documented by [`OpenOptions::open`].
+    ///
+    /// [`OpenOptions::open`]: struct.OpenOptions.html#method.open
+    #[inline]
+    pub async fn open<P: AsRef<StdPath>>(path: P) -> IoResult<Self> {
+        Ok(Self(fs::File::open(path.as_ref()).await?))
+    }
+
+    /// Synchronizes OS-internal buffered contents and metadata to disk.
+    ///
+    /// This function will ensure that all in-memory data reaches the filesystem.
+    ///
+    /// This can be used to handle errors that would otherwise only be caught when the file is
+    /// closed. When a file is dropped, errors in synchronizing this in-memory data are ignored.
+    #[inline]
+    pub async fn sync_all(&self) -> IoResult<()> {
+        self.0.sync_all().await
+    }
+}
+
+impl AsyncRead for File {
+    #[inline]
+    fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<IoResult<usize>> {
+        Pin::new(&mut self.0).poll_read(cx, buf)
+    }
+
+    #[inline]
+    fn poll_read_vectored(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        bufs: &mut [IoSliceMut<'_>],
+    ) -> Poll<IoResult<usize>> {
+        Pin::new(&mut self.0).poll_read_vectored(cx, bufs)
+    }
+}
+
+impl AsyncWrite for File {
+    #[inline]
+    fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<IoResult<usize>> {
+        Pin::new(&mut self.0).poll_write(cx, buf)
+    }
+
+    #[inline]
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<IoResult<()>> {
+        Pin::new(&mut self.0).poll_flush(cx)
+    }
+
+    #[inline]
+    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<IoResult<()>> {
+        Pin::new(&mut self.0).poll_close(cx)
+    }
+}
+
+impl AsyncSeek for File {
+    #[inline]
+    fn poll_seek(mut self: Pin<&mut Self>, cx: &mut Context<'_>, pos: SeekFrom) -> Poll<IoResult<u64>> {
+        Pin::new(&mut self.0).poll_seek(cx, pos)
+    }
+}
+
+/// Creates a new directory and all of its parents if they are missing.
+///
+/// This function is an async version of [`std::fs::create_dir_all`].
+///
+/// [`std::fs::create_dir_all`]: https://doc.rust-lang.org/std/fs/fn.create_dir_all.html
+///
+/// # Errors
+///
+/// An error will be returned in the following situations:
+///
+/// * `path` already points to an existing file or directory.
+/// * The current process lacks permissions to create the directory or its missing parents.
+/// * Some other I/O error occurred.
+#[inline]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
+pub async fn create_dir_all<P: AsRef<StdPath>>(path: P) -> IoResult<()> {
+    let path = path.as_ref();
+    fs::create_dir_all(path).await
+}
+
+/// Reads metadata for a path.
+///
+/// This function will traverse symbolic links to read metadata for the target file or directory.
+///
+/// This function is an async version of [`std::fs::metadata`].
+///
+/// [`std::fs::metadata`]: https://doc.rust-lang.org/std/fs/fn.metadata.html
+///
+/// # Errors
+///
+/// An error will be returned in the following situations:
+///
+/// * `path` does not point to an existing file or directory.
+/// * The current process lacks permissions to read metadata for the path.
+/// * Some other I/O error occurred.
+#[inline]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
+pub async fn metadata<P: AsRef<StdPath>>(path: P) -> IoResult<Metadata> {
+    let path = path.as_ref();
+    fs::metadata(path).await
+}
+
+/// Removes a file.
+///
+/// This function is an async version of [`std::fs::remove_file`].
+///
+/// [`std::fs::remove_file`]: https://doc.rust-lang.org/std/fs/fn.remove_file.html
+///
+/// # Errors
+///
+/// An error will be returned in the following situations:
+///
+/// * `path` does not point to an existing file.
+/// * The current process lacks permissions to remove the file.
+/// * Some other I/O error occurred.
+#[inline]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
+pub async fn remove_file<P: AsRef<StdPath>>(path: P) -> IoResult<()> {
+    let path = path.as_ref();
+    fs::remove_file(path).await
+}
+
+/// Returns a stream of entries in a directory.
+///
+/// The stream yields items of type [`std::io::Result`]`<`[`DirEntry`]`>`. Note that I/O errors can
+/// occur while reading from the stream.
+///
+/// This function is an async version of [`std::fs::read_dir`].
+///
+/// [`DirEntry`]: struct.DirEntry.html
+/// [`std::io::Result`]: https://doc.rust-lang.org/std/io/type.Result.html
+/// [`std::fs::read_dir`]: https://doc.rust-lang.org/std/fs/fn.read_dir.html
+///
+/// # Errors
+///
+/// An error will be returned in the following situations:
+///
+/// * `path` does not point to an existing directory.
+/// * The current process lacks permissions to read the contents of the directory.
+/// * Some other I/O error occurred.
+#[inline]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
+pub async fn read_dir<P: AsRef<StdPath>>(path: P) -> IoResult<ReadDir> {
+    let path = path.as_ref();
+    fs::read_dir(path).map_ok(ReadDir).await
+}
+
+/// A stream of entries in a directory.
+///
+/// This stream is returned by [`read_dir`] and yields items of type
+/// [`std::io::Result`]`<`[`DirEntry`]`>`. Each [`DirEntry`] can then retrieve information like entry's
+/// path or metadata.
+///
+/// This type is an async version of [`std::fs::ReadDir`].
+///
+/// [`read_dir`]: fn.read_dir.html
+/// [`DirEntry`]: struct.DirEntry.html
+/// [`std::io::Result`]: https://doc.rust-lang.org/std/io/type.Result.html
+/// [`std::fs::ReadDir`]: https://doc.rust-lang.org/std/fs/struct.ReadDir.html
+#[derive(Debug)]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
+pub struct ReadDir(fs::ReadDir);
+
+impl Stream for ReadDir {
+    type Item = IoResult<DirEntry>;
+
+    #[inline]
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let next_entry = ready!(Pin::new(&mut self.0).poll_next(cx));
+        Poll::Ready(next_entry.map(|result| result.map(DirEntry)))
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
+}
+
+/// An entry in a directory.
+///
+/// A stream of entries in a directory is returned by [`read_dir`].
+///
+/// This type is an async version of [`std::fs::DirEntry`].
+///
+/// [`read_dir`]: fn.read_dir.html
+/// [`std::fs::DirEntry`]: https://doc.rust-lang.org/std/fs/struct.DirEntry.html
+#[derive(Debug)]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
+pub struct DirEntry(fs::DirEntry);
+
+impl DirEntry {
+    /// Returns the full path to this entry.
+    ///
+    /// The full path is created by joining the original path passed to [`read_dir`] with the name
+    /// of this entry.
+    ///
+    /// [`read_dir`]: fn.read_dir.html
+    #[inline]
+    pub fn path(&self) -> StdPathBuf {
+        self.0.path().into()
+    }
+
+    /// Reads the metadata for this entry.
+    ///
+    /// This function will traverse symbolic links to read the metadata.
+    ///
+    /// # Errors
+    ///
+    /// An error will be returned in the following situations:
+    ///
+    /// * This entry does not point to an existing file or directory anymore.
+    /// * The current process lacks permissions to read the metadata.
+    /// * Some other I/O error occurred.
+    #[inline]
+    pub async fn metadata(&self) -> IoResult<Metadata> {
+        self.0.metadata().await
+    }
+
+    /// Reads the file type for this entry.
+    ///
+    /// This function will not traverse symbolic links if this entry points at one.
+    ///
+    /// If you want to read metadata with following symbolic links, use [`metadata`] instead.
+    ///
+    /// [`metadata`]: #method.metadata
+    ///
+    /// # Errors
+    ///
+    /// An error will be returned in the following situations:
+    ///
+    /// * This entry does not point to an existing file or directory anymore.
+    /// * The current process lacks permissions to read this entry's metadata.
+    /// * Some other I/O error occurred.
+    #[inline]
+    pub async fn file_type(&self) -> IoResult<FileType> {
+        self.0.file_type().await
+    }
+
+    /// Returns the bare name of this entry without the leading path.
+    #[inline]
+    pub fn file_name(&self) -> OsString {
+        self.0.file_name()
+    }
+}
+
+/// A builder for creating directories with configurable options.
+///
+/// This type is an async version of [`std::fs::DirBuilder`].
+///
+/// [`std::fs::DirBuilder`]: https://doc.rust-lang.org/std/fs/struct.DirBuilder.html
+#[derive(Debug, Default)]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
+pub struct DirBuilder(fs::DirBuilder);
+
+impl DirBuilder {
+    /// Creates a blank set of options.
+    ///
+    /// The [`recursive`] option is initially set to `false`.
+    ///
+    /// [`recursive`]: #method.recursive
+    #[inline]
+    pub fn new() -> Self {
+        Self(fs::DirBuilder::new())
+    }
+
+    /// Sets the option for recursive mode.
+    ///
+    /// When set to `true`, this option means all parent directories should be created recursively
+    /// if they don't exist. Parents are created with the same permissions as the final directory.
+    ///
+    /// This option is initially set to `false`.
+    #[inline]
+    pub fn recursive(&mut self, recursive: bool) -> &mut Self {
+        self.0.recursive(recursive);
+        self
+    }
+
+    /// Creates a directory with the configured options.
+    ///
+    /// It is considered an error if the directory already exists unless recursive mode is enabled.
+    ///
+    /// # Errors
+    ///
+    /// An error will be returned in the following situations:
+    ///
+    /// * `path` already points to an existing file or directory.
+    /// * The current process lacks permissions to create the directory or its missing parents.
+    /// * Some other I/O error occurred.
+    #[inline]
+    pub fn create<'a, P: AsRef<StdPath> + 'a>(&'a self, path: P) -> impl Future<Output = IoResult<()>> + 'a {
+        let path = path.as_ref().to_owned().into_os_string();
+        self.0.create(path::PathBuf::from(path))
+    }
+}
+
+/// Spawns a task.
+///
+/// This function is similar to [`std::thread::spawn`], except it spawns an asynchronous task.
+///
+/// [`std::thread::spawn`]: https://doc.rust-lang.org/std/thread/fn.spawn.html
+#[inline]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
+pub fn spawn<F, T>(future: F) -> JoinHandle<T>
+where
+    F: Future<Output = T> + Send + 'static,
+    T: Send + 'static,
+{
+    JoinHandle(task::spawn(future))
+}
+
+/// A handle that awaits the result of a task.
+///
+/// Dropping a [`JoinHandle`] will detach the task, meaning that there is no longer
+/// a handle to the task and no way to `join` on it.
+///
+/// Created when a task is [spawned].
+///
+/// [spawned]: fn.spawn.html
+#[derive(Debug)]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
+pub struct JoinHandle<T>(task::JoinHandle<T>);
+
+impl<T> Future for JoinHandle<T> {
+    type Output = Result<T, JoinError>;
+
+    #[inline]
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        Poll::Ready(Ok(ready!(self.0.poll_unpin(cx))))
+    }
+}
+
+/// Task failed to execute to completion.
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
+pub struct JoinError(());
+
+impl Display for JoinError {
+    #[inline]
+    fn fmt(&self, _fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        unimplemented!()
+    }
+}
+
+impl Debug for JoinError {
+    #[inline]
+    fn fmt(&self, _fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        unimplemented!()
+    }
+}
+
+impl StdError for JoinError {}
+
+/// Spawns a blocking task.
+///
+/// The task will be spawned onto a thread pool specifically dedicated to blocking tasks. This
+/// is useful to prevent long-running synchronous operations from blocking the main futures
+/// executor.
+///
+/// See also: [`task::block_on`], [`task::spawn`].
+///
+/// [`task::block_on`]: fn.block_on.html
+/// [`task::spawn`]: fn.spawn.html
+#[inline]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
+pub fn spawn_blocking<F, T>(f: F) -> JoinHandle<T>
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
+    JoinHandle(task::spawn_blocking(f))
+}
+
+/// Spawns a task and blocks the current thread on its result.
+///
+/// Calling this function is similar to [spawning] a thread and immediately [joining] it, except an
+/// asynchronous task will be spawned.
+///
+/// See also: [`task::spawn_blocking`].
+///
+/// [`task::spawn_blocking`]: fn.spawn_blocking.html
+///
+/// [spawning]: https://doc.rust-lang.org/std/thread/fn.spawn.html
+/// [joining]: https://doc.rust-lang.org/std/thread/struct.JoinHandle.html#method.join
+#[inline]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
+pub fn block_on<F, T>(future: F) -> IoResult<T>
+where
+    F: Future<Output = T>,
+{
+    Ok(task::block_on(future))
+}
+
+/// Sleeps for the specified amount of time.
+///
+/// This function might sleep for slightly longer than the specified duration but never less.
+///
+/// This function is an async version of [`std::thread::sleep`].
+///
+/// [`std::thread::sleep`]: https://doc.rust-lang.org/std/thread/fn.sleep.html
+#[inline]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
+pub async fn sleep(dur: Duration) {
+    task::sleep(dur).await
+}

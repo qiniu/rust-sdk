@@ -17,3 +17,23 @@ keywords = ["qiniu", "storage"]
 base64 = "0.13.0"
 serde = "1.0.185"
 smallstr = "0.3.0"
+cfg-if = "1.0.0"
+
+async-std = { version = "1.12.0", optional = true }
+tokio = { version = "1.32.0", features = [
+    "fs",
+    "rt-multi-thread",
+], optional = true }
+futures = { version = "0.3.28", optional = true }
+async-compat = { version = "0.2.1", optional = true }
+tokio-stream = { version = "0.1.14", features = ["fs"], optional = true }
+
+[features]
+default = []
+async_std_runtime = ["async-std", "futures"]
+tokio_runtime = ["tokio", "futures", "async-compat", "tokio-stream"]
+docs = []
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "feature=\"docs\""]
