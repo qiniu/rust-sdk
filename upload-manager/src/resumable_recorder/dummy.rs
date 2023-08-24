@@ -7,7 +7,7 @@ use std::{
     marker::PhantomData,
 };
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use {
     super::{AppendOnlyAsyncResumableRecorderMedium, ReadOnlyAsyncResumableRecorderMedium},
     futures::future::BoxFuture,
@@ -71,8 +71,11 @@ impl<O: Clone + Digest + Send + Sync + Unpin> ResumableRecorder for DummyResumab
     }
 
     #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn open_for_async_read<'a>(
         &'a self,
         _source_key: &'a SourceKey<Self::HashAlgorithm>,
@@ -81,8 +84,11 @@ impl<O: Clone + Digest + Send + Sync + Unpin> ResumableRecorder for DummyResumab
     }
 
     #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn open_for_async_append<'a>(
         &'a self,
         _source_key: &'a SourceKey<Self::HashAlgorithm>,
@@ -91,8 +97,11 @@ impl<O: Clone + Digest + Send + Sync + Unpin> ResumableRecorder for DummyResumab
     }
 
     #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn open_for_async_create_new<'a>(
         &'a self,
         _source_key: &'a SourceKey<Self::HashAlgorithm>,
@@ -101,8 +110,11 @@ impl<O: Clone + Digest + Send + Sync + Unpin> ResumableRecorder for DummyResumab
     }
 
     #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_delete<'a>(&'a self, _source_key: &'a SourceKey<Self::HashAlgorithm>) -> BoxFuture<'a, IoResult<()>> {
         Box::pin(async move { Err(make_error()) })
     }
@@ -140,7 +152,7 @@ impl Write for DummyResumableRecorderMedium {
     }
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use {
     futures::{AsyncRead, AsyncWrite},
     std::{
@@ -149,7 +161,7 @@ use {
     },
 };
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 impl AsyncRead for DummyResumableRecorderMedium {
     #[inline]
     fn poll_read(self: Pin<&mut Self>, _cx: &mut Context<'_>, _buf: &mut [u8]) -> Poll<IoResult<usize>> {
@@ -157,7 +169,7 @@ impl AsyncRead for DummyResumableRecorderMedium {
     }
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 impl AsyncWrite for DummyResumableRecorderMedium {
     #[inline]
     fn poll_write(self: Pin<&mut Self>, _cx: &mut Context<'_>, _buf: &[u8]) -> Poll<IoResult<usize>> {

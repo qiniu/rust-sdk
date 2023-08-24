@@ -25,14 +25,14 @@ pub use static_regions_provider::StaticRegionsProvider;
 
 mod structs;
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use futures::future::BoxFuture;
 
 /// 区域信息获取接口
 ///
 /// 可以获取一个区域也可以获取多个区域
 ///
-/// 同时提供阻塞获取接口和异步获取接口，异步获取接口则需要启用 `async` 功能
+/// 同时提供阻塞获取接口和异步获取接口，异步获取接口则需要启用 `async_std_runtime` 或 `tokio_runtime` 功能
 #[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait RegionsProvider: Clone + Debug + Sync + Send {
@@ -52,16 +52,22 @@ pub trait RegionsProvider: Clone + Debug + Sync + Send {
 
     /// 异步返回七牛区域信息
     #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_get(&self, opts: GetOptions) -> BoxFuture<'_, ApiResult<GotRegion>> {
         Box::pin(async move { self.get(opts) })
     }
 
     /// 异步返回多个七牛区域信息
     #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_get_all(&self, opts: GetOptions) -> BoxFuture<'_, ApiResult<GotRegions>> {
         Box::pin(async move { self.get_all(opts) })
     }

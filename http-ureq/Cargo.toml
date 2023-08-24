@@ -23,7 +23,8 @@ ureq = { version = "2.7.1", default-features = false }
 qiniu-http = { version = "0.3.0", path = "../http" }
 
 [features]
-async = ["qiniu-http/async"]
+async_std_runtime = ["qiniu-http/async_std_runtime"]
+tokio_runtime = ["qiniu-http/tokio_runtime"]
 gzip = ["ureq/gzip"]
 tls = ["ureq/tls"]
 charset = ["ureq/charset"]

@@ -9,7 +9,7 @@
 ## 概览
 
 负责配置七牛对象上传所需要的上传策略，并提供生成上传凭证的库函数，同时提供 `UploadTokenProvider` 方便扩展获取上传凭证的方式。
-同时提供阻塞接口和异步接口（异步接口需要启用 `async` 功能）。
+同时提供阻塞接口和异步接口（异步接口需要启用 `async_std_runtime` 或 `tokio_runtime` 功能）。
 提供 `UploadTokenProvider` 的多个实现方式，例如：
 
 - `StaticUploadTokenProvider` 根据其他服务计算得到的上传凭证字符串生成上传凭证
@@ -27,11 +27,18 @@
 qiniu-upload-token = "0.3.0"
 ```
 
-### 启用异步接口
+### 启用异步接口（基于 `async-std`）
 
 ```toml
 [dependencies]
-qiniu-upload-token = { version = "0.3.0", features = ["async"] }
+qiniu-upload-token = { version = "0.3.0", features = ["async_std_runtime"] }
+```
+
+### 启用异步接口（基于 `tokio`）
+
+```toml
+[dependencies]
+qiniu-upload-token = { version = "0.3.0", features = ["tokio_runtime"] }
 ```
 
 ## 代码示例

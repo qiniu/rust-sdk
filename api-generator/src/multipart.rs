@@ -70,7 +70,7 @@ impl CodeGenerator for MultipartFormDataRequestStruct {
                 #sync_token_stream
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             #[doc = "异步 Multipart 表单"]
             pub mod async_part {
                 #async_token_stream
@@ -360,7 +360,7 @@ impl MultipartFormDataRequestStruct {
                     ) -> std::io::Result<#struct_name<'a>> {
                         Ok(self.add_part(
                             #key,
-                            qiniu_http_client::AsyncPart::file_path(async_std::path::Path::new(path)).await?,
+                            qiniu_http_client::AsyncPart::file_path(std::path::Path::new(path)).await?,
                         ))
                     }
                 }

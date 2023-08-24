@@ -45,10 +45,10 @@ pub use retrier::{
 #[cfg(feature = "c_ares")]
 pub use resolver::{c_ares, c_ares_resolver, CAresResolver};
 
-#[cfg(all(feature = "trust_dns", feature = "async"))]
+#[cfg(all(feature = "trust_dns", any(feature = "async_std_runtime", feature = "tokio_runtime")))]
 pub use resolver::{trust_dns_resolver, TrustDnsResolver};
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 pub use {
     request::{AsyncMultipart, AsyncPart, AsyncPartBody, AsyncRequestBody, AsyncRequestBuilder},
     response::AsyncResponse,
@@ -56,7 +56,7 @@ pub use {
 
 use call::request_call;
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use call::async_request_call;
 
 use callback::{CallbackContextImpl, ExtendedCallbackContextImpl};

@@ -17,7 +17,7 @@ use std::{
     time::Duration,
 };
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use futures_lite::Future;
 
 /// HTTP 响应的指标信息
@@ -401,7 +401,7 @@ impl<B> Response<B> {
 
     /// 尝试对 HTTP 响应体进行异步映射
     #[inline]
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     pub async fn try_async_map_body<B2, E, F, Fut>(self, f: F) -> result::Result<Response<B2>, MapError<E>>
     where
         F: FnOnce(B) -> Fut,
@@ -575,7 +575,7 @@ mod body {
         }
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     mod async_body {
         use assert_impl::assert_impl;
         use futures_lite::{
@@ -593,7 +593,10 @@ mod body {
 
         /// 异步 HTTP 响应体
         #[derive(Debug)]
-        #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+        #[cfg_attr(
+            feature = "docs",
+            doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        )]
         pub struct AsyncResponseBody(AsyncResponseBodyInner);
 
         #[derive(Debug)]
@@ -645,13 +648,13 @@ mod body {
         }
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     pub use async_body::*;
 }
 
 pub use body::ResponseBody;
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 pub use body::AsyncResponseBody;
 
 /// HTTP 响应结果

@@ -3,7 +3,7 @@ use dns_lookup::lookup_host;
 use qiniu_http::ResponseErrorKind as HttpResponseErrorKind;
 use std::io::Error as IOError;
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use futures::future::BoxFuture;
 
 /// 简单域名解析器
@@ -21,14 +21,17 @@ impl Resolver for SimpleResolver {
     }
 
     #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_resolve<'a>(&'a self, domain: &'a str, opts: ResolveOptions<'a>) -> BoxFuture<'a, ResolveResult> {
         let resolver = self.to_owned();
         let domain = domain.to_owned();
         let retried = opts.retried.cloned();
         Box::pin(async move {
-            async_std::task::spawn_blocking(move || {
+            match qiniu_utils::async_task::spawn_blocking(move || {
                 let mut opts_builder = ResolveOptions::builder();
                 if let Some(retried) = &retried {
                     opts_builder.retried(retried);
@@ -36,6 +39,14 @@ impl Resolver for SimpleResolver {
                 resolver.resolve(&domain, opts_builder.build())
             })
             .await
+            {
+                Ok(Ok(results)) => Ok(results),
+                Ok(Err(err)) => Err(err),
+                Err(err) => Err(ResponseError::new(
+                    super::super::ResponseErrorKind::SystemCallError,
+                    err,
+                )),
+            }
         })
     }
 }
@@ -48,7 +59,7 @@ fn convert_io_error_to_response_error(err: IOError, opts: ResolveOptions) -> Res
     err
 }
 
-#[cfg(all(test, feature = "async"))]
+#[cfg(all(test, any(feature = "async_std_runtime", feature = "tokio_runtime")))]
 mod tests {
     use super::*;
     use anyhow::Result as AnyResult;

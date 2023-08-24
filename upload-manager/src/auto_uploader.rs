@@ -24,13 +24,13 @@ use std::{
     sync::Arc,
 };
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use {
-    async_std::fs::metadata as async_metadata,
     futures::{
         io::{copy as async_copy, Cursor as AsyncCursor},
         AsyncRead, AsyncReadExt,
     },
+    qiniu_utils::async_fs::metadata as async_metadata,
 };
 
 /// 自动上传器
@@ -176,7 +176,7 @@ macro_rules! sync_block {
     };
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 macro_rules! async_block {
     ($code:block) => {
         $code.await
@@ -285,10 +285,10 @@ macro_rules! with_uploader {
 trait ReadDebug: Read + Debug {}
 impl<T: Read + Debug> ReadDebug for T {}
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 trait AsyncReadDebug: AsyncRead + Debug {}
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 impl<T: AsyncRead + Debug> AsyncReadDebug for T {}
 
 impl<H: Digest + Send + 'static> AutoUploader<H> {
@@ -352,8 +352,11 @@ impl<H: Digest + Send + 'static> AutoUploader<H> {
     }
 
     /// 异步上传指定路径的文件
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     pub async fn async_upload_path<'a>(
         &'a self,
         path: impl AsRef<Path> + Send + Sync + 'a,
@@ -380,8 +383,11 @@ impl<H: Digest + Send + 'static> AutoUploader<H> {
     }
 
     /// 异步上传不可寻址的阅读器的数据
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     pub async fn async_upload_reader<R: AsyncRead + Unpin + Debug + Send + Sync + 'static>(
         &self,
         reader: R,

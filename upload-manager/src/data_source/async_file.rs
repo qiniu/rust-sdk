@@ -5,10 +5,10 @@ use super::{
     SourceKey,
 };
 use async_once_cell::OnceCell as AsyncOnceCell;
-use async_std::{fs::File as AsyncFile, path::PathBuf as AsyncPathBuf};
 use digest::Digest;
 use futures::future::BoxFuture;
 use os_str_bytes::OsStrBytes;
+use qiniu_utils::async_fs::{canonicalize as async_canonicalize, File as AsyncFile};
 use std::{
     fmt::{self, Debug},
     io::Result as IoResult,
@@ -21,7 +21,7 @@ use std::{
 /// 基于一个文件实现了数据源接口
 pub struct AsyncFileDataSource<A: Digest> {
     path: PathBuf,
-    canonicalized_path: Arc<AsyncOnceCell<AsyncPathBuf>>,
+    canonicalized_path: Arc<AsyncOnceCell<PathBuf>>,
     source: Arc<AsyncOnceCell<AsyncSource<A>>>,
 }
 
@@ -51,9 +51,9 @@ impl<A: Digest> AsyncFileDataSource<A> {
             .await
     }
 
-    async fn get_async_path(&self) -> IoResult<&AsyncPathBuf> {
+    async fn get_async_path(&self) -> IoResult<&PathBuf> {
         self.canonicalized_path
-            .get_or_try_init(async { AsyncPathBuf::from(&self.path).canonicalize().await })
+            .get_or_try_init(async { async_canonicalize(&self.path).await })
             .await
     }
 }

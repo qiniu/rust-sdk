@@ -12,7 +12,7 @@ use qiniu_credential::AccessKey;
 use qiniu_upload_token::BucketName;
 use std::{convert::TryFrom, fmt::Debug, mem::take, path::Path, time::Duration};
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use futures::future::BoxFuture;
 
 const DEFAULT_SHRINK_INTERVAL: Duration = Duration::from_secs(86400);
@@ -259,8 +259,11 @@ impl RegionsProvider for BucketRegionsProvider {
     }
 
     #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_get(&self, opts: GetOptions) -> BoxFuture<'_, ApiResult<GotRegion>> {
         Box::pin(async move {
             self.async_get_all(opts)
@@ -270,8 +273,11 @@ impl RegionsProvider for BucketRegionsProvider {
     }
 
     #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_get_all(&self, _opts: GetOptions) -> BoxFuture<'_, ApiResult<GotRegions>> {
         Box::pin(async move {
             self.queryer
@@ -297,7 +303,7 @@ impl BucketRegionsProvider {
         )
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn do_async_query(&self) -> ApiResult<GotRegions> {
         handle_response_body(
             self.queryer
@@ -327,10 +333,11 @@ fn handle_response_body(response: Response<ResponseBody>) -> ApiResult<GotRegion
     Ok(got_regions)
 }
 
-#[cfg(all(test, feature = "isahc", feature = "async"))]
+#[cfg(all(test, feature = "isahc", feature = "tokio_runtime"))]
 mod tests {
     use super::{super::super::Endpoint, *};
     use futures::channel::oneshot::channel;
+    use qiniu_utils::async_task::spawn;
     use serde::{Deserialize, Serialize};
     use serde_json::{json, Value as JsonValue};
     use std::{
@@ -342,7 +349,6 @@ mod tests {
             Arc,
         },
     };
-    use tokio::task::spawn;
     use warp::{http::header::HeaderValue, path, reply::Response, Filter};
 
     macro_rules! starts_with_server {
@@ -364,7 +370,7 @@ mod tests {
         bucket: String,
     }
 
-    #[tokio::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_query_regions_of_bucket() -> Result<(), Box<dyn Error>> {
         env_logger::builder().is_test(true).try_init().ok();
 

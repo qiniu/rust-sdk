@@ -42,7 +42,7 @@ pub(super) fn spawn<F: FnOnce() + Send + 'static>(task_name: String, f: F) -> Re
         None
     }
 
-    #[cfg(not(feature = "async"))]
+    #[cfg(not(feature = "async_std_runtime"))]
     fn _spawn<F: FnOnce() + Send + 'static>(task_name: String, f: F) -> Result<()> {
         std::thread::Builder::new()
             .name(task_name)
@@ -51,9 +51,9 @@ pub(super) fn spawn<F: FnOnce() + Send + 'static>(task_name: String, f: F) -> Re
             .map_err(|err| err.into())
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(feature = "async_std_runtime")]
     fn _spawn<F: FnOnce() + Send + 'static>(_task_name: String, f: F) -> Result<()> {
-        async_std::task::spawn_blocking(f);
+        drop(qiniu_utils::async_task::spawn_blocking(f));
         Ok(())
     }
 }

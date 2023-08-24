@@ -24,7 +24,7 @@ use std::{
 };
 
 /// Reqwest 异步客户端
-#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+#[cfg_attr(feature = "docs", doc(cfg(feature = "tokio_runtime")))]
 #[derive(Debug, Default)]
 pub struct AsyncClient {
     async_client: AsyncReqwestClient,
@@ -51,7 +51,7 @@ impl HttpCaller for AsyncClient {
         unimplemented!("AsyncClient does not support blocking call")
     }
 
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "tokio_runtime")))]
     fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
         Box::pin(async move {
             let mut user_cancelled_error: Option<ResponseError> = None;

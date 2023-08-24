@@ -9,7 +9,7 @@
 ## 概览
 
 这是一个基于 `qiniu-apis-specs` 自动生成的 Rust 库，基于 `qiniu-http-client`，用于调用七牛 HTTP API。
-该库同时提供阻塞客户端和异步客户端，异步客户端则需要启用 `async` 功能。
+该库同时提供阻塞客户端和异步客户端，异步客户端则需要启用 `async_std_runtime` 或 `tokio_runtime` 功能。
 该库致力于根据 [`qiniu-apis-specs`](https://github.com/qiniu/api-specs.git) 提供的 YAML 描述文件，在不理解业务逻辑的前提下，提供简单的封装方法方便用户正确调用 API。
 
 该库可以通过启用不同的功能来选择不同的 HTTP 客户端实现，
@@ -27,18 +27,25 @@
 qiniu-apis = { version = "0.3.0", features = ["ureq"] }
 ```
 
-### 启用 Isahc 异步接口
+### 启用 Isahc 异步接口（基于 `async-std`）
 
 ```toml
 [dependencies]
-qiniu-apis = { version = "0.3.0", features = ["async", "isahc"] }
+qiniu-apis = { version = "0.3.0", features = ["async_std_runtime", "isahc"] }
 ```
 
-### 启用 Reqwest 异步接口
+### 启用 Isahc 异步接口（基于 `tokio`）
 
 ```toml
 [dependencies]
-qiniu-apis = { version = "0.3.0", features = ["async", "reqwest"] }
+qiniu-apis = { version = "0.3.0", features = ["tokio_runtime", "isahc"] }
+```
+
+### 启用 Reqwest 异步接口（基于 `tokio`，Reqwest 不支持 `async-std`）
+
+```toml
+[dependencies]
+qiniu-apis = { version = "0.3.0", features = ["tokio_runtime", "reqwest"] }
 ```
 
 ### 其他功能

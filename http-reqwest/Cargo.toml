@@ -28,7 +28,7 @@ futures = { version = "0.3.28", optional = true }
 
 [features]
 default = ["gzip", "brotli", "deflate", "default-tls"]
-async = ["qiniu-http/async", "futures", "bytes"]
+tokio_runtime = ["futures", "bytes", "qiniu-http/tokio_runtime"]
 gzip = ["reqwest/gzip"]
 brotli = ["reqwest/brotli"]
 deflate = ["reqwest/deflate"]

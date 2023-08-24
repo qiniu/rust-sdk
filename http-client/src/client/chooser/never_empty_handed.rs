@@ -2,7 +2,7 @@ use super::{super::super::regions::IpAddrWithPort, ChooseOptions, Chooser, Choos
 use num_rational::Ratio;
 use rand::{prelude::*, thread_rng};
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use futures::future::BoxFuture;
 
 const DEFAULT_RANDOM_CHOOSE_RATIO: Ratio<usize> = Ratio::new_raw(1, 2);
@@ -56,8 +56,11 @@ impl<C: Chooser + Clone> Chooser for NeverEmptyHandedChooser<C> {
         self.inner_chooser.feedback(feedback)
     }
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_choose<'a>(&'a self, ips: &'a [IpAddrWithPort], opts: ChooseOptions<'a>) -> BoxFuture<'a, ChosenResults> {
         Box::pin(async move {
             let chosen = self.inner_chooser.async_choose(ips, opts).await;
@@ -70,8 +73,11 @@ impl<C: Chooser + Clone> Chooser for NeverEmptyHandedChooser<C> {
     }
 
     #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_feedback<'a>(&'a self, feedback: ChooserFeedback<'a>) -> BoxFuture<'a, ()> {
         self.inner_chooser.async_feedback(feedback)
     }

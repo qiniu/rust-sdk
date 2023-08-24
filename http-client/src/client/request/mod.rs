@@ -6,7 +6,7 @@ mod request_metadata;
 pub use qiniu_http::SyncRequestBody;
 use std::borrow::Cow;
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 pub use qiniu_http::AsyncRequestBody;
 
 /// HTTP 查询参数名
@@ -39,7 +39,7 @@ pub use builder::{RequestBuilder, RequestBuilderParts, RequestParts, SyncRequest
 pub(super) use built::{InnerRequest, InnerRequestParts};
 pub use multipart::{FieldName, FileName, Multipart, Part, PartMetadata, SyncMultipart, SyncPart, SyncPartBody};
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 pub use {
     builder::AsyncRequestBuilder,
     multipart::{AsyncMultipart, AsyncPart, AsyncPartBody},
@@ -47,6 +47,9 @@ pub use {
 
 pub(super) type SyncInnerRequest<'r, E> = InnerRequest<'r, SyncRequestBody<'r>, E>;
 
-#[cfg(feature = "async")]
-#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
 pub(super) type AsyncInnerRequest<'r, E> = InnerRequest<'r, AsyncRequestBody<'r>, E>;

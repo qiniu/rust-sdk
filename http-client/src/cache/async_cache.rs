@@ -7,16 +7,20 @@ use super::{
     AsyncCacheController, IsCacheValid,
 };
 use async_once_cell::Lazy;
-use async_std::{
-    fs::{create_dir_all, File, OpenOptions},
-    io::{BufReader, BufWriter},
-    sync::{Mutex, RwLock},
-    task::{spawn, spawn_blocking},
-};
 use crossbeam_queue::SegQueue;
-use fs4::async_std::AsyncFileExt;
-use futures::{future::BoxFuture, AsyncBufReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt, TryStreamExt};
+use futures::{
+    future::BoxFuture,
+    io::{BufReader, BufWriter},
+    lock::Mutex,
+    AsyncBufReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt, TryStreamExt,
+};
 use log::{info, warn};
+use qiniu_utils::{
+    async_fs::{create_dir_all, File, OpenOptions},
+    async_sync::RwLock,
+    async_task::{spawn, spawn_blocking},
+    prelude::FileExt,
+};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
     borrow::Borrow,
@@ -96,7 +100,7 @@ impl<
         ) -> PersistentResult<CacheMap<K, V>> {
             let mut cache = HashMap::new();
             let mut file = File::open(path).await?;
-            file = spawn_blocking(move || file.lock_shared().map(|_| file)).await?;
+            file = spawn_blocking(move || file.lock_shared().map(|_| file)).await??;
             let mut lines = BufReader::new(&mut file).lines();
             while let Some(line) = lines.try_next().await? {
                 let entry: PersistentCacheEntry<K, V> = serde_json::from_str(&line)?;
@@ -309,7 +313,7 @@ impl<
         }
         let mut cache: LazyCacheMap<K, V> = Lazy::with_value(Default::default());
         swap(&mut self.cache, &mut cache);
-        let new_cache_inner = CacheInner {
+        let mut new_cache_inner = CacheInner {
             cache,
             cache_lifetime: self.cache_lifetime,
             shrink_interval: self.shrink_interval,
@@ -317,12 +321,23 @@ impl<
             persistent: self.persistent.take(),
             have_dropped: true,
         };
-        spawn(async move {
-            let mut locked_data = new_cache_inner.locked_data.lock().await;
-            do_some_work_with_locked_data(&new_cache_inner, &mut locked_data).await;
-        });
+        let mut is_cache_empty = true;
+        let mut is_commands_empty = true;
+        if let Some(cache) = new_cache_inner.cache.try_get_mut_unpin() {
+            is_cache_empty = cache.get_mut().is_empty();
+        }
+        if let Some(persistent) = &self.persistent {
+            is_commands_empty = persistent.commands().is_empty();
+        }
+        if !is_cache_empty || !is_commands_empty {
+            drop(spawn(async move {
+                let mut locked_data = new_cache_inner.locked_data.lock().await;
+                do_some_work_with_locked_data(&new_cache_inner, &mut locked_data).await;
+            }));
+        }
     }
 }
+
 async fn do_some_work_async<
     K: Eq + PartialEq + Hash + Clone + Debug + Serialize + Sync + Send + 'static,
     V: IsCacheValid + Clone + Serialize + Sync + Send + 'static,
@@ -418,7 +433,7 @@ async fn do_some_work_with_locked_data<
                 create_dir_all(parent_dir).await?;
             }
             let mut file = OpenOptions::new().create(true).write(true).open(path).await?;
-            file = spawn_blocking(move || file.lock_exclusive().map(|_| file)).await?;
+            file = spawn_blocking(move || file.lock_exclusive().map(|_| file)).await??;
             file.seek(SeekFrom::End(0)).await?;
             let mut writer = BufWriter::new(file);
             let result = _execute_commands(commands, &mut writer, cache_lifetime).await;
@@ -494,7 +509,7 @@ mod tests {
         super::super::{ResponseError, ResponseErrorKind},
         *,
     };
-    use async_std::task::sleep;
+    use qiniu_utils::async_task::sleep;
     use serde::Deserialize;
     use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 
@@ -503,7 +518,7 @@ mod tests {
 
     impl IsCacheValid for SimpleCacheValue {}
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_async_cache_in_memory_refresh() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -546,7 +561,7 @@ mod tests {
         Ok(())
     }
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_async_cache_in_memory_shrink() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 

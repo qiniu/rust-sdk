@@ -40,16 +40,15 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use {
     super::super::{
         data_source::{AsyncDataSource, AsyncDigestible},
         AppendOnlyAsyncResumableRecorderMedium, AsyncDataSourceReader,
     },
-    async_std::io::Cursor as AsyncCursor,
     futures::{
         future::{BoxFuture, OptionFuture},
-        io::{AsyncRead, BufReader as AsyncBufReader},
+        io::{AsyncRead, BufReader as AsyncBufReader, Cursor as AsyncCursor},
         lock::Mutex as AsyncMutex,
         AsyncBufReadExt, AsyncWriteExt, StreamExt, TryStreamExt,
     },
@@ -423,16 +422,25 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> 
         }
     }
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     type AsyncInitializedParts = MultiPartsV1UploaderInitializedObject<Box<dyn AsyncDataSource<H>>>;
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     type AsyncUploadedPart = MultiPartsV1UploaderUploadedPart;
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_initialize_parts<D: AsyncDataSource<Self::HashAlgorithm> + 'static>(
         &self,
         source: D,
@@ -450,8 +458,11 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> 
         })
     }
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn try_to_async_resume_parts<D: AsyncDataSource<Self::HashAlgorithm> + 'static>(
         &self,
         source: D,
@@ -475,8 +486,11 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> 
         })
     }
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_reinitialize_parts<'r>(
         &'r self,
         initialized: &'r mut Self::AsyncInitializedParts,
@@ -491,8 +505,11 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> 
         })
     }
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_upload_part<'r>(
         &'r self,
         initialized: &'r Self::AsyncInitializedParts,
@@ -622,8 +639,11 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV1Uploader<H> 
         }
     }
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_complete_parts<'r>(
         &'r self,
         initialized: &'r Self::AsyncInitializedParts,
@@ -717,7 +737,7 @@ fn sha1_of_sync_reader<R: Read + Reset>(reader: &mut R) -> IoResult<String> {
     Ok(urlsafe_base64(Digestible::<Sha1>::digest(reader)?.as_slice()))
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 async fn sha1_of_async_reader<R: AsyncRead + AsyncReset + Unpin + Send>(reader: &mut R) -> IoResult<String> {
     Ok(urlsafe_base64(
         AsyncDigestible::<Sha1>::digest(reader).await?.as_slice(),
@@ -825,7 +845,7 @@ impl<H: Digest + Send + 'static> MultiPartsV1Uploader<H> {
         Ok(records)
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn async_resume_or_create_records<D: AsyncDataSource<H>>(
         &self,
         source: &D,
@@ -843,7 +863,7 @@ impl<H: Digest + Send + 'static> MultiPartsV1Uploader<H> {
         Ok(records)
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn try_to_async_resume_records(
         &self,
         source_key: &SourceKey<H>,
@@ -872,7 +892,7 @@ impl<H: Digest + Send + 'static> MultiPartsV1Uploader<H> {
         Ok(Some(records))
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn async_create_new_records<D: AsyncDataSource<H>>(
         &self,
         source: &D,
@@ -893,7 +913,7 @@ impl<H: Digest + Send + 'static> MultiPartsV1Uploader<H> {
         Ok(())
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn try_to_async_delete_records<D: AsyncDataSource<H>>(&self, source: &D) -> ApiResult<()> {
         if let Some(source_key) = source.source_key().await? {
             self.resumable_recorder.async_delete(&source_key).await?;
@@ -914,7 +934,7 @@ fn _create_new_records<D: Digest>(
     records
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 async fn _async_create_new_records<D: Digest>(
     resumable_recorder: &dyn ResumableRecorder<HashAlgorithm = D>,
     source_key: &SourceKey<D>,
@@ -1033,7 +1053,7 @@ struct AppendOnlyMediumForMultiPartsV1ResumableRecorderRecords {
     header_written: bool,
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 #[derive(Debug)]
 struct AsyncAppendOnlyMediumForMultiPartsV1ResumableRecorderRecords {
     medium: Box<dyn AppendOnlyAsyncResumableRecorderMedium>,
@@ -1046,7 +1066,7 @@ struct MultiPartsV1ResumableRecorderRecords {
     up_endpoints: Endpoints,
     append_only_medium: Option<Arc<Mutex<AppendOnlyMediumForMultiPartsV1ResumableRecorderRecords>>>,
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async_append_only_medium: Option<Arc<AsyncMutex<AsyncAppendOnlyMediumForMultiPartsV1ResumableRecorderRecords>>>,
 }
 
@@ -1056,7 +1076,7 @@ impl MultiPartsV1ResumableRecorderRecords {
             up_endpoints,
             map: Default::default(),
             append_only_medium: None,
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             async_append_only_medium: None,
         }
     }
@@ -1066,7 +1086,7 @@ impl MultiPartsV1ResumableRecorderRecords {
         )));
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     fn set_medium_for_async_append(
         &mut self,
         medium: Box<dyn AppendOnlyAsyncResumableRecorderMedium>,
@@ -1106,7 +1126,7 @@ impl MultiPartsV1ResumableRecorderRecords {
         Ok(())
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn async_persist(
         &self,
         record: &MultiPartsV1ResumableRecorderRecord,
@@ -1142,7 +1162,7 @@ impl FromIterator<MultiPartsV1ResumableRecorderRecord> for MultiPartsV1Resumable
             up_endpoints: Default::default(),
             append_only_medium: None,
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             async_append_only_medium: None,
         }
     }
@@ -1189,15 +1209,15 @@ mod tests {
     use tempfile::{Builder as TempfileBuilder, TempPath};
     use text_io::scan as scan_text;
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     use {
         crate::data_source::AsyncFileDataSource,
-        async_std::task::spawn as spawn_task,
         futures::{
             future::join_all,
             io::{copy as async_io_copy, sink as async_io_sink},
         },
         qiniu_apis::http::{AsyncRequest, AsyncResponse, AsyncResponseBody, AsyncResponseResult},
+        qiniu_utils::async_task::{spawn as spawn_task, JoinError},
     };
 
     const FILE_SIZE: u64 = 104885287;
@@ -1260,7 +1280,7 @@ mod tests {
                     .build())
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
@@ -1296,8 +1316,8 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(feature = "async")]
-    #[async_std::test]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[qiniu_utils::async_runtime::test]
     async fn test_async_multi_parts_v1_upload() -> Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -1363,7 +1383,7 @@ mod tests {
             get_upload_manager(FakeHttpCaller::default()),
             DummyResumableRecorder::<Sha1>::new(),
         ));
-        let file_path = spawn_task(async { random_file_path(FILE_SIZE) }).await?;
+        let file_path = spawn_task(async { random_file_path(FILE_SIZE) }).await??;
         let file_source = AsyncFileDataSource::new(file_path.as_os_str());
         let params = ObjectParams::builder()
             .region_provider(single_up_domain_region())
@@ -1379,7 +1399,12 @@ mod tests {
                     .await
             })
         });
-        let parts = join_all(tasks).await.into_iter().collect::<ApiResult<Vec<_>>>()?;
+        let parts = join_all(tasks)
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>, JoinError>>()?
+            .into_iter()
+            .collect::<ApiResult<Vec<_>>>()?;
         let parts = parts.into_iter().map(|part| part.unwrap()).collect::<Vec<_>>();
         let body = uploader.async_complete_parts(&initialized_parts, &parts).await?;
         assert_eq!(body.get("done").unwrap().as_u64().unwrap(), 1u64);
@@ -1447,7 +1472,7 @@ mod tests {
                         .build())
                 }
 
-                #[cfg(feature = "async")]
+                #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
                 fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                     unreachable!()
                 }
@@ -1552,7 +1577,7 @@ mod tests {
                         .build())
                 }
 
-                #[cfg(feature = "async")]
+                #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
                 fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                     unreachable!()
                 }
@@ -1590,10 +1615,10 @@ mod tests {
             Ok(())
         }
 
-        #[cfg(feature = "async")]
-        #[async_std::test]
+        #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+        #[qiniu_utils::async_runtime::test]
         async fn test_async_multi_parts_v1_upload_with_recovery() -> Result<()> {
-            use async_std::fs::read_dir as async_read_dir;
+            use qiniu_utils::async_fs::read_dir as async_read_dir;
 
             env_logger::builder().is_test(true).try_init().ok();
 
@@ -1652,7 +1677,7 @@ mod tests {
             }
 
             let resuming_files_dir = TempfileBuilder::new().tempdir()?;
-            let file_path = spawn_task(async { random_file_path(FILE_SIZE) }).await?;
+            let file_path = spawn_task(async { random_file_path(FILE_SIZE) }).await??;
             {
                 let uploader = MultiPartsV1Uploader::new(
                     get_upload_manager(FakeHttpCaller::new(0)),
@@ -1779,7 +1804,12 @@ mod tests {
                             .await
                     })
                 });
-                let parts = join_all(tasks).await.into_iter().collect::<ApiResult<Vec<_>>>()?;
+                let parts = join_all(tasks)
+                    .await
+                    .into_iter()
+                    .collect::<Result<Vec<_>, JoinError>>()?
+                    .into_iter()
+                    .collect::<ApiResult<Vec<_>>>()?;
                 let parts = parts.into_iter().map(|part| part.unwrap()).collect::<Vec<_>>();
                 let body = uploader.async_complete_parts(&initialized_parts, &parts).await?;
                 assert_eq!(body.get("done").unwrap().as_u64().unwrap(), 1u64);
@@ -1871,7 +1901,12 @@ mod tests {
                             .await
                     })
                 });
-                let parts = join_all(tasks).await.into_iter().collect::<ApiResult<Vec<_>>>()?;
+                let parts = join_all(tasks)
+                    .await
+                    .into_iter()
+                    .collect::<Result<Vec<_>, JoinError>>()?
+                    .into_iter()
+                    .collect::<ApiResult<Vec<_>>>()?;
                 let parts = parts.into_iter().map(|part| part.unwrap()).collect::<Vec<_>>();
                 let body = uploader.async_complete_parts(&initialized_parts, &parts).await?;
                 assert_eq!(body.get("done").unwrap().as_u64().unwrap(), 1u64);
@@ -1924,7 +1959,7 @@ mod tests {
         Ok(size)
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn size_of_async_reader<R: AsyncRead + AsyncReset + Unpin>(mut reader: &mut R) -> IoResult<u64> {
         let size = async_io_copy(&mut reader, &mut async_io_sink()).await?;
         reader.reset().await?;

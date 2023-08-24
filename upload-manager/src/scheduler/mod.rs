@@ -13,7 +13,7 @@ use std::{
     path::Path,
 };
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use {
     super::data_source::{AsyncDataSource, AsyncFileDataSource, AsyncSeekableDataSource, AsyncUnseekableDataSource},
     futures::{future::BoxFuture, AsyncRead, AsyncSeek, AsyncSeekExt},
@@ -37,8 +37,11 @@ pub trait MultiPartsUploaderScheduler<A: Digest>: Clone + Send + Sync + Debug {
     fn upload(&self, source: Box<dyn DataSource<A>>, params: ObjectParams) -> ApiResult<Value>;
 
     /// 异步上传数据源
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_upload(&self, source: Box<dyn AsyncDataSource<A>>, params: ObjectParams) -> BoxFuture<ApiResult<Value>>;
 }
 
@@ -89,8 +92,11 @@ pub trait MultiPartsUploaderSchedulerExt<A: Digest + Send + 'static>: MultiParts
     }
 
     /// 异步上传指定路径的文件
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_upload_path<'a>(
         &'a self,
         path: impl AsRef<Path> + Send + Sync + 'a,
@@ -103,8 +109,11 @@ pub trait MultiPartsUploaderSchedulerExt<A: Digest + Send + 'static>: MultiParts
     }
 
     /// 异步上传不可寻址的输入流的数据
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_upload_reader<R: AsyncRead + Unpin + Debug + Send + Sync + 'static>(
         &self,
         reader: R,
@@ -117,8 +126,11 @@ pub trait MultiPartsUploaderSchedulerExt<A: Digest + Send + 'static>: MultiParts
     }
 
     /// 异步上传可寻址的输入流的数据
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_upload_seekable_reader<R: AsyncRead + AsyncSeek + Unpin + Debug + Send + Sync + 'static>(
         &self,
         reader: R,

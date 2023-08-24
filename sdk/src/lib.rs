@@ -69,9 +69,13 @@
 //!
 //! 允许通过 `qiniu_sdk::download` 来访问 `qiniu-download-manager`。
 //!
-//! #### `async`
+//! #### `async_std_runtime`
 //!
-//! 启用所有七牛 SDK 插件的异步接口。
+//! 启用异步接口，基于 `async-std` 库。
+//!
+//! #### `tokio_runtime`
+//!
+//! 启用异步接口，基于 `tokio` 库。
 //!
 //! #### `ureq`
 //!

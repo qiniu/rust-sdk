@@ -14,7 +14,7 @@ use qiniu_apis::http_client::{ApiResult, ResponseError};
 use serde_json::Value;
 use std::num::NonZeroU64;
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use {
     super::AsyncDataSource,
     futures::future::{BoxFuture, OptionFuture},
@@ -284,8 +284,11 @@ impl<M: MultiPartsUploader> MultiPartsUploaderScheduler<M::HashAlgorithm> for Se
         }
     }
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_upload(
         &self,
         source: Box<dyn AsyncDataSource<M::HashAlgorithm>>,
@@ -492,7 +495,7 @@ impl<M: MultiPartsUploader> MultiPartsUploaderScheduler<M::HashAlgorithm> for Se
     }
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 #[cfg(test)]
 mod tests {
     use super::{
@@ -503,7 +506,6 @@ mod tests {
         *,
     };
     use anyhow::Result as AnyResult;
-    use async_std::task::{sleep, spawn as spawn_task};
     use futures::{
         io::{copy as async_io_copy, sink as async_io_sink},
         AsyncRead,
@@ -519,6 +521,7 @@ mod tests {
             RequestRetrier, StaticRegionsProvider, NO_BACKOFF,
         },
     };
+    use qiniu_utils::async_task::{sleep, spawn as spawn_task};
     use qiniu_utils::base64::urlsafe as urlsafe_base64;
     use rand::{thread_rng, RngCore};
     use serde_json::{json, to_vec as json_to_vec};
@@ -536,7 +539,7 @@ mod tests {
 
     const BLOCK_SIZE: u64 = 4 << 20;
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_serial_multi_parts_uploader_scheduler_with_async_multi_parts_v1_upload_with_recovery() -> AnyResult<()>
     {
         env_logger::builder().is_test(true).try_init().ok();
@@ -596,7 +599,7 @@ mod tests {
         }
 
         let resuming_files_dir = TempfileBuilder::new().tempdir()?;
-        let file_path = spawn_task(async { random_file_path(BLOCK_SIZE) }).await?;
+        let file_path = spawn_task(async { random_file_path(BLOCK_SIZE) }).await??;
 
         {
             let uploader = SerialMultiPartsUploaderScheduler::new(MultiPartsV1Uploader::new(
@@ -764,7 +767,7 @@ mod tests {
         Ok(())
     }
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_serial_multi_parts_uploader_scheduler_with_async_multi_parts_v2_upload_with_recovery() -> AnyResult<()>
     {
         env_logger::builder().is_test(true).try_init().ok();
@@ -780,7 +783,7 @@ mod tests {
                 unreachable!()
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     if request.url().path() == "/buckets/fakebucket/objects/~/uploads" {
@@ -839,7 +842,7 @@ mod tests {
         }
 
         let resuming_files_dir = TempfileBuilder::new().tempdir()?;
-        let file_path = spawn_task(async { random_file_path(BLOCK_SIZE) }).await?;
+        let file_path = spawn_task(async { random_file_path(BLOCK_SIZE) }).await??;
 
         {
             let caller = Arc::new(FakeHttpCaller::default());
@@ -870,7 +873,7 @@ mod tests {
                 unreachable!()
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     if request.url().path() == "/buckets/fakebucket/objects/~/uploads" {
@@ -959,7 +962,7 @@ mod tests {
                 unreachable!()
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     if request.url().path() == "/buckets/fakebucket/objects/~/uploads" {
@@ -1048,7 +1051,7 @@ mod tests {
                 unreachable!()
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     if request.url().path() == "/buckets/fakebucket/objects/~/uploads" {

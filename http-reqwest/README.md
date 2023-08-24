@@ -8,7 +8,7 @@
 
 ## 概览
 
-基于 Reqwest 库提供 HTTP 客户端接口实现（分别实现阻塞接口和异步接口，异步实现则需要启用 `async` 功能）
+基于 Reqwest 库提供 HTTP 客户端接口实现（分别实现阻塞接口和异步接口，异步实现则需要启用 `tokio_runtime` 功能）
 
 需要注意的是，如果使用阻塞接口，则必须使用 `SyncClient`，而如果使用异步接口则必须使用 `AsyncClient`，二者不能混用。
 
@@ -25,7 +25,7 @@ qiniu-reqwest = "0.3.0"
 
 ```toml
 [dependencies]
-qiniu-reqwest = { version = "0.3.0", features = ["async"] }
+qiniu-reqwest = { version = "0.3.0", features = ["tokio_runtime"] }
 ```
 
 ## 最低支持的 Rust 版本（MSRV）

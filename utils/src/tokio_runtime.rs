@@ -10,12 +10,14 @@ use std::{
     fs::{FileType, Metadata},
     future::Future,
     io::{IoSliceMut, Result as IoResult, SeekFrom},
+    ops::{Deref, DerefMut},
+    os::fd::{AsRawFd, FromRawFd, RawFd},
     path::{Path, PathBuf},
     pin::Pin,
     task::{ready, Context, Poll},
     time::Duration,
 };
-use tokio::{fs, runtime::Runtime, task, time};
+use tokio::{fs, runtime::Runtime as TokioRuntime, sync, task, time};
 use tokio_stream::wrappers::ReadDirStream;
 
 /// A builder for opening files with configurable options.
@@ -203,6 +205,49 @@ impl File {
     pub async fn sync_all(&self) -> IoResult<()> {
         self.0.get_ref().sync_all().await
     }
+
+    /// Truncates or extends the underlying file, updating the size of this file to become size.
+    ///
+    /// If the size is less than the current file's size, then the file will be
+    /// shrunk. If it is greater than the current file's size, then the file
+    /// will be extended to size and have all of the intermediate data filled in
+    /// with 0s.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the file is not opened for
+    /// writing.
+    #[inline]
+    pub async fn set_len(&self, size: u64) -> IoResult<()> {
+        self.0.get_ref().set_len(size).await
+    }
+
+    /// Reads the file's metadata.
+    #[inline]
+    pub async fn metadata(&self) -> IoResult<Metadata> {
+        self.0.get_ref().metadata().await
+    }
+
+    /// Opens a file in write-only mode.
+    ///
+    /// This function will create a file if it does not exist, and will truncate
+    /// it if it does.
+    ///
+    /// See [`OpenOptions`] for more details.
+    ///
+    /// # Errors
+    ///
+    /// Results in an error if called from outside of the Tokio runtime or if
+    /// the underlying [`create`] call results in an error.
+    ///
+    /// [`create`]: std::fs::File::create
+    #[inline]
+    pub async fn create(path: impl AsRef<Path>) -> IoResult<File> {
+        fs::File::create(path.as_ref())
+            .await
+            .map(|file| file.compat())
+            .map(File)
+    }
 }
 
 impl AsyncStdRead for File {
@@ -249,6 +294,21 @@ impl Debug for File {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.get_ref().fmt(f)
+    }
+}
+
+impl AsRawFd for File {
+    #[inline]
+    fn as_raw_fd(&self) -> RawFd {
+        self.0.get_ref().as_raw_fd()
+    }
+}
+
+impl FromRawFd for File {
+    #[inline]
+    #[allow(unsafe_code)]
+    unsafe fn from_raw_fd(fd: RawFd) -> Self {
+        Self(fs::File::from_raw_fd(fd).compat())
     }
 }
 
@@ -347,6 +407,21 @@ pub async fn remove_file<P: AsRef<Path>>(path: P) -> IoResult<()> {
 pub async fn read_dir<P: AsRef<Path>>(path: P) -> IoResult<ReadDir> {
     let path = path.as_ref();
     fs::read_dir(path).map_ok(ReadDirStream::new).map_ok(ReadDir).await
+}
+
+/// Returns the canonical, absolute form of a path with all intermediate
+/// components normalized and symbolic links resolved.
+///
+/// This is an async version of [`std::fs::canonicalize`][std]
+///
+/// [std]: std::fs::canonicalize
+#[inline]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
+pub async fn canonicalize(path: impl AsRef<Path>) -> IoResult<PathBuf> {
+    fs::canonicalize(path.as_ref()).await
 }
 
 /// A stream of entries in a directory.
@@ -613,8 +688,12 @@ pub fn block_on<F, T>(future: F) -> IoResult<T>
 where
     F: Future<Output = T>,
 {
-    let rt = Runtime::new()?;
+    let rt = new_tokio_runtime()?;
     Ok(rt.block_on(future))
+}
+
+fn new_tokio_runtime() -> IoResult<TokioRuntime> {
+    TokioRuntime::new()
 }
 
 /// Sleeps for the specified amount of time.
@@ -627,8 +706,121 @@ where
 #[inline]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(all(any(feature = "async_std_runtime", feature = "tokio_runtime"), feature = "macros")))
 )]
 pub async fn sleep(dur: Duration) {
     time::sleep(dur).await
+}
+
+/// An async reader-writer lock.
+///
+/// This type of lock allows multiple readers or one writer at any point in time.
+///
+/// The locking strategy is write-preferring, which means writers are never starved.
+/// Releasing a write lock wakes the next blocked reader and the next blocked writer.
+#[derive(Debug)]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(all(any(feature = "async_std_runtime", feature = "tokio_runtime"), feature = "macros")))
+)]
+pub struct RwLock<T: ?Sized>(sync::RwLock<T>);
+
+impl<T> RwLock<T> {
+    /// Creates a new reader-writer lock.
+    #[inline]
+    #[must_use]
+    pub const fn new(t: T) -> Self {
+        Self(sync::RwLock::const_new(t))
+    }
+
+    /// Unwraps the lock and returns the inner value.
+    #[inline]
+    #[must_use]
+    pub fn into_inner(self) -> T {
+        self.0.into_inner()
+    }
+}
+
+impl<T: ?Sized> RwLock<T> {
+    /// Acquires a read lock.
+    ///
+    /// Returns a guard that releases the lock when dropped.
+    ///
+    /// Note that attempts to acquire a read lock will block if there are also concurrent attempts
+    /// to acquire a write lock.
+    #[inline]
+    #[must_use]
+    pub async fn read(&self) -> RwLockReadGuard<'_, T> {
+        RwLockReadGuard(self.0.read().await)
+    }
+
+    /// Acquires a write lock.
+    ///
+    /// Returns a guard that releases the lock when dropped.
+    #[inline]
+    #[must_use]
+    pub async fn write(&self) -> RwLockWriteGuard<'_, T> {
+        RwLockWriteGuard(self.0.write().await)
+    }
+
+    /// Returns a mutable reference to the inner value.
+    ///
+    /// Since this call borrows the lock mutably, no actual locking takes place. The mutable borrow
+    /// statically guarantees no locks exist.
+    #[inline]
+    pub fn get_mut(&mut self) -> &mut T {
+        self.0.get_mut()
+    }
+}
+
+impl<T> From<T> for RwLock<T> {
+    #[inline]
+    fn from(value: T) -> Self {
+        Self(value.into())
+    }
+}
+
+impl<T: Default + ?Sized> Default for RwLock<T> {
+    #[inline]
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+/// A guard that releases the read lock when dropped.
+#[derive(Debug)]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(all(any(feature = "async_std_runtime", feature = "tokio_runtime"), feature = "macros")))
+)]
+pub struct RwLockReadGuard<'a, T: ?Sized>(sync::RwLockReadGuard<'a, T>);
+
+impl<T: ?Sized> Deref for RwLockReadGuard<'_, T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        &self.0
+    }
+}
+
+/// A guard that releases the write lock when dropped.
+#[derive(Debug)]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(all(any(feature = "async_std_runtime", feature = "tokio_runtime"), feature = "macros")))
+)]
+pub struct RwLockWriteGuard<'a, T: ?Sized>(sync::RwLockWriteGuard<'a, T>);
+
+impl<T: ?Sized> Deref for RwLockWriteGuard<'_, T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        &self.0
+    }
+}
+
+impl<T: ?Sized> DerefMut for RwLockWriteGuard<'_, T> {
+    fn deref_mut(&mut self) -> &mut T {
+        &mut self.0
+    }
 }

@@ -1,8 +1,11 @@
-use super::{super::ResponseError, ResolveOptions, ResolveResult, Resolver};
-use async_std::task::block_on;
-use async_std_resolver::{resolver, resolver_from_system_conf, AsyncStdResolver as AsyncResolver};
+use super::{
+    super::{ResponseError, ResponseErrorKind},
+    ResolveOptions, ResolveResult, Resolver,
+};
+use cfg_if::cfg_if;
 use futures::future::BoxFuture;
 use qiniu_http::ResponseErrorKind as HttpResponseErrorKind;
+use qiniu_utils::async_task::block_on;
 use std::fmt;
 pub use trust_dns_resolver;
 use trust_dns_resolver::{
@@ -10,13 +13,32 @@ use trust_dns_resolver::{
     error::ResolveError,
 };
 
+cfg_if! {
+    if #[cfg(feature = "async_std_runtime")] {
+        use async_std_resolver::{resolver, resolver_from_system_conf, AsyncStdResolver as AsyncResolver};
+    } else if #[cfg(feature = "tokio_runtime")] {
+        use trust_dns_resolver::TokioAsyncResolver as AsyncResolver;
+
+        async fn resolver(config: ResolverConfig, options: ResolverOpts) -> AsyncResolver {
+            AsyncResolver::tokio(config, options)
+        }
+
+        async fn resolver_from_system_conf() -> Result<AsyncResolver, ResolveError> {
+            AsyncResolver::tokio_from_system_conf()
+        }
+    }
+}
+
 /// [`trust-dns`](https://trust-dns.org/) 域名解析器
 ///
 /// 基于 [`trust-dns`](https://trust-dns.org/) 库的域名解析接口实现，由于该接口只有异步实现，即使使用阻塞接口，也会调用异步实现
-#[cfg_attr(feature = "docs", doc(cfg(all(feature = "trust_dns", feature = "async"))))]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(all(feature = "trust_dns", any(feature = "async_std_runtime", feature = "tokio_runtime"))))
+)]
 #[derive(Clone)]
 pub struct TrustDnsResolver {
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     resolver: AsyncResolver,
 }
 
@@ -50,7 +72,11 @@ impl TrustDnsResolver {
 
 impl Resolver for TrustDnsResolver {
     fn resolve(&self, domain: &str, opts: ResolveOptions) -> ResolveResult {
-        block_on(async move { self.async_resolve(domain, opts).await })
+        match block_on(async move { self.async_resolve(domain, opts).await }) {
+            Ok(Ok(results)) => Ok(results),
+            Ok(Err(err)) => Err(err),
+            Err(err) => Err(ResponseError::new(ResponseErrorKind::SystemCallError, err)),
+        }
     }
 
     fn async_resolve<'a>(&'a self, domain: &'a str, opts: ResolveOptions<'a>) -> BoxFuture<'a, ResolveResult> {
@@ -82,16 +108,17 @@ fn convert_trust_dns_error_to_response_error(err: ResolveError, opts: ResolveOpt
     err
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "tokio_runtime"))]
 mod tests {
     use super::*;
     use crate::test_utils::{make_record_set, make_zone, start_mock_dns_server};
     use anyhow::{anyhow, Result as AnyResult};
+    use qiniu_utils::async_task::spawn;
     use std::{
         collections::{HashMap, HashSet},
         net::{IpAddr, Ipv4Addr, SocketAddr},
     };
-    use tokio::{net::UdpSocket, task::spawn};
+    use tokio::net::UdpSocket;
     use trust_dns_resolver::config::{LookupIpStrategy, NameServerConfigGroup};
     use trust_dns_server::{
         authority::Catalog,
@@ -104,7 +131,7 @@ mod tests {
 
     const DEFAULT_TTL: u32 = 3600;
 
-    #[tokio::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_trust_dns_resolver() -> AnyResult<()> {
         let (dns_server_addr, dns_server) = mock_dns_server().await?;
         let (shutdown_signal, dns_server) = dns_server.graceful();

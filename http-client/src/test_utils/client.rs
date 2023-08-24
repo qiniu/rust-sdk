@@ -4,7 +4,7 @@ use qiniu_http::{
     SyncResponseBody, SyncResponseResult,
 };
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use {
     futures::future::BoxFuture,
     qiniu_http::{AsyncRequest as AsyncHttpRequest, AsyncResponse, AsyncResponseBody, AsyncResponseResult},
@@ -19,7 +19,7 @@ pub(crate) fn make_dumb_client_builder() -> HttpClientBuilder {
             Ok(Default::default())
         }
 
-        #[cfg(feature = "async")]
+        #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
         fn async_call<'a>(&'a self, _request: &'a mut AsyncHttpRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
             Box::pin(async { Ok(Default::default()) })
         }
@@ -51,7 +51,7 @@ pub(crate) fn make_fixed_response_client_builder(
                 .build())
         }
 
-        #[cfg(feature = "async")]
+        #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
         fn async_call<'a>(&'a self, _request: &'a mut AsyncHttpRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
             Box::pin(async move {
                 Ok(AsyncResponse::builder()
@@ -92,7 +92,7 @@ pub(crate) fn make_error_response_client_builder(
             Err(ResponseError::builder_with_msg(self.error_kind, self.message.to_owned()).build())
         }
 
-        #[cfg(feature = "async")]
+        #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
         fn async_call<'a>(&'a self, _request: &'a mut AsyncHttpRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
             Box::pin(
                 async move { Err(ResponseError::builder_with_msg(self.error_kind, self.message.to_owned()).build()) },

@@ -748,7 +748,7 @@ mod body {
         }
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     mod async_body {
         use super::super::super::{AsyncReset, BoxFuture};
         use assert_impl::assert_impl;
@@ -766,7 +766,10 @@ mod body {
         impl<T: AsyncRead + AsyncReset + Unpin + Debug + Send + Sync> AsyncReadDebug for T {}
 
         #[derive(Debug)]
-        #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+        #[cfg_attr(
+            feature = "docs",
+            doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        )]
         struct OwnedAsyncRequestBody<'a>(OwnedAsyncRequestBodyInner<'a>);
 
         #[derive(Debug)]
@@ -835,7 +838,10 @@ mod body {
 
         /// 异步 HTTP 请求体
         #[derive(Debug)]
-        #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+        #[cfg_attr(
+            feature = "docs",
+            doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        )]
         pub struct AsyncRequestBody<'a>(AsyncRequestBodyInner<'a>);
 
         #[derive(Debug)]
@@ -975,11 +981,11 @@ mod body {
         }
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     pub use async_body::*;
 }
 
 pub use body::RequestBody;
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 pub use body::AsyncRequestBody;

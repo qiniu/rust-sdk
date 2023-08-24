@@ -21,15 +21,16 @@ use serde_json::Value;
 use std::{
     fmt::Debug,
     fs::File,
-    io::{Read, Seek, SeekFrom},
+    io::{Read, Seek},
     path::Path,
 };
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use {
-    async_std::fs::File as AsyncFile,
     futures::{future::BoxFuture, AsyncRead, AsyncSeek, AsyncSeekExt},
     qiniu_apis::storage::put_object::{async_part::RequestBody as AsyncRequestBody, AsyncRequestBuilder},
+    qiniu_utils::async_fs::File as AsyncFile,
+    std::io::SeekFrom,
 };
 
 /// 表单上传器
@@ -183,8 +184,11 @@ impl SinglePartUploader for FormUploader {
         )
     }
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_upload_path<'a>(
         &'a self,
         path: impl AsRef<Path> + Send + Sync + 'a,
@@ -204,8 +208,11 @@ impl SinglePartUploader for FormUploader {
         })
     }
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_upload_reader<R: AsyncRead + Unpin + Send + Sync + 'static>(
         &self,
         reader: R,
@@ -226,8 +233,11 @@ impl SinglePartUploader for FormUploader {
         })
     }
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_upload_seekable_reader<R: AsyncRead + AsyncSeek + Unpin + Send + Sync + 'static>(
         &self,
         reader: R,
@@ -282,7 +292,7 @@ impl FormUploader {
         }
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn async_upload<'a>(
         &'a self,
         region_provider: Option<&'a dyn RegionsProvider>,
@@ -391,7 +401,7 @@ impl FormUploader {
             .set_file_as_seekable_reader(reader, file_metadata))
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn make_async_request_body_from_path<'a>(
         &'a self,
         path: &'a Path,
@@ -406,7 +416,7 @@ impl FormUploader {
         }
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn make_async_request_body_from_token_and_params<'a>(
         token: &'a (dyn UploadTokenProvider + 'a),
         params: &'a ObjectParams,
@@ -426,7 +436,7 @@ impl FormUploader {
         Ok(request_body)
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn make_async_request_body_from_async_reader<'a, R: AsyncRead + Unpin + Send + Sync + 'static>(
         reader: R,
         path: Option<&'a Path>,
@@ -439,7 +449,7 @@ impl FormUploader {
             .set_file_as_reader(reader, file_metadata))
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn make_async_request_body_from_async_seekable_reader<
         'a,
         R: AsyncRead + AsyncSeek + Unpin + Send + Sync + 'static,
@@ -462,7 +472,7 @@ impl FormUploader {
             .query(self.access_key()?, self.bucket_name()?))
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn async_get_bucket_region(&self) -> ApiResult<BucketRegionsProvider> {
         Ok(self
             .upload_manager
@@ -489,12 +499,12 @@ impl FormUploader {
         self.upload_manager.upload_token().bucket_name()
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn async_access_key(&self) -> ApiResult<AccessKey> {
         self.upload_manager.upload_token().async_access_key().await
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn async_bucket_name(&self) -> ApiResult<BucketName> {
         self.upload_manager.upload_token().async_bucket_name().await
     }
@@ -508,10 +518,10 @@ impl FormUploader {
     }
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 trait AsyncReadTrait: AsyncRead + Unpin + Send + Sync {}
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 impl<T: AsyncRead + Unpin + Send + Sync> AsyncReadTrait for T {}
 
 fn make_callback_error(err: AnyError) -> ResponseError {
@@ -543,7 +553,7 @@ mod tests {
         time::Duration,
     };
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     use qiniu_apis::http::{AsyncRequest, AsyncResponseResult};
 
     #[test]
@@ -598,7 +608,7 @@ mod tests {
                     .build())
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }

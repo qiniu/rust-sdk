@@ -29,11 +29,11 @@ use std::{
 };
 use thiserror::Error;
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use {
-    async_std::fs::OpenOptions as AsyncOpenOptions,
     futures::{AsyncReadExt, AsyncWrite, AsyncWriteExt},
     qiniu_apis::http_client::AsyncResponseBody,
+    qiniu_utils::async_fs::OpenOptions as AsyncOpenOptions,
 };
 
 /// 准备下载的对象
@@ -202,8 +202,11 @@ impl DownloadingObject {
     /// # Ok(())
     /// # }
     /// ```
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     pub async fn async_to_path(self, path: impl AsRef<Path>) -> DownloadResult<()> {
         let mut file = AsyncOpenOptions::new()
             .write(true)
@@ -269,8 +272,11 @@ impl DownloadingObject {
     /// # Ok(())
     /// # }
     /// ```
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     pub async fn to_async_writer(self, writer: &mut (dyn AsyncWrite + Send + Sync + Unpin)) -> DownloadResult<()> {
         let mut buf = [0u8; 1 << 15];
         let mut reader = self.into_inner_reader();
@@ -337,8 +343,11 @@ impl DownloadingObject {
     /// # }
     /// ```
     #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     pub fn into_async_read(self) -> AsyncDownloadingObjectReader {
         AsyncDownloadingObjectReader::new(self.into_inner_reader())
     }
@@ -390,7 +399,7 @@ impl DownloadingObjectReader {
     }
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 mod async_reader {
     use super::*;
     use futures::{future::BoxFuture, io::Cursor, lock::Mutex, AsyncRead, FutureExt};
@@ -406,7 +415,10 @@ mod async_reader {
     /// 实现了 [`AsyncRead`] 接口
     #[must_use]
     #[derive(Debug)]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     pub struct AsyncDownloadingObjectReader {
         step: AsyncDownloadingObjectReaderStep,
         inner: Arc<Mutex<InnerReader<AsyncResponseBody>>>,
@@ -491,7 +503,7 @@ mod async_reader {
     }
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 pub use async_reader::*;
 
 #[derive(Debug)]
@@ -603,7 +615,7 @@ impl InnerReader<SyncResponseBody> {
     }
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 impl InnerReader<AsyncResponseBody> {
     async fn async_read(&mut self, mut buf: &mut [u8]) -> DownloadResult<usize> {
         loop {
@@ -939,13 +951,12 @@ fn make_endpoint_from_uri(uri: &mut UriParts) -> DownloadResult<Endpoint> {
 }
 
 #[cfg(test)]
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 mod tests {
     use super::{
         super::{DownloadManager, StaticDomainsUrlsGenerator, UrlsSigner},
         *,
     };
-    use async_std::task::spawn_blocking;
     use futures::future::BoxFuture;
     use http::{
         header::{CONTENT_LENGTH, ETAG, RANGE, REFERER},
@@ -962,6 +973,7 @@ mod tests {
         },
         http_client::NeverRetrier,
     };
+    use qiniu_utils::async_task::spawn_blocking;
     use rand::{thread_rng, RngCore};
     use sha1::{Digest, Sha1};
     use std::{
@@ -973,7 +985,7 @@ mod tests {
         },
     };
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_inner_reader_signature() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -1010,7 +1022,7 @@ mod tests {
                 )
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call<'a>(
                 &'a self,
                 request: &'a mut AsyncHttpRequest<'_>,
@@ -1035,7 +1047,7 @@ mod tests {
             assert_eq!(inner_reader.read(&mut buf)?, 0);
             Ok::<_, anyhow::Error>(())
         })
-        .await?;
+        .await??;
 
         {
             let mut inner_reader = get_download_manager()
@@ -1064,7 +1076,7 @@ mod tests {
         }
     }
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_inner_reader_unexpected_eof() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -1107,7 +1119,7 @@ mod tests {
                 )
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call<'a>(
                 &'a self,
                 request: &'a mut AsyncHttpRequest<'_>,
@@ -1143,7 +1155,7 @@ mod tests {
             assert_eq!(inner_reader.read(&mut buf)?, 0);
             Ok::<_, anyhow::Error>(())
         })
-        .await?;
+        .await??;
 
         {
             let current_progress = Arc::new(AtomicU64::new(0));
@@ -1183,7 +1195,7 @@ mod tests {
         }
     }
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_inner_reader_5xx_error() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -1229,7 +1241,7 @@ mod tests {
                 )
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call<'a>(
                 &'a self,
                 request: &'a mut AsyncHttpRequest<'_>,
@@ -1251,7 +1263,7 @@ mod tests {
             assert_eq!(inner_reader.read(&mut buf)?, 0);
             Ok::<_, anyhow::Error>(())
         })
-        .await?;
+        .await??;
 
         {
             let mut inner_reader = get_download_manager()
@@ -1283,7 +1295,7 @@ mod tests {
         }
     }
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_inner_reader_4xx_error() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -1316,7 +1328,7 @@ mod tests {
                 ))
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call<'a>(
                 &'a self,
                 _request: &'a mut AsyncHttpRequest<'_>,
@@ -1340,7 +1352,7 @@ mod tests {
             }
             Ok::<_, anyhow::Error>(())
         })
-        .await?;
+        .await??;
 
         let mut inner_reader = get_download_manager()
             .async_download("test-key")
@@ -1374,7 +1386,7 @@ mod tests {
         }
     }
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_inner_reader_response_error() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -1416,7 +1428,7 @@ mod tests {
                 )
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call<'a>(
                 &'a self,
                 request: &'a mut AsyncHttpRequest<'_>,
@@ -1437,7 +1449,7 @@ mod tests {
             assert_eq!(inner_reader.read(&mut buf)?, 0);
             Ok::<_, anyhow::Error>(())
         })
-        .await?;
+        .await??;
 
         {
             let mut inner_reader = get_download_manager()
@@ -1469,7 +1481,7 @@ mod tests {
         }
     }
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_inner_reader_content_changed() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -1512,7 +1524,7 @@ mod tests {
                 )
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call<'a>(
                 &'a self,
                 request: &'a mut AsyncHttpRequest<'_>,
@@ -1537,7 +1549,7 @@ mod tests {
             }
             Ok::<_, anyhow::Error>(())
         })
-        .await?;
+        .await??;
 
         {
             let mut inner_reader = get_download_manager()
@@ -1568,7 +1580,7 @@ mod tests {
         }
     }
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_reader_read() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -1606,7 +1618,7 @@ mod tests {
                 self.handle(self.0.len(), SyncHttpResponseBody::from_bytes(self.0.to_owned()))
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call<'a>(
                 &'a self,
                 _request: &'a mut AsyncHttpRequest<'_>,
@@ -1627,7 +1639,7 @@ mod tests {
                 Ok::<_, anyhow::Error>(())
             }
         })
-        .await?;
+        .await??;
 
         {
             let mut reader = get_download_manager(bytes)

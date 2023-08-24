@@ -10,7 +10,7 @@ use cfg_if::cfg_if;
 use qiniu_http::ResponseErrorKind as HttpResponseErrorKind;
 use std::{fmt, net::IpAddr, sync::Arc};
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use {c_ares_resolver::FutureResolver, futures::future::BoxFuture};
 
 type CAresResolverResult<T> = Result<T, CAresResolverError>;
@@ -25,14 +25,14 @@ pub struct CAresResolver(Arc<CAresResolverInner>);
 struct CAresResolverInner {
     resolver: BlockingResolver,
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     future_resolver: FutureResolver,
 }
 
 impl CAresResolver {
     /// 创建 [`c-ares`](https://c-ares.org/) 域名解析器
     #[inline]
-    #[cfg(not(feature = "async"))]
+    #[cfg(not(any(feature = "async_std_runtime", feature = "tokio_runtime")))]
     pub fn new_with_options(options: CAresResolverOptions) -> CAresResolverResult<Self> {
         Ok(Self(Arc::new(CAresResolverInner {
             resolver: BlockingResolver::with_options(options)?,
@@ -41,14 +41,14 @@ impl CAresResolver {
 
     /// 创建 [`c-ares`](https://c-ares.org/) 域名解析器
     #[inline]
-    #[cfg(not(feature = "async"))]
+    #[cfg(not(any(feature = "async_std_runtime", feature = "tokio_runtime")))]
     pub fn new_with_resolver(resolver: BlockingResolver) -> Self {
         Self(Arc::new(CAresResolverInner { resolver }))
     }
 
     /// 创建 [`c-ares`](https://c-ares.org/) 域名解析器
     #[inline]
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     pub fn new_with_options(
         sync_options: CAresResolverOptions,
         async_options: CAresResolverOptions,
@@ -61,7 +61,7 @@ impl CAresResolver {
 
     /// 创建 [`c-ares`](https://c-ares.org/) 域名解析器
     #[inline]
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     pub fn new_with_resolvers(resolver: BlockingResolver, future_resolver: FutureResolver) -> Self {
         Self(Arc::new(CAresResolverInner {
             resolver,
@@ -73,7 +73,7 @@ impl CAresResolver {
     #[inline]
     pub fn new() -> CAresResolverResult<Self> {
         cfg_if! {
-            if #[cfg(feature = "async")] {
+            if #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))] {
                 Self::new_with_options(CAresResolverOptions::new(), CAresResolverOptions::new())
             } else {
                 Self::new_with_options(CAresResolverOptions::new())
@@ -100,8 +100,11 @@ impl Resolver for CAresResolver {
             .map(|answers| answers.into())
     }
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_resolve<'a>(&'a self, domain: &'a str, opts: ResolveOptions<'a>) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
             self.0
@@ -138,16 +141,17 @@ fn convert_c_ares_error_to_response_error(err: CAresError, opts: ResolveOptions)
     err
 }
 
-#[cfg(all(test, feature = "async"))]
+#[cfg(all(test, feature = "tokio_runtime"))]
 mod tests {
     use super::*;
     use crate::test_utils::{make_record_set, make_zone, start_mock_dns_server};
     use anyhow::{anyhow, Result as AnyResult};
+    use qiniu_utils::async_task::{spawn, spawn_blocking};
     use std::{
         collections::{HashMap, HashSet},
         net::{IpAddr, Ipv4Addr, SocketAddr},
     };
-    use tokio::{net::UdpSocket, task::spawn, task::spawn_blocking};
+    use tokio::net::UdpSocket;
     use trust_dns_server::{
         authority::Catalog,
         proto::rr::{rdata::A, Name, RData, RecordType},
@@ -156,7 +160,7 @@ mod tests {
 
     const DEFAULT_TTL: u32 = 3600;
 
-    #[tokio::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_c_ares_resolver() -> AnyResult<()> {
         let (dns_server_addr, dns_server) = mock_dns_server().await?;
         let (shutdown_signal, dns_server) = dns_server.graceful();
@@ -194,7 +198,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_async_c_ares_resolver() -> AnyResult<()> {
         let (dns_server_addr, dns_server) = mock_dns_server().await?;
         let (shutdown_signal, dns_server) = dns_server.graceful();

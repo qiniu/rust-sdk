@@ -20,18 +20,29 @@ smallstr = "0.3.0"
 cfg-if = "1.0.0"
 
 async-std = { version = "1.12.0", optional = true }
-tokio = { version = "1.32.0", features = [
-    "fs",
-    "rt-multi-thread",
-], optional = true }
+tokio = { version = "1", features = ["fs", "rt-multi-thread"], optional = true }
 futures = { version = "0.3.28", optional = true }
 async-compat = { version = "0.2.1", optional = true }
 tokio-stream = { version = "0.1.14", features = ["fs"], optional = true }
+
+qiniu-utils-macros = { version = "0.3.0", path = "../utils-macros", optional = true }
+
+[target.'cfg(not(windows))'.dependencies]
+rustix = { version = "0.38.9", features = ["fs"], optional = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.48.0", features = [
+    "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+    "Win32_System_IO",
+], optional = true }
 
 [features]
 default = []
 async_std_runtime = ["async-std", "futures"]
 tokio_runtime = ["tokio", "futures", "async-compat", "tokio-stream"]
+macros = ["qiniu-utils-macros"]
+file_ext = ["rustix", "windows-sys"]
 docs = []
 
 [package.metadata.docs.rs]

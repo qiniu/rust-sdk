@@ -107,7 +107,7 @@ pub mod sync_part {
         }
     }
 }
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 #[doc = "异步 Multipart 表单"]
 pub mod async_part {
     #[derive(Debug, Default)]
@@ -206,7 +206,7 @@ pub mod async_part {
         ) -> std::io::Result<RequestBody<'a>> {
             Ok(self.add_part(
                 "file",
-                qiniu_http_client::AsyncPart::file_path(async_std::path::Path::new(path)).await?,
+                qiniu_http_client::AsyncPart::file_path(std::path::Path::new(path)).await?,
             ))
         }
         #[inline]
@@ -273,7 +273,7 @@ impl<'client> Client<'client> {
         })
     }
     #[inline]
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     #[doc = "创建一个新的异步请求"]
     pub fn new_async_request<E: qiniu_http_client::EndpointsProvider + 'client>(
         &self,
@@ -295,8 +295,11 @@ impl<'client> Client<'client> {
 pub struct RequestBuilder<'req, B, E>(qiniu_http_client::RequestBuilder<'req, B, E>);
 #[doc = "API 阻塞请求构造器"]
 pub type SyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
-#[cfg(feature = "async")]
-#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
 #[doc = "API 异步请求构造器"]
 pub type AsyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
 impl<'req, B, E> RequestBuilder<'req, B, E> {
@@ -559,7 +562,7 @@ impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> SyncRequestBu
         Ok(parsed)
     }
 }
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> AsyncRequestBuilder<'req, E> {
     #[doc = "异步发起 HTTP 请求"]
     pub async fn call(

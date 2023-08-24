@@ -8,8 +8,8 @@ use super::{
 };
 use crossbeam_queue::SegQueue;
 use dashmap::DashMap;
-use fs4::FileExt;
 use log::{info, warn};
+use qiniu_utils::prelude::FileExt;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
     borrow::Borrow,

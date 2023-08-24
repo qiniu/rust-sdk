@@ -24,7 +24,7 @@
     unused_qualifications
 )]
 
-//! # qiniu-etag
+//! # qiniu-utils
 //!
 //! ## 七牛实用工具库
 //!
@@ -36,7 +36,9 @@ pub mod smallstr;
 mod name;
 pub use name::{BucketName, ObjectName};
 
-cfg_if::cfg_if! {
+use cfg_if::cfg_if;
+
+cfg_if! {
     if #[cfg(feature = "tokio_runtime")] {
         use tokio as _;
         use tokio_stream as _;
@@ -44,18 +46,36 @@ cfg_if::cfg_if! {
     }
 }
 
-cfg_if::cfg_if! {
+cfg_if! {
     if #[cfg(feature = "async_std_runtime")] {
         use async_std as _;
     }
 }
 
-cfg_if::cfg_if! {
+cfg_if! {
+    if #[cfg(feature = "macros")] {
+        use qiniu_utils_macros as _;
+    }
+}
+
+cfg_if! {
     if #[cfg(feature = "tokio_runtime")] {
         mod tokio_runtime;
     } else if #[cfg(feature = "async_std_runtime")] {
         mod async_std_runtime;
     }
+}
+
+#[cfg(feature = "file_ext")]
+mod file_ext;
+
+/// The prelude.
+///
+/// The prelude re-exports most commonly used traits and macros from this crate.
+pub mod prelude {
+    #[cfg(feature = "file_ext")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "file_ext")))]
+    pub use super::file_ext::FileExt;
 }
 
 /// Filesystem manipulation operations.
@@ -69,11 +89,12 @@ cfg_if::cfg_if! {
     doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
 )]
 pub mod async_fs {
-    cfg_if::cfg_if! {
+    use cfg_if::cfg_if;
+    cfg_if! {
         if #[cfg(feature = "tokio_runtime")] {
-            pub use super::tokio_runtime::{OpenOptions, File, create_dir_all, metadata, remove_file, read_dir, ReadDir, DirEntry, DirBuilder};
+            pub use super::tokio_runtime::{OpenOptions, File, create_dir_all, metadata, remove_file, read_dir, ReadDir, DirEntry, DirBuilder, canonicalize};
         } else if #[cfg(feature = "async_std_runtime")] {
-            pub use super::async_std_runtime::{OpenOptions, File, create_dir_all, metadata, remove_file, read_dir, ReadDir, DirEntry, DirBuilder};
+            pub use super::async_std_runtime::{OpenOptions, File, create_dir_all, metadata, remove_file, read_dir, ReadDir, DirEntry, DirBuilder, canonicalize};
         }
     }
 }
@@ -90,11 +111,43 @@ pub mod async_fs {
     doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
 )]
 pub mod async_task {
-    cfg_if::cfg_if! {
+    use cfg_if::cfg_if;
+    cfg_if! {
         if #[cfg(feature = "tokio_runtime")] {
             pub use super::tokio_runtime::{spawn, JoinHandle, JoinError, spawn_blocking, block_on, sleep};
         } else if #[cfg(feature = "async_std_runtime")] {
             pub use super::async_std_runtime::{spawn, JoinHandle, JoinError, spawn_blocking, block_on, sleep};
         }
     }
+}
+
+/// Synchronization primitives.
+///
+/// This module is an async version of [`std::sync`].
+///
+/// [`std::sync`]: https://doc.rust-lang.org/std/sync/index.html
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
+pub mod async_sync {
+    use cfg_if::cfg_if;
+    cfg_if! {
+        if #[cfg(feature = "tokio_runtime")] {
+            pub use super::tokio_runtime::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+        } else if #[cfg(feature = "async_std_runtime")] {
+            pub use super::async_std_runtime::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+        }
+    }
+}
+
+/// Async runtime
+#[cfg(all(any(feature = "async_std_runtime", feature = "tokio_runtime"), feature = "macros"))]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(all(any(feature = "async_std_runtime", feature = "tokio_runtime"), feature = "macros")))
+)]
+pub mod async_runtime {
+    pub use qiniu_utils_macros::{main, test};
 }

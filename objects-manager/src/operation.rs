@@ -45,8 +45,8 @@ macro_rules! impl_call_methods {
             request.call()
         }
 
-        #[cfg(feature = "async")]
-        #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+        #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+        #[cfg_attr(feature = "docs", doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))))]
         /// 异步发起操作请求
         pub async fn async_call(&mut self) -> ApiResult<Response<qiniu_apis::storage::$mod_name::ResponseBody>> {
             let op = self.build();
@@ -995,7 +995,7 @@ fn make_callback_error(err: AnyError) -> HttpResponseError {
 }
 
 #[cfg(test)]
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 mod tests {
     use super::{
         super::{mime, ObjectsManager},
@@ -1013,7 +1013,7 @@ mod tests {
     use serde_json::{json, to_vec as json_to_vec};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_async_stat() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -1057,7 +1057,7 @@ mod tests {
         Ok(())
     }
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_async_copy() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -1095,7 +1095,7 @@ mod tests {
         Ok(())
     }
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_async_move() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -1132,7 +1132,7 @@ mod tests {
         Ok(())
     }
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_async_delete() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -1165,7 +1165,7 @@ mod tests {
         Ok(())
     }
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_async_unfreeze() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -1198,7 +1198,7 @@ mod tests {
         Ok(())
     }
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_async_set_type() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -1234,7 +1234,7 @@ mod tests {
         Ok(())
     }
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_async_modify_status() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -1267,7 +1267,7 @@ mod tests {
         Ok(())
     }
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_async_modify_metadata() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -1309,7 +1309,7 @@ mod tests {
         Ok(())
     }
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_async_modify_life_cycle() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 

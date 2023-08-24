@@ -20,10 +20,10 @@ pub type ApiResult<T> = Result<T, ResponseError>;
 
 use qiniu_http::SyncResponseBody;
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use futures::io::copy as async_io_copy;
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use qiniu_http::AsyncResponseBody;
 
 const X_REQ_ID_HEADER_NAME: &str = "x-reqid";
@@ -139,7 +139,7 @@ impl Response<SyncResponseBody> {
     }
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 impl Response<AsyncResponseBody> {
     /// 异步解析 JSON 响应体
     pub async fn parse_json<T: DeserializeOwned>(self) -> ApiResult<Response<T>> {
@@ -191,6 +191,9 @@ fn parse_json_from_slice<'a, T: Deserialize<'a>>(v: &'a [u8]) -> serde_json::Res
 pub type SyncResponse = Response<SyncResponseBody>;
 
 /// 异步 HTTP 响应
-#[cfg(feature = "async")]
-#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
 pub type AsyncResponse = Response<AsyncResponseBody>;

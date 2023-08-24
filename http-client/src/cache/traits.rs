@@ -21,11 +21,11 @@ pub(crate) trait CacheController {
     fn clear(&self);
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use futures::future::BoxFuture;
 
 #[auto_impl(&, &mut, Box, Rc, Arc)]
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 pub(crate) trait AsyncCacheController {
     fn async_clear(&self) -> BoxFuture<()>;
 }
@@ -136,13 +136,20 @@ pub(super) enum PersistentCacheCommand<K, V> {
     ClearAll,
 }
 
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+use qiniu_utils::async_task::JoinError;
+
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub(super) enum PersistentError {
     #[error("I/O error: {0}")]
-    IoError(#[from] IoError),
+    Io(#[from] IoError),
+
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[error("Join error: {0}")]
+    Join(#[from] JoinError),
 
     #[error("JSON serialize/deserialize error: {0}")]
-    JsonError(#[from] JsonError),
+    Json(#[from] JsonError),
 }
 pub(super) type PersistentResult<T> = Result<T, PersistentError>;

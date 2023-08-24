@@ -28,8 +28,8 @@
 //!
 //! ## 七牛 Isahc HTTP 客户端实现
 //!
-//! 基于 Isahc 库提供 HTTP 客户端接口实现（同时实现阻塞接口和异步接口，异步实现则需要启用 `async` 功能）
-//! 不过由于 Isahc 库本身核心是使用异步接口实现，所以即使不启用 `async` 功能，也会引入异步相关库。
+//! 基于 Isahc 库提供 HTTP 客户端接口实现（同时实现阻塞接口和异步接口，异步实现则需要启用 `async_std_runtime` 或 `tokio_runtime` 功能）
+//! 不过由于 Isahc 库本身核心是使用异步接口实现，所以即使不启用 `async_std_runtime` 或 `tokio_runtime` 功能，也会引入异步相关库。
 
 mod client;
 mod extensions;
@@ -67,7 +67,7 @@ mod tests {
         Filter,
     };
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     use {
         futures::io::{copy as async_io_copy, AsyncReadExt},
         qiniu_http::{AsyncRequest, AsyncRequestBody},
@@ -188,7 +188,7 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     #[tokio::test]
     async fn async_http_test() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();

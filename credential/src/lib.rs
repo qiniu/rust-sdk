@@ -28,7 +28,7 @@
 //! ## 七牛认证信息
 //!
 //! 负责存储调用七牛 API 所必要的认证信息，提供 [`CredentialProvider`] 方便扩展获取认证信息的方式。
-//! 同时提供阻塞接口和异步接口（异步接口需要启用 `async` 功能）。
+//! 同时提供阻塞接口和异步接口（异步接口需要启用 `async_std_runtime` 或 `tokio_runtime` 功能）。
 //! 提供 [`CredentialProvider`] 的多个实现方式，例如：
 //!
 //! - [`GlobalCredentialProvider`] : 使用全局变量配置的认证信息
@@ -413,7 +413,7 @@ impl Credential {
     }
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 impl Credential {
     /// 使用七牛签名算法对异步输入流数据进行签名
     ///
@@ -433,7 +433,10 @@ impl Credential {
     /// # Ok(())
     /// # }
     /// ```
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     pub async fn sign_async_reader(&self, reader: &mut (dyn AsyncRead + Send + Unpin)) -> IoResult<String> {
         let mut hmac = new_hmac_sha1(self.secret_key());
         copy_async_reader_to_hmac_sha1(&mut hmac, reader).await?;
@@ -458,7 +461,10 @@ impl Credential {
     /// # Ok(())
     /// # }
     /// ```
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     pub async fn authorization_v1_for_request_with_async_body_reader(
         &self,
         url: &Uri,
@@ -492,7 +498,10 @@ impl Credential {
     /// # Ok(())
     /// # }
     /// ```
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     pub async fn authorization_v2_for_request_with_async_body_reader(
         &self,
         method: &Method,
@@ -643,7 +652,7 @@ fn base64ed_hmac_sha1(hmac: Hmac<Sha1>) -> String {
     base64::urlsafe(&hmac.finalize().into_bytes())
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 fn base64ed_hmac_sha1_with_access_key(access_key: String, hmac: Hmac<Sha1>) -> String {
     access_key + ":" + &base64ed_hmac_sha1(hmac)
 }
@@ -656,7 +665,7 @@ fn will_push_body_v2(content_type: &HeaderValue) -> bool {
     APPLICATION_OCTET_STREAM.as_ref() != content_type
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 mod async_sign {
     use super::*;
     use futures_lite::io::AsyncRead;
@@ -726,17 +735,20 @@ mod async_sign {
     }
 }
 
-#[cfg(feature = "async")]
-#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
 pub use futures_lite::AsyncRead;
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use {
     async_sign::*,
     std::{future::Future, pin::Pin},
 };
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 type AsyncIoResult<'a, T> = Pin<Box<dyn Future<Output = IoResult<T>> + 'a + Send>>;
 
 /// 认证信息获取接口
@@ -750,8 +762,11 @@ pub trait CredentialProvider: Clone + Debug + Sync + Send {
 
     /// 异步返回七牛认证信息
     #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_get(&self, opts: GetOptions) -> AsyncIoResult<'_, GotCredential> {
         Box::pin(async move { self.get(opts) })
     }
@@ -962,8 +977,11 @@ impl CredentialProvider for ChainCredentialsProvider {
         }
     }
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_get(&self, opts: GetOptions) -> AsyncIoResult<'_, GotCredential> {
         Box::pin(async move {
             let mut last_err = None;
@@ -1435,12 +1453,12 @@ mod tests {
         EnvCredentialProvider
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     mod async_test {
         use super::*;
         use futures_lite::io::Cursor;
 
-        #[async_std::test]
+        #[qiniu_utils::async_runtime::test]
         async fn test_sign_async_reader() -> Result<()> {
             let credential = get_credential();
             assert_eq!(
@@ -1474,7 +1492,7 @@ mod tests {
             Ok(())
         }
 
-        #[async_std::test]
+        #[qiniu_utils::async_runtime::test]
         async fn test_async_authorization_v1() -> Result<()> {
             let credential = get_credential();
             assert_eq!(
@@ -1541,7 +1559,7 @@ mod tests {
             Ok(())
         }
 
-        #[async_std::test]
+        #[qiniu_utils::async_runtime::test]
         async fn test_async_authorization_v2() -> Result<()> {
             let credential = get_global_credential();
             let empty_headers = {
@@ -1719,7 +1737,7 @@ mod tests {
             Ok(())
         }
 
-        #[async_std::test]
+        #[qiniu_utils::async_runtime::test]
         async fn test_async_sign_download_url() -> Result<()> {
             let credential = get_env_credential();
             let url = "http://www.qiniu.com/?go=1".parse()?;
@@ -1732,7 +1750,7 @@ mod tests {
             Ok(())
         }
 
-        #[async_std::test]
+        #[qiniu_utils::async_runtime::test]
         async fn test_async_chain_credentials() -> Result<()> {
             GlobalCredentialProvider::clear();
             let chain_credentials = ChainCredentialsProvider::default();

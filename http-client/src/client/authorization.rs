@@ -19,7 +19,7 @@ use tap::Tap;
 use thiserror::Error;
 use url::ParseError as UrlParseError;
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use {futures::future::BoxFuture, qiniu_http::AsyncRequest};
 
 /// 七牛鉴权签名接口
@@ -34,8 +34,11 @@ pub trait AuthorizationProvider: Clone + Debug + Sync + Send {
     fn sign(&self, request: &mut SyncRequest) -> AuthorizationResult<()>;
 
     /// 使用指定的鉴权方式对异步 HTTP 请求进行签名
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>>;
 }
 
@@ -65,8 +68,11 @@ impl<P: UploadTokenProvider + Clone> AuthorizationProvider for UploadTokenAuthor
         Ok(())
     }
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         Box::pin(async move {
             let authorization = uptoken_authorization(&self.0.async_to_token_string(Default::default()).await?);
@@ -112,8 +118,11 @@ impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthoriz
         }
     }
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         return Box::pin(async move {
             _sign(&self.0, request, Default::default()).await?;
@@ -146,7 +155,7 @@ fn authorization_v1_for_request(credential: &Credential, request: &mut SyncReque
         .map_err(|err| err.into())
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 async fn authorization_v1_for_async_request(
     credential: &Credential,
     request: &mut AsyncRequest<'_>,
@@ -244,8 +253,11 @@ impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthoriz
         }
     }
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         return Box::pin(async move {
             _sign(
@@ -288,7 +300,7 @@ fn authorization_v2_for_request(credential: &Credential, request: &mut SyncReque
         .map_err(|err| err.into())
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 async fn authorization_v2_for_async_request(
     credential: &Credential,
     request: &mut AsyncRequest<'_>,
@@ -347,8 +359,11 @@ impl<P: CredentialProvider + Clone> AuthorizationProvider for DownloadUrlCredent
         Ok(())
     }
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         Box::pin(async move {
             let credential = self.provider.async_get(Default::default()).await?;
@@ -466,8 +481,11 @@ impl AuthorizationProvider for Authorization<'_> {
         self.as_ref().sign(request)
     }
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         self.as_ref().async_sign(request)
     }

@@ -7,7 +7,7 @@ use std::{
     path::Path,
 };
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use futures::{future::BoxFuture, AsyncRead, AsyncSeek};
 
 /// 单请求上传器接口
@@ -34,8 +34,11 @@ pub trait SinglePartUploader: __private::Sealed + UploaderWithCallbacks + Clone 
         -> ApiResult<Value>;
 
     /// 异步上传指定路径的文件
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_upload_path<'a>(
         &'a self,
         path: impl AsRef<Path> + Send + Sync + 'a,
@@ -43,8 +46,11 @@ pub trait SinglePartUploader: __private::Sealed + UploaderWithCallbacks + Clone 
     ) -> BoxFuture<'a, ApiResult<Value>>;
 
     /// 上传不可寻址的异步输入流的数据
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_upload_reader<R: AsyncRead + Unpin + Send + Sync + 'static>(
         &self,
         reader: R,
@@ -52,8 +58,11 @@ pub trait SinglePartUploader: __private::Sealed + UploaderWithCallbacks + Clone 
     ) -> BoxFuture<ApiResult<Value>>;
 
     /// 上传可寻址的异步输入流的数据
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_upload_seekable_reader<R: AsyncRead + AsyncSeek + Unpin + Send + Sync + 'static>(
         &self,
         reader: R,

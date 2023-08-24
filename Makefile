@@ -1,5 +1,5 @@
 .PHONY: all build build_release build_test doc doc_test test clean clippy publish
-SUBDIRS := utils credential etag upload-token http http-ureq http-isahc http-reqwest http-client api-generator apis sdk-examples objects-manager upload-manager download-manager sdk
+SUBDIRS := utils-macros utils credential etag upload-token http http-ureq http-isahc http-reqwest http-client api-generator apis sdk-examples objects-manager upload-manager download-manager sdk
 
 all: build doc
 build:

@@ -20,7 +20,7 @@ use std::{
 };
 use tap::prelude::*;
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use {futures::io::BufReader as AsyncBufReader, qiniu_apis::http_client::AsyncResponseBody};
 
 type RefRegionProviderEndpoints<'a> = RegionsProviderEndpoints<&'a dyn RegionsProvider>;
@@ -468,7 +468,7 @@ impl Iterator for ListIter<'_> {
     }
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 mod async_list_stream {
     use super::*;
     use futures::{future::BoxFuture, io::Lines as AsyncLines, AsyncBufReadExt, FutureExt, Stream, StreamExt};
@@ -540,7 +540,10 @@ mod async_list_stream {
     ///
     /// 可以通过 [`crate::ListBuilder::stream`] 方法获取该迭代器。
     #[must_use]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     pub struct ListStream<'a>(ListedObjectEntryResultStream<'a>);
 
     impl<'a> ListStream<'a> {
@@ -909,7 +912,7 @@ pub(super) fn make_callback_error(err: AnyError) -> ResponseError {
     ResponseError::new_with_msg(HttpResponseErrorKind::CallbackError.into(), err)
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 pub use async_list_stream::*;
 
 #[cfg(test)]
@@ -930,7 +933,7 @@ mod tests {
         time::{SystemTime, UNIX_EPOCH},
     };
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     use {
         futures::{future::BoxFuture, StreamExt, TryStreamExt},
         qiniu_apis::http::{AsyncRequest, AsyncResponse, AsyncResponseResult},
@@ -1008,7 +1011,7 @@ mod tests {
                     .build())
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
@@ -1095,7 +1098,7 @@ mod tests {
                     .build())
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
@@ -1220,7 +1223,7 @@ mod tests {
                     .build())
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
@@ -1289,7 +1292,7 @@ mod tests {
                     .build())
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
@@ -1423,7 +1426,7 @@ mod tests {
                     .build())
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
@@ -1474,7 +1477,7 @@ mod tests {
                     .build())
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
@@ -1564,7 +1567,7 @@ mod tests {
                     .build())
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
@@ -1677,7 +1680,7 @@ mod tests {
                     .build())
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
@@ -1722,8 +1725,8 @@ mod tests {
         Ok(())
     }
 
-    #[async_std::test]
-    #[cfg(feature = "async")]
+    #[qiniu_utils::async_runtime::test]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn test_async_list_v1() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -1819,8 +1822,8 @@ mod tests {
         Ok(())
     }
 
-    #[async_std::test]
-    #[cfg(feature = "async")]
+    #[qiniu_utils::async_runtime::test]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn test_async_list_v1_with_error() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -1945,8 +1948,8 @@ mod tests {
         Ok(())
     }
 
-    #[async_std::test]
-    #[cfg(feature = "async")]
+    #[qiniu_utils::async_runtime::test]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn test_async_list_v1_with_prefix_and_limitation() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -2041,8 +2044,8 @@ mod tests {
         Ok(())
     }
 
-    #[async_std::test]
-    #[cfg(feature = "async")]
+    #[qiniu_utils::async_runtime::test]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn test_async_list_v1_with_cancellation() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -2136,8 +2139,8 @@ mod tests {
         Ok(())
     }
 
-    #[async_std::test]
-    #[cfg(feature = "async")]
+    #[qiniu_utils::async_runtime::test]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn test_async_list_v2() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -2250,8 +2253,8 @@ mod tests {
         Ok(())
     }
 
-    #[async_std::test]
-    #[cfg(feature = "async")]
+    #[qiniu_utils::async_runtime::test]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn test_async_list_v2_with_non_results() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -2300,8 +2303,8 @@ mod tests {
         Ok(())
     }
 
-    #[async_std::test]
-    #[cfg(feature = "async")]
+    #[qiniu_utils::async_runtime::test]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn test_async_list_v2_with_error() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
@@ -2433,8 +2436,8 @@ mod tests {
         Ok(())
     }
 
-    #[async_std::test]
-    #[cfg(feature = "async")]
+    #[qiniu_utils::async_runtime::test]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async fn test_async_list_v2_with_cancellation() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 

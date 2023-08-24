@@ -28,7 +28,7 @@
 //!
 //! ## 七牛 Etag 计算器
 //!
-//! 负责根据输入的数据计算七牛 Etag，适配 V1 和 V2 版本，同时提供阻塞接口和异步接口（异步接口需要启用 `async` 功能）
+//! 负责根据输入的数据计算七牛 Etag，适配 V1 和 V2 版本，同时提供阻塞接口和异步接口（异步接口需要启用 `async_std_runtime` 或 `tokio_runtime` 功能）
 //!
 //! 七牛 Etag 文档：<https://developer.qiniu.com/kodo/1231/appendix>
 //!
@@ -174,14 +174,17 @@ pub use etag::{etag_of, etag_to_buf, etag_with_parts, etag_with_parts_to_buf, Et
 pub use etag_v1::EtagV1;
 pub use etag_v2::EtagV2;
 
-#[cfg(feature = "async")]
-mod async_etag;
+use cfg_if::cfg_if;
 
-#[cfg(feature = "async")]
-pub use async_etag::{
-    etag_of as async_etag_of, etag_to_buf as async_etag_to_buf, etag_with_parts as async_etag_with_parts,
-    etag_with_parts_to_buf as async_etag_with_parts_to_buf,
-};
+cfg_if! {
+    if #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))] {
+        mod async_etag;
+        pub use async_etag::{
+            etag_of as async_etag_of, etag_to_buf as async_etag_to_buf, etag_with_parts as async_etag_with_parts,
+            etag_with_parts_to_buf as async_etag_with_parts_to_buf,
+        };
+    }
+}
 
 /// 将所有 Trait 全部重新导出，方便统一导入
 pub mod prelude {

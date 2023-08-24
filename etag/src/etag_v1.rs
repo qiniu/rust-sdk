@@ -57,7 +57,7 @@ impl Write for EtagV1 {
     }
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use {
     futures_lite::io::AsyncWrite,
     std::{
@@ -66,8 +66,11 @@ use {
     },
 };
 
-#[cfg(feature = "async")]
-#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
 impl AsyncWrite for EtagV1 {
     #[inline]
     fn poll_write(mut self: Pin<&mut Self>, _cx: &mut Context, buf: &[u8]) -> Poll<Result<usize>> {

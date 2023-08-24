@@ -129,7 +129,7 @@ impl UploadTokenSigner {
         }
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     pub(super) async fn async_access_key(&self) -> ApiResult<AccessKey> {
         match &self.0 {
             UploadTokenSignerInner::UploadTokenProvider(provider) => provider
@@ -143,7 +143,7 @@ impl UploadTokenSigner {
         }
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     pub(super) async fn async_bucket_name(&self) -> ApiResult<BucketName> {
         match &self.0 {
             UploadTokenSignerInner::UploadTokenProvider(provider) => provider

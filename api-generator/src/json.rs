@@ -3,7 +3,6 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use serde::{Deserialize, Serialize};
-use std::str::from_utf8 as str_from_utf8;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1578,7 +1577,7 @@ pub(super) struct JsonStruct {
 mod tests {
     use super::*;
     use anyhow::Result;
-    use std::{fs, io::Write};
+    use std::{fs, io::Write, str::from_utf8 as str_from_utf8};
     use tempfile::{Builder as TempFileBuilder, NamedTempFile};
     use trybuild::TestCases;
 

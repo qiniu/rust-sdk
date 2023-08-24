@@ -30,13 +30,23 @@ qiniu-credential = { version = "0.3.0", path = "../credential" }
 qiniu-utils = { version = "0.3.0", path = "../utils" }
 
 [dev-dependencies]
-async-std = { version = "1.12.0", features = ["attributes"] }
 mime = "0.3.17"
 structopt = "0.3.26"
 
+qiniu-utils = { version = "0.3.0", path = "../utils", features = ["macros"] }
+
 [features]
 default = []
-async = ["qiniu-credential/async", "futures"]
+async_std_runtime = [
+    "futures",
+    "qiniu-utils/async_std_runtime",
+    "qiniu-credential/async_std_runtime",
+]
+tokio_runtime = [
+    "futures",
+    "qiniu-utils/tokio_runtime",
+    "qiniu-credential/tokio_runtime",
+]
 docs = []
 
 [package.metadata.docs.rs]

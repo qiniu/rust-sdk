@@ -4,7 +4,7 @@ use super::{
 };
 use std::{collections::VecDeque, mem::take, sync::Arc};
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use futures::future::BoxFuture;
 
 /// 域名解析串
@@ -35,8 +35,11 @@ impl Resolver for ChainedResolver {
         last_result.unwrap_or_else(|| Err(no_try_error(opts)))
     }
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_resolve<'a>(&'a self, domain: &'a str, opts: ResolveOptions<'a>) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
             let mut last_result: Option<ResolveResult> = None;

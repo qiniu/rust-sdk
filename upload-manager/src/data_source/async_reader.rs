@@ -19,7 +19,10 @@ use std::{
 /// 异步数据源接口
 ///
 /// 提供上传所用的数据源
-#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
 #[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait AsyncDataSource<A: Digest>: Clone + Debug + Sync + Send {
@@ -70,7 +73,10 @@ impl<T: AsyncRead + AsyncReset + Unpin + Send, A: Digest + Unpin + Send> AsyncDi
 /// 异步数据源阅读器
 ///
 /// 提供异步读取接口
-#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
 #[derive(Debug)]
 pub struct AsyncDataSourceReader {
     inner: AsyncDataSourceReaderInner,

@@ -1,10 +1,10 @@
 use super::{encode_headers, Boundary, FileName, Multipart, Part, PartMetadata};
-use async_std::{fs::File, io::copy, path::Path};
 use futures::{
-    io::{AsyncRead, Cursor, SeekFrom},
+    io::{copy, AsyncRead, Cursor, SeekFrom},
     AsyncSeek, AsyncSeekExt,
 };
 use qiniu_http::AsyncReset;
+use qiniu_utils::async_fs::File;
 use std::{
     borrow::Cow,
     cmp::Ordering,
@@ -12,6 +12,7 @@ use std::{
     fmt::{self, Debug},
     io::Result as IoResult,
     mem::take,
+    path::Path,
     pin::Pin,
     task::{ready, Context, Poll},
 };
@@ -44,11 +45,17 @@ impl Debug for AsyncPartBodyInner<'_> {
 
 /// 异步 Multipart 表单组件请求体
 #[derive(Debug)]
-#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
 pub struct AsyncPartBody<'a>(AsyncPartBodyInner<'a>);
 
 /// 异步 Multipart 表单组件
-#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
 pub type AsyncPart<'a> = Part<AsyncPartBody<'a>>;
 
 impl<'a> AsyncPart<'a> {
@@ -116,7 +123,10 @@ impl<'a> AsyncPart<'a> {
 }
 
 /// 异步 Multipart
-#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
 pub type AsyncMultipart<'a> = Multipart<AsyncPart<'a>>;
 
 impl<'a> AsyncMultipart<'a> {
@@ -343,14 +353,11 @@ impl<'a> AsyncSeek for AsyncMultipartReader<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use async_std::{
-        fs::File,
-        io::{Cursor as AsyncCursor, ReadExt, WriteExt},
-    };
+    use futures::io::{AsyncReadExt, AsyncWriteExt, Cursor as AsyncCursor};
     use mime::IMAGE_BMP;
     use tempfile::tempdir;
 
-    #[async_std::test]
+    #[qiniu_utils::async_runtime::test]
     async fn test_multipart_into_async_read() -> IoResult<()> {
         env_logger::builder().is_test(true).try_init().ok();
 

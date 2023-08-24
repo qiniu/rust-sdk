@@ -121,14 +121,14 @@ fn make_negative_feedback<'f>(
     builder.build()
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use super::{
     super::super::{AsyncRequestBody, AsyncResponse},
     send_http_request::async_send_http_request,
     utils::{reset_async_request_body, sign_async_request},
 };
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 pub(super) async fn async_try_domain_or_ip_addr(
     domain_or_ip: &DomainOrIpAddr,
     parts: &InnerRequestParts<'_>,

@@ -148,7 +148,6 @@ pub(super) fn can_use_etag_v1(parts: &[usize]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use async_std as _;
     use std::{error::Error, io::Cursor, result::Result};
 
     #[test]

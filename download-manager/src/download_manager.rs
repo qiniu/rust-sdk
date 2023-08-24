@@ -39,8 +39,11 @@ impl DownloadManager {
     }
 
     /// 获取异步下载输出流
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     pub async fn async_download(&self, object_name: impl AsRef<str>) -> ApiResult<DownloadingObject> {
         let urls = self
             .urls_generator

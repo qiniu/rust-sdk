@@ -56,8 +56,8 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(feature = "async")]
-    #[tokio::test]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[qiniu_utils::async_runtime::test]
     async fn async_test_direct_chooser() -> Result<()> {
         let chooser = DirectChooser;
         assert_eq!(

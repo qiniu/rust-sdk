@@ -17,12 +17,12 @@ use auto_impl::auto_impl;
 use dyn_clonable::clonable;
 use std::{borrow::Cow, fmt, mem::take};
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 type BoxFuture<'a, T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> + 'a + Send>>;
 
 /// 终端地址列表获取接口
 ///
-/// 同时提供阻塞获取接口和异步获取接口，异步获取接口则需要启用 `async` 功能
+/// 同时提供阻塞获取接口和异步获取接口，异步获取接口则需要启用 `async_std_runtime` 或 `tokio_runtime` 功能
 #[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait EndpointsProvider: Clone + fmt::Debug + Send + Sync {
@@ -33,8 +33,11 @@ pub trait EndpointsProvider: Clone + fmt::Debug + Send + Sync {
 
     /// 异步获取终端地址列表
     #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_get_endpoints<'a>(&'a self, options: GetOptions<'a>) -> BoxFuture<'a, ApiResult<Cow<'a, Endpoints>>> {
         Box::pin(async move { self.get_endpoints(options) })
     }

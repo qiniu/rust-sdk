@@ -36,7 +36,6 @@ rayon = "1.7.0"
 serde = { version = "1.0.185", features = ["derive"] }
 futures = { version = "0.3.28", optional = true }
 async-once-cell = { version = "0.5.3", optional = true }
-async-std = { version = "1.12.0", optional = true }
 
 qiniu-apis = { version = "0.3.0", path = "../apis", default-features = false }
 qiniu-upload-token = { version = "0.3.0", path = "../upload-token" }
@@ -50,13 +49,27 @@ rand = "0.8.5"
 ipipe = "0.11.7"
 defer-lite = "1.0.0"
 multipart = { version = "0.18.0", features = ["server"] }
+qiniu-utils = { version = "0.3.0", path = "../utils", features = ["macros"] }
 async-std = { version = "1.12.0", features = ["attributes"] }
 text_io = "0.1.12"
 structopt = "0.3.26"
 
 [features]
 default = ["ureq"]
-async = ["futures", "async-once-cell", "async-std", "qiniu-apis/async"]
+async_std_runtime = [
+    "futures",
+    "async-once-cell",
+    "qiniu-utils/async_std_runtime",
+    "qiniu-upload-token/async_std_runtime",
+    "qiniu-apis/async_std_runtime",
+]
+tokio_runtime = [
+    "futures",
+    "async-once-cell",
+    "qiniu-utils/tokio_runtime",
+    "qiniu-upload-token/tokio_runtime",
+    "qiniu-apis/tokio_runtime",
+]
 reqwest = ["qiniu-apis/reqwest"]
 isahc = ["qiniu-apis/isahc"]
 ureq = ["qiniu-apis/ureq"]
@@ -77,7 +90,7 @@ docs = []
 
 [[example]]
 name = "upload"
-required-features = ["async", "isahc"]
+required-features = ["async_std_runtime", "isahc"]
 
 [package.metadata.docs.rs]
 all-features = true

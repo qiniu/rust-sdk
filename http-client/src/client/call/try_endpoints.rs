@@ -369,14 +369,14 @@ pub(super) fn try_endpoints(
     }
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use super::{
     super::{AsyncRequestBody, AsyncResponse},
     try_domain_or_ip_addr::async_try_domain_or_ip_addr,
     utils::{async_choose, async_resolve},
 };
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 pub(super) async fn async_try_endpoints(
     endpoints: &[Endpoint],
     parts: &InnerRequestParts<'_>,

@@ -25,10 +25,10 @@ use std::{
 mod sync_part;
 pub use sync_part::{SyncMultipart, SyncPart, SyncPartBody};
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 mod async_part;
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 pub use async_part::{AsyncMultipart, AsyncPart, AsyncPartBody};
 
 /// 文件名
@@ -59,7 +59,7 @@ type HeaderBuffer = SmallVec<[u8; 256]>;
 ///
 /// ```
 /// async fn example() -> anyhow::Result<()> {
-/// # use async_std::io::ReadExt;
+/// # use futures::io::AsyncReadExt;
 /// use qiniu_credential::Credential;
 /// use qiniu_http_client::{
 ///     prelude::*, AsyncMultipart, AsyncPart, BucketRegionsQueryer, HttpClient, Idempotent, PartMetadata, RegionsProviderEndpoints, ServiceName,
@@ -68,7 +68,7 @@ type HeaderBuffer = SmallVec<[u8; 256]>;
 /// use serde_json::Value;
 /// use std::time::Duration;
 ///
-/// # let file = async_std::io::Cursor::new(vec![0u8; 1024]);
+/// # let file = futures::io::Cursor::new(vec![0u8; 1024]);
 /// let credential = Credential::new("abcdefghklmnopq", "1234567890");
 /// let bucket_name = "test-bucket";
 /// let object_name = "test-key";

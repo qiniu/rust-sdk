@@ -102,7 +102,7 @@ fn handle_response_error(
     TryError::new(response_error, retry_result)
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 mod async_send {
     use super::{
         super::{super::AsyncResponse, utils::async_judge},
@@ -179,5 +179,5 @@ mod async_send {
     }
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 pub(super) use async_send::*;

@@ -3,28 +3,28 @@
 all: build doc
 build:
 	cargo build
-	cargo build --features async
-	cargo build --features async,native-tls
-	cargo build --features async,rustls-tls
+	cargo build --features tokio_runtime
+	cargo build --features tokio_runtime,native-tls
+	cargo build --features tokio_runtime,rustls-tls
 build_release:
 	cargo build --release
-	cargo build --release --features async
-	cargo build --release --features async,native-tls
-	cargo build --release --features async,rustls-tls
+	cargo build --release --features tokio_runtime
+	cargo build --release --features tokio_runtime,native-tls
+	cargo build --release --features tokio_runtime,rustls-tls
 build_test:
 	cargo test --no-run
-	cargo test --features async --no-run
-	cargo test --features async,native-tls --no-run
-	cargo test --features async,rustls-tls --no-run
+	cargo test --features tokio_runtime --no-run
+	cargo test --features tokio_runtime,native-tls --no-run
+	cargo test --features tokio_runtime,rustls-tls --no-run
 doc: doc_test
 	cargo +nightly doc --lib --release --all-features
 doc_test:
-	cargo test --doc --features async
+	cargo test --doc --features tokio_runtime
 test:
 	cargo test -- --show-output
-	cargo test --features async -- --show-output
-	cargo test --features async,native-tls -- --show-output
-	cargo test --features async,rustls-tls -- --show-output
+	cargo test --features tokio_runtime -- --show-output
+	cargo test --features tokio_runtime,native-tls -- --show-output
+	cargo test --features tokio_runtime,rustls-tls -- --show-output
 clean:
 	cargo clean
 clippy:

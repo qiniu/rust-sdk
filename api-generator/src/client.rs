@@ -183,7 +183,7 @@ impl ApiDetailedDescription {
                 #sync_request_builder_methods_token_stream
             }
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             impl<'req, E: qiniu_http_client::EndpointsProvider + Clone + 'req> AsyncRequestBuilder<'req, E> {
                 #async_request_builder_methods_token_stream
             }
@@ -198,8 +198,8 @@ impl ApiDetailedDescription {
                 #[doc = "API 阻塞请求构造器"]
                 pub type SyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::SyncRequestBody<'req>, E>;
 
-                #[cfg(feature = "async")]
-                #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+                #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+                #[cfg_attr(feature = "docs", doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))))]
                 #[doc = "API 异步请求构造器"]
                 pub type AsyncRequestBuilder<'req, E> = RequestBuilder<'req, qiniu_http_client::AsyncRequestBody<'req>, E>;
             }
@@ -227,7 +227,7 @@ impl ApiDetailedDescription {
             let new_request_params_token_stream = new_request_params_token_stream(description, &quote! {'client});
             quote! {
                 #[inline]
-                #[cfg(feature = "async")]
+                #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
                 #[doc = "创建一个新的异步请求"]
                 pub fn new_async_request<E: qiniu_http_client::EndpointsProvider + 'client>(
                     &self,

@@ -1,7 +1,7 @@
 use super::{super::super::regions::IpAddrWithPort, ChooseOptions, Chooser, ChooserFeedback, ChosenResults};
 use rand::{seq::SliceRandom, thread_rng};
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use futures::future::BoxFuture;
 
 /// 随机选择器
@@ -36,8 +36,11 @@ impl<C: Chooser + Clone> Chooser for ShuffledChooser<C> {
     }
 
     #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_choose<'a>(&'a self, ips: &'a [IpAddrWithPort], opts: ChooseOptions<'a>) -> BoxFuture<'a, ChosenResults> {
         Box::pin(async move {
             let mut ips = self.chooser.async_choose(ips, opts).await;
@@ -52,8 +55,11 @@ impl<C: Chooser + Clone> Chooser for ShuffledChooser<C> {
     }
 
     #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_feedback<'a>(&'a self, feedback: ChooserFeedback<'a>) -> BoxFuture<'a, ()> {
         Box::pin(async move { self.chooser.async_feedback(feedback).await })
     }

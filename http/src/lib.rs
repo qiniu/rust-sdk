@@ -28,7 +28,7 @@
 //!
 //! ## 七牛 HTTP 客户端接口库
 //!
-//! 为更高层的 HTTP 客户端提供基础 HTTP 请求接口 [`HttpCaller`]（同时提供阻塞接口和异步接口，异步接口则需要启用 `async` 功能），
+//! 为更高层的 HTTP 客户端提供基础 HTTP 请求接口 [`HttpCaller`]（同时提供阻塞接口和异步接口，异步接口则需要启用 `async_std_runtime` 或 `tokio_runtime` 功能），
 //! 使不同的 HTTP 客户端基于相同的接口实现，
 //! 以便于七牛 API 调用层可以灵活切换 HTTP 客户端实现。
 //! 该接口库只关注 HTTP 调用相关逻辑，不包含七牛 API 调用相关逻辑。
@@ -75,7 +75,7 @@ pub type SyncResponseBuilder = ResponseBuilder<SyncResponseBody>;
 /// 阻塞 HTTP 响应结果
 pub type SyncResponseResult = ResponseResult<SyncResponseBody>;
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 mod async_req_resp {
     pub use super::{request::AsyncRequestBody, response::AsyncResponseBody};
     use super::{
@@ -89,19 +89,28 @@ mod async_req_resp {
     pub type AsyncRequestBuilder<'r> = RequestBuilder<'r, AsyncRequestBody<'r>>;
 
     /// 异步 HTTP 响应
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     pub type AsyncResponse = Response<AsyncResponseBody>;
 
     /// 异步 HTTP 响应构建器
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     pub type AsyncResponseBuilder = ResponseBuilder<AsyncResponseBody>;
 
     /// 异步 HTTP 响应结果
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     pub type AsyncResponseResult = ResponseResult<AsyncResponseBody>;
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 pub use {
     async_req_resp::{
         AsyncRequest, AsyncRequestBody, AsyncRequestBuilder, AsyncResponse, AsyncResponseBody, AsyncResponseBuilder,
@@ -110,10 +119,10 @@ pub use {
     futures_lite::{AsyncRead, AsyncSeek},
 };
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use std::{future::Future, pin::Pin};
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a + Send>>;
 
 static LIBRARY_USER_AGENT: OnceLock<UserAgent> = OnceLock::new();
@@ -141,8 +150,11 @@ pub trait HttpCaller: Debug + Send + Sync {
     fn call(&self, request: &mut SyncRequest<'_>) -> SyncResponseResult;
 
     /// 异步发送 HTTP 请求
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult>;
 
     /// 是否实现了 IP 地址解析功能
@@ -179,8 +191,11 @@ impl<T: Seek> Reset for T {
 /// 异步重置输入流接口
 ///
 /// 该接口相当于实现 `seek(SeekFrom::Start(0))`
-#[cfg(feature = "async")]
-#[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg_attr(
+    feature = "docs",
+    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+)]
 pub trait AsyncReset {
     /// 异步重置输入流
     ///
@@ -188,7 +203,7 @@ pub trait AsyncReset {
     fn reset(&mut self) -> BoxFuture<IoResult<()>>;
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 impl<T: AsyncSeek + Unpin + Send + Sync> AsyncReset for T {
     #[inline]
     fn reset(&mut self) -> BoxFuture<IoResult<()>> {
@@ -205,6 +220,6 @@ impl<T: AsyncSeek + Unpin + Send + Sync> AsyncReset for T {
 pub mod prelude {
     pub use super::{HttpCaller, Metrics, Reset};
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     pub use super::AsyncReset;
 }

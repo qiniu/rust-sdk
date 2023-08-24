@@ -14,7 +14,7 @@ use std::{
     time::Duration,
 };
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use {
     super::super::super::cache::{AsyncCache, AsyncCacheController},
     futures::future::BoxFuture,
@@ -25,7 +25,7 @@ use {
 pub(super) struct RegionsCache {
     cache: Cache<CacheKey, GotRegions>,
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     async_cache: AsyncCache<CacheKey, GotRegions>,
 }
 
@@ -39,7 +39,7 @@ impl RegionsCache {
         Self {
             cache: Cache::load_or_create_from(path, auto_persistent, cache_lifetime, shrink_interval),
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             async_cache: AsyncCache::load_or_create_from(path, auto_persistent, cache_lifetime, shrink_interval),
         }
     }
@@ -68,7 +68,7 @@ impl RegionsCache {
         Self {
             cache: Cache::in_memory(cache_lifetime, shrink_interval),
 
-            #[cfg(feature = "async")]
+            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
             async_cache: AsyncCache::in_memory(cache_lifetime, shrink_interval),
         }
     }
@@ -88,7 +88,7 @@ impl RegionsCache {
     }
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 impl RegionsCache {
     pub(super) async fn async_get<Fut: Future<Output = ApiResult<GotRegions>>>(
         &self,
@@ -116,7 +116,7 @@ impl CacheController for RegionsCache {
     }
 }
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 impl AsyncCacheController for RegionsCache {
     #[inline]
     fn async_clear(&self) -> BoxFuture<()> {
@@ -357,12 +357,12 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
     mod async_test {
         use super::*;
-        use async_std::task::sleep;
+        use qiniu_utils::async_task::sleep;
 
-        #[async_std::test]
+        #[qiniu_utils::async_runtime::test]
         async fn test_regions_cache_in_memory() -> anyhow::Result<()> {
             env_logger::builder().is_test(true).try_init().ok();
 
@@ -416,7 +416,7 @@ mod tests {
             Ok(())
         }
 
-        #[async_std::test]
+        #[qiniu_utils::async_runtime::test]
         async fn test_regions_cache_in_memory_with_invalidation() -> anyhow::Result<()> {
             env_logger::builder().is_test(true).try_init().ok();
 
@@ -458,7 +458,7 @@ mod tests {
             Ok(())
         }
 
-        #[async_std::test]
+        #[qiniu_utils::async_runtime::test]
         async fn test_regions_cache_auto_persistent() -> anyhow::Result<()> {
             env_logger::builder().is_test(true).try_init().ok();
 
@@ -594,7 +594,7 @@ mod tests {
             Ok(())
         }
 
-        #[async_std::test]
+        #[qiniu_utils::async_runtime::test]
         async fn test_regions_cache_without_auto_persistent() -> anyhow::Result<()> {
             env_logger::builder().is_test(true).try_init().ok();
 

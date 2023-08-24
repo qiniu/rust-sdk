@@ -2,6 +2,7 @@
 members = [
     "credential",
     "utils",
+    "utils-macros",
     "etag",
     "upload-token",
     "http",

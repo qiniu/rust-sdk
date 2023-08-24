@@ -20,18 +20,25 @@
 qiniu-objects-manager = { version = "0.3.0", features = ["ureq"] }
 ```
 
-### 启用 Isahc 异步接口
+### 启用 Isahc 异步接口（基于 `async-std`）
 
 ```toml
 [dependencies]
-qiniu-objects-manager = { version = "0.3.0", features = ["async", "isahc"] }
+qiniu-objects-manager = { version = "0.3.0", features = ["async_std_runtime", "isahc"] }
 ```
 
-### 启用 Reqwest 异步接口
+### 启用 Isahc 异步接口（基于 `tokio`）
 
 ```toml
 [dependencies]
-qiniu-objects-manager = { version = "0.3.0", features = ["async", "reqwest"] }
+qiniu-objects-manager = { version = "0.3.0", features = ["tokio_runtime", "isahc"] }
+```
+
+### 启用 Reqwest 异步接口（基于 `tokio`，Reqwest 不支持 `async-std`）
+
+```toml
+[dependencies]
+qiniu-objects-manager = { version = "0.3.0", features = ["tokio_runtime", "reqwest"] }
 ```
 
 ### 其他功能

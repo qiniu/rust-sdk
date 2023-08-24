@@ -11,7 +11,7 @@ use std::{
 };
 use ureq::{Agent, Error as UreqError, ErrorKind as UreqErrorKind, Request as UreqRequest, Response as UreqResponse};
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use {
     super::BoxFuture,
     qiniu_http::{AsyncRequest, AsyncResponseResult},
@@ -64,8 +64,11 @@ impl HttpCaller for Client {
     }
 
     #[inline]
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_call<'a>(&'a self, _request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
         unimplemented!("http_ureq::Client does not support async call")
     }

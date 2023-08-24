@@ -24,11 +24,11 @@ use std::{
 };
 use tap::Tap;
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 use {
     super::AsyncDataSource,
-    async_std::task::spawn,
     futures::future::{join_all, BoxFuture, OptionFuture},
+    qiniu_utils::async_task::spawn,
     std::sync::Arc,
 };
 
@@ -478,13 +478,18 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler<M::HashAlgorit
         }
     }
 
-    #[cfg(feature = "async")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "async")))]
+    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg_attr(
+        feature = "docs",
+        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    )]
     fn async_upload(
         &self,
         source: Box<dyn AsyncDataSource<M::HashAlgorithm>>,
         params: ObjectParams,
     ) -> BoxFuture<ApiResult<Value>> {
+        use qiniu_utils::async_task::JoinError;
+
         return Box::pin(async move {
             let concurrency = self.concurrency_provider.concurrency();
             let mut uploaded_size = Default::default();
@@ -744,10 +749,14 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler<M::HashAlgorit
                 })
             }))
             .await;
+
             let initialized = Arc::try_unwrap(initialized).unwrap();
             *uploaded_size = Arc::try_unwrap(atomic_uploaded_size).unwrap().into_inner();
             let resumed = Arc::try_unwrap(atomic_resumed).unwrap().into_inner();
             let parts = results
+                .into_iter()
+                .collect::<Result<Vec<_>, JoinError>>()
+                .map_err(|err| (err.into(), resumed))?
                 .into_iter()
                 .flatten()
                 .collect::<ApiResult<Vec<_>>>()
@@ -827,7 +836,12 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler<M::HashAlgorit
             .await;
             let initialized = Arc::try_unwrap(initialized).unwrap();
             *uploaded_size = Arc::try_unwrap(atomic_uploaded_size).unwrap().into_inner();
-            let parts = results.into_iter().flatten().collect::<ApiResult<Vec<_>>>()?;
+            let parts = results
+                .into_iter()
+                .collect::<Result<Vec<_>, JoinError>>()?
+                .into_iter()
+                .flatten()
+                .collect::<ApiResult<Vec<_>>>()?;
             scheduler
                 .multi_parts_uploader
                 .async_complete_parts(&initialized, &parts)

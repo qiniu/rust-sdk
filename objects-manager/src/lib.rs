@@ -26,14 +26,18 @@
 //! ## 七牛对象管理
 //!
 //! 基于 `qiniu-apis` 提供针对七牛对象的管理功能
-//! （同时提供阻塞客户端和异步客户端，异步客户端则需要启用 `async` 功能），
+//! （同时提供阻塞客户端和异步客户端，异步客户端则需要启用 `async_std_runtime` 或 `tokio_runtime` 功能），
 //! 主要负责七牛对象的列举和操作。
 //!
 //! ### 功能描述
 //!
-//! #### `async`
+//! #### `async_std_runtime`
 //!
-//! 启用异步接口。
+//! 启用异步接口，基于 `async-std` 库。
+//!
+//! #### `tokio_runtime`
+//!
+//! 启用异步接口，基于 `tokio` 库。
 //!
 //! #### `ureq`
 //!
@@ -221,7 +225,7 @@ pub use operation::{
     UnfreezeObjectBuilder,
 };
 
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
 pub use {batch_operations::BatchOperationsStream, list::ListStream};
 
 /// 将所有 Trait 全部重新导出，方便统一导入

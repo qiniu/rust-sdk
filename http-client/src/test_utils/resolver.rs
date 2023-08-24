@@ -64,7 +64,7 @@ pub(crate) fn make_error_resolver(error_kind: ResponseErrorKind, message: impl I
     }
 }
 
-#[cfg(all(feature = "async", any(feature = "c_ares", feature = "trust_dns")))]
+#[cfg(all(feature = "tokio_runtime", any(feature = "c_ares", feature = "trust_dns")))]
 mod mock_dns_server {
     use super::*;
     use std::collections::{BTreeMap, HashMap};
@@ -153,5 +153,5 @@ mod mock_dns_server {
     }
 }
 
-#[cfg(all(feature = "async", any(feature = "c_ares", feature = "trust_dns")))]
+#[cfg(all(feature = "tokio_runtime", any(feature = "c_ares", feature = "trust_dns")))]
 pub(crate) use mock_dns_server::{make_record_set, make_zone, start_mock_dns_server};
