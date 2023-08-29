@@ -5,32 +5,32 @@ all: build doc
 build:
 	set -e; \
 	for dir in $(SUBDIRS); do \
-		$(MAKE) -C $$dir build; \
+		"$(MAKE)" -C $$dir build; \
 	done
 build_release:
 	set -e; \
 	for dir in $(SUBDIRS); do \
-		$(MAKE) -C $$dir build_release; \
+		"$(MAKE)" -C $$dir build_release; \
 	done
 build_test:
 	set -e; \
 	for dir in $(SUBDIRS); do \
-		$(MAKE) -C $$dir build_test; \
+		"$(MAKE)" -C $$dir build_test; \
 	done
 doc: doc_test
 	cargo +nightly doc --lib --release --all-features
 doc_test:
 	set -e; \
 	for dir in $(SUBDIRS); do \
-		$(MAKE) -C $$dir doc_test; \
+		"$(MAKE)" -C $$dir doc_test; \
 	done
 test:
 	set -e; \
 	for dir in $(SUBDIRS); do \
 		if [ -n "${CLEAN_BEFORE_EACH}" ]; then \
-			$(MAKE) clean; \
+			"$(MAKE)" clean; \
 		fi; \
-		$(MAKE) -C $$dir test; \
+		"$(MAKE)" -C $$dir test; \
 	done
 clean:
 	cargo clean

@@ -1,4 +1,5 @@
 use async_std::{fs, path, sync, task};
+use cfg_if::cfg_if;
 use futures::{future::TryFutureExt, stream::Stream, AsyncRead, AsyncSeek, AsyncWrite, FutureExt};
 use std::{
     error::Error as StdError,
@@ -8,7 +9,6 @@ use std::{
     future::Future,
     io::{IoSliceMut, Result as IoResult, SeekFrom},
     ops::{Deref, DerefMut},
-    os::fd::{AsRawFd, FromRawFd, RawFd},
     path::{Path as StdPath, PathBuf as StdPathBuf},
     pin::Pin,
     task::{ready, Context, Poll},
@@ -506,18 +506,41 @@ impl DirEntry {
     }
 }
 
-impl AsRawFd for File {
-    #[inline]
-    fn as_raw_fd(&self) -> RawFd {
-        self.0.as_raw_fd()
-    }
-}
+cfg_if! {
+    if #[cfg(unix)] {
+        use std::os::fd::{AsRawFd, FromRawFd, RawFd};
 
-impl FromRawFd for File {
-    #[inline]
-    #[allow(unsafe_code)]
-    unsafe fn from_raw_fd(fd: RawFd) -> Self {
-        Self(fs::File::from_raw_fd(fd))
+        impl AsRawFd for File {
+            #[inline]
+            fn as_raw_fd(&self) -> RawFd {
+                self.0.as_raw_fd()
+            }
+        }
+
+        impl FromRawFd for File {
+            #[inline]
+            #[allow(unsafe_code)]
+            unsafe fn from_raw_fd(fd: RawFd) -> Self {
+                Self(fs::File::from_raw_fd(fd))
+            }
+        }
+    } else if #[cfg(windows)] {
+        use std::os::windows::io::{AsRawHandle, FromRawHandle, RawHandle};
+
+        impl AsRawHandle for File {
+            #[inline]
+            fn as_raw_handle(&self) -> RawHandle {
+                self.0.as_raw_handle()
+            }
+        }
+
+        impl FromRawHandle for File {
+            #[inline]
+            #[allow(unsafe_code)]
+            unsafe fn from_raw_handle(handle: RawHandle) -> Self {
+                Self(fs::File::from_raw_handle(handle))
+            }
+        }
     }
 }
 
@@ -718,7 +741,7 @@ impl<T> RwLock<T> {
     /// Creates a new reader-writer lock.
     #[inline]
     #[must_use]
-    pub const fn new(t: T) -> Self {
+    pub fn new(t: T) -> Self {
         Self(sync::RwLock::new(t))
     }
 

@@ -1,5 +1,5 @@
 use cfg_if::cfg_if;
-use std::io::{Error as IoError, Result as IoResult};
+use std::io::Result as IoResult;
 
 /// Extension trait for `File` which provides locking methods.
 #[cfg_attr(feature = "docs", doc(cfg(feature = "file_ext")))]
@@ -27,6 +27,7 @@ pub trait FileExt {
 cfg_if! {
     if #[cfg(unix)] {
         use rustix::{fd::{AsRawFd, BorrowedFd}, fs::{flock, FlockOperation}};
+        use std::io::Error as IoError;
 
         #[allow(unsafe_code)]
         fn _unix_flock<F: AsRawFd>(file: &F, operation: FlockOperation) -> IoResult<()> {
@@ -68,8 +69,8 @@ cfg_if! {
 
 cfg_if! {
     if #[cfg(windows)] {
-        use std::{mem, os::windows::io::AsRawHandle};
-        use windows_sys::Win32::Foundation::{HANDLE, FileSystem::{LOCKFILE_EXCLUSIVE_LOCK, LOCKFILE_FAIL_IMMEDIATELY, UnlockFile, LockFileEx}};
+        use std::{mem, io::Error as IoError, os::windows::io::AsRawHandle};
+        use windows_sys::Win32::{Foundation::HANDLE, Storage::FileSystem::{LOCKFILE_EXCLUSIVE_LOCK, LOCKFILE_FAIL_IMMEDIATELY, UnlockFile, LockFileEx}};
 
         #[allow(unsafe_code)]
         fn _windows_lock_file<F: AsRawHandle>(file: &F, flags: u32) -> IoResult<()> {
@@ -84,7 +85,7 @@ cfg_if! {
                     &mut overlapped,
                 );
                 if ret == 0 {
-                    Err(Error::last_os_error())
+                    Err(IoError::last_os_error())
                 } else {
                     Ok(())
                 }
@@ -96,7 +97,7 @@ cfg_if! {
             unsafe {
                 let ret = UnlockFile(file.as_raw_handle() as HANDLE, 0, 0, !0, !0);
                 if ret == 0 {
-                    Err(Error::last_os_error())
+                    Err(IoError::last_os_error())
                 } else {
                     Ok(())
                 }
