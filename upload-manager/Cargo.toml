@@ -56,19 +56,19 @@ structopt = "0.3.26"
 
 [features]
 default = ["ureq"]
-async_std_runtime = [
+async-std-runtime = [
     "futures",
     "async-once-cell",
-    "qiniu-utils/async_std_runtime",
-    "qiniu-upload-token/async_std_runtime",
-    "qiniu-apis/async_std_runtime",
+    "qiniu-utils/async-std-runtime",
+    "qiniu-upload-token/async-std-runtime",
+    "qiniu-apis/async-std-runtime",
 ]
-tokio_runtime = [
+tokio-runtime = [
     "futures",
     "async-once-cell",
-    "qiniu-utils/tokio_runtime",
-    "qiniu-upload-token/tokio_runtime",
-    "qiniu-apis/tokio_runtime",
+    "qiniu-utils/tokio-runtime",
+    "qiniu-upload-token/tokio-runtime",
+    "qiniu-apis/tokio-runtime",
 ]
 reqwest = ["qiniu-apis/reqwest"]
 isahc = ["qiniu-apis/isahc"]
@@ -90,7 +90,7 @@ docs = []
 
 [[example]]
 name = "upload"
-required-features = ["async_std_runtime", "isahc"]
+required-features = ["async-std-runtime", "isahc"]
 
 [package.metadata.docs.rs]
 all-features = true

@@ -8,9 +8,9 @@
 
 ## 概览
 
-基于 Isahc 库提供 HTTP 客户端接口实现（同时实现阻塞接口和异步接口，异步接口需要启用 `async_std_runtime` 或 `tokio_runtime` 功能）
+基于 Isahc 库提供 HTTP 客户端接口实现（同时实现阻塞接口和异步接口，异步接口需要启用 `async-std-runtime` 或 `tokio-runtime` 功能）
 
-不过由于 Isahc 库本身核心是使用异步接口实现，所以即使不启用 `async_std_runtime` 或 `tokio_runtime` 功能，也会引入异步相关库。
+不过由于 Isahc 库本身核心是使用异步接口实现，所以即使不启用 `async-std-runtime` 或 `tokio-runtime` 功能，也会引入异步相关库。
 
 ## 安装
 
@@ -25,14 +25,14 @@ qiniu-isahc = "0.3.0"
 
 ```toml
 [dependencies]
-qiniu-isahc = { version = "0.3.0", features = ["async_std_runtime"] }
+qiniu-isahc = { version = "0.3.0", features = ["async-std-runtime"] }
 ```
 
 ### 启用异步接口（基于 `tokio`）
 
 ```toml
 [dependencies]
-qiniu-isahc = { version = "0.3.0", features = ["tokio_runtime"] }
+qiniu-isahc = { version = "0.3.0", features = ["tokio-runtime"] }
 ```
 
 ## 最低支持的 Rust 版本（MSRV）

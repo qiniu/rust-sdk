@@ -26,15 +26,15 @@
 //! ## 七牛下载管理
 //!
 //! 基于 `qiniu-apis` 提供针对七牛对象的下载功能
-//! （同时提供阻塞客户端和异步客户端，异步客户端则需要启用 `async_std_runtime` 功能或 `tokio_runtime` 功能）。
+//! （同时提供阻塞客户端和异步客户端，异步客户端则需要启用 `async-std-runtime` 功能或 `tokio-runtime` 功能）。
 //!
 //! ### 功能描述
 //!
-//! #### `async_std_runtime`
+//! #### `async-std-runtime`
 //!
 //! 启用异步接口，基于 `async-std` 库。
 //!
-//! #### `tokio_runtime`
+//! #### `tokio-runtime`
 //!
 //! 启用异步接口，基于 `tokio` 库。
 //!
@@ -139,7 +139,7 @@ pub use download_retrier::{
     DownloadRetrier, DownloadRetrierOptions, ErrorRetrier, NeverRetrier, RetriedStatsInfo, RetryDecision, RetryResult,
 };
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 pub use downloading_object::AsyncDownloadingObjectReader;
 
 /// 将所有 Trait 全部重新导出，方便统一导入

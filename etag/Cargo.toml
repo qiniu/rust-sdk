@@ -30,8 +30,8 @@ qiniu-utils = { version = "0.3.0", path = "../utils", features = ["macros"] }
 
 [features]
 default = []
-async_std_runtime = ["futures-lite", "qiniu-utils/async_std_runtime"]
-tokio_runtime = ["futures-lite", "qiniu-utils/tokio_runtime"]
+async-std-runtime = ["futures-lite", "qiniu-utils/async-std-runtime"]
+tokio-runtime = ["futures-lite", "qiniu-utils/tokio-runtime"]
 docs = []
 
 [package.metadata.docs.rs]

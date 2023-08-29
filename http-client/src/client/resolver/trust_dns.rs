@@ -14,9 +14,9 @@ use trust_dns_resolver::{
 };
 
 cfg_if! {
-    if #[cfg(feature = "async_std_runtime")] {
+    if #[cfg(feature = "async-std-runtime")] {
         use async_std_resolver::{resolver, resolver_from_system_conf, AsyncStdResolver as AsyncResolver};
-    } else if #[cfg(feature = "tokio_runtime")] {
+    } else if #[cfg(feature = "tokio-runtime")] {
         use trust_dns_resolver::TokioAsyncResolver as AsyncResolver;
 
         async fn resolver(config: ResolverConfig, options: ResolverOpts) -> AsyncResolver {
@@ -34,11 +34,11 @@ cfg_if! {
 /// 基于 [`trust-dns`](https://trust-dns.org/) 库的域名解析接口实现，由于该接口只有异步实现，即使使用阻塞接口，也会调用异步实现
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(all(feature = "trust_dns", any(feature = "async_std_runtime", feature = "tokio_runtime"))))
+    doc(cfg(all(feature = "trust_dns", any(feature = "async-std-runtime", feature = "tokio-runtime"))))
 )]
 #[derive(Clone)]
 pub struct TrustDnsResolver {
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     resolver: AsyncResolver,
 }
 
@@ -108,7 +108,7 @@ fn convert_trust_dns_error_to_response_error(err: ResolveError, opts: ResolveOpt
     err
 }
 
-#[cfg(all(test, feature = "tokio_runtime"))]
+#[cfg(all(test, feature = "tokio-runtime"))]
 mod tests {
     use super::*;
     use crate::test_utils::{make_record_set, make_zone, start_mock_dns_server};

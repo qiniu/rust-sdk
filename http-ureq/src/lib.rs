@@ -39,10 +39,10 @@ pub use extensions::*;
 pub use qiniu_http as http;
 pub use ureq;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use std::{future::Future, pin::Pin};
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a + Send>>;
 
 #[cfg(test)]

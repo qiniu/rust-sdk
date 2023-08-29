@@ -28,14 +28,14 @@
 //!
 //! ## 七牛 Reqwest HTTP 客户端实现
 //!
-//! 基于 Reqwest 库提供 HTTP 客户端接口实现（分别实现阻塞接口和异步接口，异步实现则需要启用 `async_std_runtime` 或 `tokio_runtime` 功能）
+//! 基于 Reqwest 库提供 HTTP 客户端接口实现（分别实现阻塞接口和异步接口，异步实现则需要启用 `async-std-runtime` 或 `tokio-runtime` 功能）
 //!
 //! 需要注意的是，如果使用阻塞接口，则必须使用 `SyncClient`，而如果使用异步接口则必须使用 `AsyncClient`，二者不能混用。
 
 mod extensions;
 mod sync_client;
 
-#[cfg(feature = "tokio_runtime")]
+#[cfg(feature = "tokio-runtime")]
 mod async_client;
 
 pub use extensions::*;
@@ -43,7 +43,7 @@ pub use qiniu_http as http;
 pub use reqwest;
 pub use sync_client::SyncClient;
 
-#[cfg(feature = "tokio_runtime")]
+#[cfg(feature = "tokio-runtime")]
 pub use async_client::AsyncClient;
 
 #[cfg(test)]
@@ -73,7 +73,7 @@ mod tests {
         Filter,
     };
 
-    #[cfg(feature = "tokio_runtime")]
+    #[cfg(feature = "tokio-runtime")]
     use {
         futures::io::{copy as async_io_copy, AsyncReadExt},
         qiniu_http::{AsyncRequest, AsyncRequestBody, OnProgressCallback},
@@ -188,7 +188,7 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(feature = "tokio_runtime")]
+    #[cfg(feature = "tokio-runtime")]
     #[tokio::test]
     async fn async_http_test() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();

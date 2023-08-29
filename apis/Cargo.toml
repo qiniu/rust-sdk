@@ -31,17 +31,17 @@ qiniu-utils = { version = "0.3.0", path = "../utils" }
 
 [features]
 default = ["ureq"]
-async_std_runtime = [
+async-std-runtime = [
     "futures",
     "async-std",
-    "qiniu-utils/async_std_runtime",
-    "qiniu-http-client/async_std_runtime",
+    "qiniu-utils/async-std-runtime",
+    "qiniu-http-client/async-std-runtime",
 ]
-tokio_runtime = [
+tokio-runtime = [
     "futures",
     "tokio",
-    "qiniu-utils/tokio_runtime",
-    "qiniu-http-client/tokio_runtime",
+    "qiniu-utils/tokio-runtime",
+    "qiniu-http-client/tokio-runtime",
 ]
 reqwest = ["qiniu-http-client/reqwest"]
 isahc = ["qiniu-http-client/isahc"]

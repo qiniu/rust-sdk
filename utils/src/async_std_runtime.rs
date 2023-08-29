@@ -37,7 +37,7 @@ use std::{
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub struct OpenOptions(fs::OpenOptions);
 
@@ -167,7 +167,7 @@ impl OpenOptions {
 #[derive(Debug)]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub struct File(fs::File);
 
@@ -300,7 +300,7 @@ impl AsyncSeek for File {
 #[inline]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub async fn create_dir_all<P: AsRef<StdPath>>(path: P) -> IoResult<()> {
     let path = path.as_ref();
@@ -325,7 +325,7 @@ pub async fn create_dir_all<P: AsRef<StdPath>>(path: P) -> IoResult<()> {
 #[inline]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub async fn metadata<P: AsRef<StdPath>>(path: P) -> IoResult<Metadata> {
     let path = path.as_ref();
@@ -348,7 +348,7 @@ pub async fn metadata<P: AsRef<StdPath>>(path: P) -> IoResult<Metadata> {
 #[inline]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub async fn remove_file<P: AsRef<StdPath>>(path: P) -> IoResult<()> {
     let path = path.as_ref();
@@ -376,7 +376,7 @@ pub async fn remove_file<P: AsRef<StdPath>>(path: P) -> IoResult<()> {
 #[inline]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub async fn read_dir<P: AsRef<StdPath>>(path: P) -> IoResult<ReadDir> {
     let path = path.as_ref();
@@ -392,7 +392,7 @@ pub async fn read_dir<P: AsRef<StdPath>>(path: P) -> IoResult<ReadDir> {
 #[inline]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub async fn canonicalize(path: impl AsRef<StdPath>) -> IoResult<StdPathBuf> {
     path::Path::new(path.as_ref())
@@ -417,7 +417,7 @@ pub async fn canonicalize(path: impl AsRef<StdPath>) -> IoResult<StdPathBuf> {
 #[derive(Debug)]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub struct ReadDir(fs::ReadDir);
 
@@ -447,7 +447,7 @@ impl Stream for ReadDir {
 #[derive(Debug)]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub struct DirEntry(fs::DirEntry);
 
@@ -529,7 +529,7 @@ impl FromRawFd for File {
 #[derive(Debug, Default)]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub struct DirBuilder(fs::DirBuilder);
 
@@ -582,7 +582,7 @@ impl DirBuilder {
 #[inline]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub fn spawn<F, T>(future: F) -> JoinHandle<T>
 where
@@ -603,7 +603,7 @@ where
 #[derive(Debug)]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub struct JoinHandle<T>(task::JoinHandle<T>);
 
@@ -619,7 +619,7 @@ impl<T> Future for JoinHandle<T> {
 /// Task failed to execute to completion.
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub struct JoinError(());
 
@@ -652,7 +652,7 @@ impl StdError for JoinError {}
 #[inline]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub fn spawn_blocking<F, T>(f: F) -> JoinHandle<T>
 where
@@ -676,7 +676,7 @@ where
 #[inline]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub fn block_on<F, T>(future: F) -> IoResult<T>
 where
@@ -695,7 +695,7 @@ where
 #[inline]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub async fn sleep(dur: Duration) {
     task::sleep(dur).await
@@ -710,7 +710,7 @@ pub async fn sleep(dur: Duration) {
 #[derive(Debug)]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(all(any(feature = "async_std_runtime", feature = "tokio_runtime"), feature = "macros")))
+    doc(cfg(all(any(feature = "async-std-runtime", feature = "tokio-runtime"), feature = "macros")))
 )]
 pub struct RwLock<T: ?Sized>(sync::RwLock<T>);
 
@@ -780,7 +780,7 @@ impl<T: Default + ?Sized> Default for RwLock<T> {
 #[derive(Debug)]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(all(any(feature = "async_std_runtime", feature = "tokio_runtime"), feature = "macros")))
+    doc(cfg(all(any(feature = "async-std-runtime", feature = "tokio-runtime"), feature = "macros")))
 )]
 pub struct RwLockReadGuard<'a, T: ?Sized>(sync::RwLockReadGuard<'a, T>);
 
@@ -796,7 +796,7 @@ impl<T: ?Sized> Deref for RwLockReadGuard<'_, T> {
 #[derive(Debug)]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(all(any(feature = "async_std_runtime", feature = "tokio_runtime"), feature = "macros")))
+    doc(cfg(all(any(feature = "async-std-runtime", feature = "tokio-runtime"), feature = "macros")))
 )]
 pub struct RwLockWriteGuard<'a, T: ?Sized>(sync::RwLockWriteGuard<'a, T>);
 

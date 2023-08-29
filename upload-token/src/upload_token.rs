@@ -17,7 +17,7 @@ use std::{
 };
 use thiserror::Error;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use {
     futures::lock::Mutex as AsyncMutex,
     std::{future::Future, pin::Pin},
@@ -36,10 +36,10 @@ pub trait UploadTokenProvider: Clone + Debug + Sync + Send {
 
     /// 异步从上传凭证内获取 AccessKey
     #[inline]
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_access_key(&self, opts: GetAccessKeyOptions) -> AsyncParseResult<'_, GotAccessKey> {
         Box::pin(async move { self.access_key(opts) })
@@ -52,10 +52,10 @@ pub trait UploadTokenProvider: Clone + Debug + Sync + Send {
 
     /// 异步从上传凭证内获取上传策略
     #[inline]
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_policy(&self, opts: GetPolicyOptions) -> AsyncParseResult<'_, GotUploadPolicy> {
         Box::pin(async move { self.policy(opts) })
@@ -68,10 +68,10 @@ pub trait UploadTokenProvider: Clone + Debug + Sync + Send {
 
     /// 异步生成字符串
     #[inline]
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_to_token_string(&self, opts: ToStringOptions) -> AsyncToStringResult<'_, Cow<'_, str>> {
         Box::pin(async move { self.to_token_string(opts) })
@@ -247,10 +247,10 @@ pub trait UploadTokenProviderExt: UploadTokenProvider {
     }
 
     /// 异步获取上传凭证中的存储空间名称
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_bucket_name(&self, opts: GetPolicyOptions) -> AsyncParseResult<'_, BucketName> {
         Box::pin(async move {
@@ -680,11 +680,11 @@ struct SyncCacheInner {
     upload_token: RwLock<Option<Cache<String>>>,
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 #[derive(Debug, Default, Clone)]
 struct AsyncCache(Arc<AsyncCacheInner>);
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 #[derive(Debug, Default)]
 struct AsyncCacheInner {
     access_key: AsyncMutex<Option<Cache<AccessKey>>>,
@@ -701,7 +701,7 @@ pub struct CachedUploadTokenProvider<P: Clone> {
     cache_lifetime: Duration,
     sync_cache: SyncCache,
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     async_cache: AsyncCache,
 }
 
@@ -714,7 +714,7 @@ impl<P: Clone> CachedUploadTokenProvider<P> {
             cache_lifetime,
             sync_cache: Default::default(),
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             async_cache: Default::default(),
         }
     }
@@ -760,7 +760,7 @@ macro_rules! sync_method {
     }};
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 macro_rules! async_method {
     ($provider:expr, $cache_field:ident, $opts_field:ident, $method_name:ident) => {{
         Box::pin(async move {
@@ -818,28 +818,28 @@ impl<P: UploadTokenProvider + Clone> UploadTokenProvider for CachedUploadTokenPr
         )
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_access_key(&self, opts: GetAccessKeyOptions) -> AsyncParseResult<'_, GotAccessKey> {
         async_method!(self, access_key, opts, async_access_key)
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_policy(&self, opts: GetPolicyOptions) -> AsyncParseResult<'_, GotUploadPolicy<'_>> {
         async_method!(self, upload_policy, opts, async_policy)
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_to_token_string(&self, opts: ToStringOptions) -> AsyncToStringResult<'_, Cow<'_, str>> {
         async_method!(self, upload_token, opts, async_to_token_string)
@@ -885,10 +885,10 @@ pub enum ToStringError {
 /// 生成上传凭证字符串结果
 pub type ToStringResult<T> = Result<T, ToStringError>;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 type AsyncParseResult<'a, T> = Pin<Box<dyn Future<Output = ParseResult<T>> + 'a + Send>>;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 type AsyncToStringResult<'a, T> = Pin<Box<dyn Future<Output = ToStringResult<T>> + 'a + Send>>;
 
 #[cfg(test)]
@@ -932,7 +932,7 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     mod async_test {
         use super::*;
 

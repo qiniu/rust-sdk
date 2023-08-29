@@ -14,7 +14,7 @@ use qiniu_apis::http_client::{ApiResult, ResponseError};
 use serde_json::Value;
 use std::num::NonZeroU64;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use {
     super::AsyncDataSource,
     futures::future::{BoxFuture, OptionFuture},
@@ -284,10 +284,10 @@ impl<M: MultiPartsUploader> MultiPartsUploaderScheduler<M::HashAlgorithm> for Se
         }
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_upload(
         &self,
@@ -495,7 +495,7 @@ impl<M: MultiPartsUploader> MultiPartsUploaderScheduler<M::HashAlgorithm> for Se
     }
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 #[cfg(test)]
 mod tests {
     use super::{
@@ -783,7 +783,7 @@ mod tests {
                 unreachable!()
             }
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     if request.url().path() == "/buckets/fakebucket/objects/~/uploads" {
@@ -873,7 +873,7 @@ mod tests {
                 unreachable!()
             }
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     if request.url().path() == "/buckets/fakebucket/objects/~/uploads" {
@@ -962,7 +962,7 @@ mod tests {
                 unreachable!()
             }
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     if request.url().path() == "/buckets/fakebucket/objects/~/uploads" {
@@ -1051,7 +1051,7 @@ mod tests {
                 unreachable!()
             }
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     if request.url().path() == "/buckets/fakebucket/objects/~/uploads" {

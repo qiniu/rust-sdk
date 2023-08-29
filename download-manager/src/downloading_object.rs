@@ -29,7 +29,7 @@ use std::{
 };
 use thiserror::Error;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use {
     futures::{AsyncReadExt, AsyncWrite, AsyncWriteExt},
     qiniu_apis::http_client::AsyncResponseBody,
@@ -202,10 +202,10 @@ impl DownloadingObject {
     /// # Ok(())
     /// # }
     /// ```
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     pub async fn async_to_path(self, path: impl AsRef<Path>) -> DownloadResult<()> {
         let mut file = AsyncOpenOptions::new()
@@ -272,10 +272,10 @@ impl DownloadingObject {
     /// # Ok(())
     /// # }
     /// ```
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     pub async fn to_async_writer(self, writer: &mut (dyn AsyncWrite + Send + Sync + Unpin)) -> DownloadResult<()> {
         let mut buf = [0u8; 1 << 15];
@@ -343,10 +343,10 @@ impl DownloadingObject {
     /// # }
     /// ```
     #[inline]
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     pub fn into_async_read(self) -> AsyncDownloadingObjectReader {
         AsyncDownloadingObjectReader::new(self.into_inner_reader())
@@ -399,7 +399,7 @@ impl DownloadingObjectReader {
     }
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 mod async_reader {
     use super::*;
     use futures::{future::BoxFuture, io::Cursor, lock::Mutex, AsyncRead, FutureExt};
@@ -417,7 +417,7 @@ mod async_reader {
     #[derive(Debug)]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     pub struct AsyncDownloadingObjectReader {
         step: AsyncDownloadingObjectReaderStep,
@@ -503,7 +503,7 @@ mod async_reader {
     }
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 pub use async_reader::*;
 
 #[derive(Debug)]
@@ -615,7 +615,7 @@ impl InnerReader<SyncResponseBody> {
     }
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 impl InnerReader<AsyncResponseBody> {
     async fn async_read(&mut self, mut buf: &mut [u8]) -> DownloadResult<usize> {
         loop {
@@ -951,7 +951,7 @@ fn make_endpoint_from_uri(uri: &mut UriParts) -> DownloadResult<Endpoint> {
 }
 
 #[cfg(test)]
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 mod tests {
     use super::{
         super::{DownloadManager, StaticDomainsUrlsGenerator, UrlsSigner},
@@ -1022,7 +1022,7 @@ mod tests {
                 )
             }
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             fn async_call<'a>(
                 &'a self,
                 request: &'a mut AsyncHttpRequest<'_>,
@@ -1119,7 +1119,7 @@ mod tests {
                 )
             }
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             fn async_call<'a>(
                 &'a self,
                 request: &'a mut AsyncHttpRequest<'_>,
@@ -1241,7 +1241,7 @@ mod tests {
                 )
             }
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             fn async_call<'a>(
                 &'a self,
                 request: &'a mut AsyncHttpRequest<'_>,
@@ -1328,7 +1328,7 @@ mod tests {
                 ))
             }
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             fn async_call<'a>(
                 &'a self,
                 _request: &'a mut AsyncHttpRequest<'_>,
@@ -1428,7 +1428,7 @@ mod tests {
                 )
             }
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             fn async_call<'a>(
                 &'a self,
                 request: &'a mut AsyncHttpRequest<'_>,
@@ -1524,7 +1524,7 @@ mod tests {
                 )
             }
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             fn async_call<'a>(
                 &'a self,
                 request: &'a mut AsyncHttpRequest<'_>,
@@ -1618,7 +1618,7 @@ mod tests {
                 self.handle(self.0.len(), SyncHttpResponseBody::from_bytes(self.0.to_owned()))
             }
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             fn async_call<'a>(
                 &'a self,
                 _request: &'a mut AsyncHttpRequest<'_>,

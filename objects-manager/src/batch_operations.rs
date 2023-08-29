@@ -129,10 +129,10 @@ impl<'a> BatchOperations<'a> {
 
     /// 异步发起批量操作，返回操作结果流
     #[inline]
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     pub fn async_call(&mut self) -> BatchOperationsStream<'a> {
         BatchOperationsStream::new(self.take_self())
@@ -275,7 +275,7 @@ impl<'a> BatchOperationsIterator<'a> {
     }
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 mod async_stream {
     use super::*;
     use futures::{future::BoxFuture, FutureExt, Stream};
@@ -294,7 +294,7 @@ mod async_stream {
     #[must_use]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     #[derive(Debug)]
     pub struct BatchOperationsStream<'a> {
@@ -487,7 +487,7 @@ mod async_stream {
     }
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 pub use async_stream::*;
 
 fn from_response_to_response_data_result(response: OperationResponse) -> ApiResult<OperationResponseData> {
@@ -543,7 +543,7 @@ mod tests {
         sync::atomic::{AtomicUsize, Ordering},
     };
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     use {
         futures::{future::BoxFuture, AsyncReadExt, StreamExt},
         qiniu_apis::http::{AsyncRequest, AsyncResponse, AsyncResponseBody, AsyncResponseResult},
@@ -592,7 +592,7 @@ mod tests {
                     .build())
             }
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
@@ -611,7 +611,7 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[qiniu_utils::async_runtime::test]
     async fn test_async_batch_ops() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();

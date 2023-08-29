@@ -19,7 +19,7 @@ use std::{
 type IsahcSyncRequest = isahc::Request<IsahcBody>;
 type IsahcSyncResponse = isahc::Response<IsahcBody>;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use {
     futures::{future::BoxFuture, AsyncRead},
     isahc::AsyncBody as IsahcAsyncBody,
@@ -30,10 +30,10 @@ use {
     },
 };
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 type IsahcAsyncRequest = isahc::Request<IsahcAsyncBody>;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 type IsahcAsyncResponse = isahc::Response<IsahcAsyncBody>;
 
 /// Isahc 客户端
@@ -108,10 +108,10 @@ impl HttpCaller for Client {
         }
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
         Box::pin(async move {
@@ -202,7 +202,7 @@ fn make_sync_response(mut response: IsahcSyncResponse, request: &mut SyncRequest
     Ok(response_builder.build())
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 fn make_async_response(mut response: IsahcAsyncResponse, request: &mut AsyncRequest) -> AsyncResponseResult {
     call_response_callbacks(request, &response)?;
 
@@ -329,7 +329,7 @@ fn make_sync_isahc_request(
     }
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 fn make_async_isahc_request(
     request: &mut AsyncRequest,
     ip_addr: Option<IpAddr>,

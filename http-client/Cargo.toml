@@ -101,33 +101,33 @@ reqwest = ["qiniu-reqwest"]
 isahc = ["qiniu-isahc"]
 ureq = ["qiniu-ureq"]
 
-tokio_runtime = [
+tokio-runtime = [
     "tokio",
     "futures",
     "async-once-cell",
     "futures-timer",
     "trust-dns-resolver?/tokio-runtime",
-    "qiniu-http/tokio_runtime",
-    "qiniu-credential/tokio_runtime",
-    "qiniu-upload-token/tokio_runtime",
-    "qiniu-reqwest?/tokio_runtime",
-    "qiniu-isahc?/tokio_runtime",
-    "qiniu-ureq?/tokio_runtime",
+    "qiniu-http/tokio-runtime",
+    "qiniu-credential/tokio-runtime",
+    "qiniu-upload-token/tokio-runtime",
+    "qiniu-reqwest?/tokio-runtime",
+    "qiniu-isahc?/tokio-runtime",
+    "qiniu-ureq?/tokio-runtime",
 ]
-async_std_runtime = [
+async-std-runtime = [
     "async-std",
     "futures",
     "async-once-cell",
     "futures-timer",
-    "qiniu-http/async_std_runtime",
-    "qiniu-credential/async_std_runtime",
-    "qiniu-upload-token/async_std_runtime",
-    "qiniu-isahc?/async_std_runtime",
-    "qiniu-ureq?/async_std_runtime",
+    "qiniu-http/async-std-runtime",
+    "qiniu-credential/async-std-runtime",
+    "qiniu-upload-token/async-std-runtime",
+    "qiniu-isahc?/async-std-runtime",
+    "qiniu-ureq?/async-std-runtime",
 ]
-tokio1 = ["async_std_runtime", "async-std/tokio1"]
-tokio02 = ["async_std_runtime", "async-std/tokio02"]
-tokio03 = ["async_std_runtime", "async-std/tokio03"]
+tokio1 = ["async-std-runtime", "async-std/tokio1"]
+tokio02 = ["async-std-runtime", "async-std/tokio02"]
+tokio03 = ["async-std-runtime", "async-std/tokio03"]
 http2 = ["qiniu-isahc?/http2"]
 psl = ["qiniu-isahc?/psl"]
 spnego = ["qiniu-isahc?/spnego"]

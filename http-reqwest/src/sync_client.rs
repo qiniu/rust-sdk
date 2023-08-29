@@ -18,7 +18,7 @@ use std::{
     num::NonZeroU16,
 };
 
-#[cfg(feature = "tokio_runtime")]
+#[cfg(feature = "tokio-runtime")]
 use {
     futures::future::BoxFuture,
     qiniu_http::{AsyncRequest, AsyncResponseResult},
@@ -56,8 +56,8 @@ impl HttpCaller for SyncClient {
     }
 
     #[inline]
-    #[cfg(feature = "tokio_runtime")]
-    #[cfg_attr(feature = "docs", doc(cfg(feature = "tokio_runtime")))]
+    #[cfg(feature = "tokio-runtime")]
+    #[cfg_attr(feature = "docs", doc(cfg(feature = "tokio-runtime")))]
     fn async_call<'a>(&'a self, _request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
         unimplemented!("SyncClient does not support async call")
     }

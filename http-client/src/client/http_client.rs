@@ -21,7 +21,7 @@ use std::{
 #[cfg(feature = "isahc")]
 use qiniu_isahc::isahc::error::Error as IsahcError;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use super::AsyncRequestBuilder;
 
 /// HTTP 客户端
@@ -133,10 +133,10 @@ impl HttpClient {
 
     /// 创建一个新的 HTTP 客户端，使用 [`crate::reqwest::AsyncClient`] 作为 [`HttpCaller`] 实现
     #[inline]
-    #[cfg(all(feature = "reqwest", any(feature = "async_std_runtime", feature = "tokio_runtime")))]
+    #[cfg(all(feature = "reqwest", any(feature = "async-std-runtime", feature = "tokio-runtime")))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(all(feature = "reqwest", any(feature = "async_std_runtime", feature = "tokio_runtime"))))
+        doc(cfg(all(feature = "reqwest", any(feature = "async-std-runtime", feature = "tokio-runtime"))))
     )]
     pub fn reqwest_async() -> Self {
         Self::build_reqwest_async().build()
@@ -174,10 +174,10 @@ impl HttpClient {
 
     /// 创建一个新的 HTTP 客户端构建器，使用 [`crate::reqwest::AsyncClient`] 作为 [`HttpCaller`] 实现
     #[inline]
-    #[cfg(all(feature = "reqwest", any(feature = "async_std_runtime", feature = "tokio_runtime")))]
+    #[cfg(all(feature = "reqwest", any(feature = "async-std-runtime", feature = "tokio-runtime")))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(all(feature = "reqwest", any(feature = "async_std_runtime", feature = "tokio_runtime"))))
+        doc(cfg(all(feature = "reqwest", any(feature = "async-std-runtime", feature = "tokio-runtime"))))
     )]
     pub fn build_reqwest_async() -> HttpClientBuilder {
         HttpClientBuilder::reqwest_async()
@@ -258,10 +258,10 @@ impl HttpClient {
 
     /// 创建 GET 请求的异步请求构建器
     #[inline]
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     pub fn async_get<'r, E: EndpointsProvider + 'r>(
         &'r self,
@@ -273,10 +273,10 @@ impl HttpClient {
 
     /// 创建 POST 请求的异步请求构建器
     #[inline]
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     pub fn async_post<'r, E: EndpointsProvider + 'r>(
         &'r self,
@@ -288,10 +288,10 @@ impl HttpClient {
 
     /// 创建 PUT 请求的异步请求构建器
     #[inline]
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     pub fn async_put<'r, E: EndpointsProvider + 'r>(
         &'r self,
@@ -303,10 +303,10 @@ impl HttpClient {
 
     /// 创建 DELETE 请求的异步请求构建器
     #[inline]
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     pub fn async_delete<'r, E: EndpointsProvider + 'r>(
         &'r self,
@@ -317,7 +317,7 @@ impl HttpClient {
     }
 
     /// 创建异步请求的请求构建器
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     pub fn new_async_request<'r, E: EndpointsProvider + 'r>(
         &'r self,
         method: Method,
@@ -397,7 +397,7 @@ impl HttpClientBuilder {
 
     /// 创建一个新的 HTTP 客户端构建器，使用 [`crate::reqwest::SyncClient`] 作为 [`HttpCaller`] 实现
     #[inline]
-    #[cfg(all(feature = "reqwest", any(feature = "async_std_runtime", feature = "tokio_runtime")))]
+    #[cfg(all(feature = "reqwest", any(feature = "async-std-runtime", feature = "tokio-runtime")))]
     pub fn reqwest_async() -> Self {
         Self::_new(Some(Box::<qiniu_reqwest::AsyncClient>::default()))
     }
@@ -662,13 +662,13 @@ impl HttpClient {
     #[inline]
     pub fn default_http_caller() -> Box<dyn HttpCaller> {
         cfg_if! {
-            if #[cfg(all(feature = "ureq", not(any(feature = "async_std_runtime", feature = "tokio_runtime"))))] {
+            if #[cfg(all(feature = "ureq", not(any(feature = "async-std-runtime", feature = "tokio-runtime"))))] {
                 Box::new(qiniu_ureq::Client::default())
             } else if #[cfg(feature = "isahc")] {
                 Box::new(qiniu_isahc::Client::default_client().expect("Failed to initialize isahc"))
-            } else if #[cfg(all(feature = "reqwest", not(any(feature = "async_std_runtime", feature = "tokio_runtime"))))] {
+            } else if #[cfg(all(feature = "reqwest", not(any(feature = "async-std-runtime", feature = "tokio-runtime"))))] {
                 Box::new(qiniu_reqwest::SyncClient::default())
-            } else if #[cfg(all(feature = "reqwest", any(feature = "async_std_runtime", feature = "tokio_runtime")))] {
+            } else if #[cfg(all(feature = "reqwest", any(feature = "async-std-runtime", feature = "tokio-runtime")))] {
                 Box::new(qiniu_reqwest::AsyncClient::default())
             } else {
                 panic!("No http caller available, can you enable feature `isahc` to resolve this problem?")
@@ -691,7 +691,7 @@ impl HttpClient {
                 builder.prepend_resolver(Box::new(resolver));
             }
 
-            #[cfg(all(feature = "trust_dns", any(feature = "async_std_runtime", feature = "tokio_runtime")))]
+            #[cfg(all(feature = "trust_dns", any(feature = "async-std-runtime", feature = "tokio-runtime")))]
             if let Ok(Ok(resolver)) =
                 qiniu_utils::async_task::block_on(async { super::TrustDnsResolver::from_system_conf().await })
             {

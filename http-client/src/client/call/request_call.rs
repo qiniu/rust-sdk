@@ -72,13 +72,13 @@ pub(in super::super) fn request_call<E: EndpointsProvider>(
     }
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use super::{
     super::{request::AsyncInnerRequest, AsyncRequestBody, AsyncResponse},
     try_endpoints::async_try_endpoints,
 };
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 pub(in super::super) async fn async_request_call<E: EndpointsProvider>(
     request: AsyncInnerRequest<'_, E>,
 ) -> ApiResult<AsyncResponse> {

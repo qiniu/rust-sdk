@@ -7,7 +7,7 @@ use std::{
     path::Path,
 };
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use futures::{future::BoxFuture, AsyncRead, AsyncSeek};
 
 /// 单请求上传器接口
@@ -34,10 +34,10 @@ pub trait SinglePartUploader: __private::Sealed + UploaderWithCallbacks + Clone 
         -> ApiResult<Value>;
 
     /// 异步上传指定路径的文件
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_upload_path<'a>(
         &'a self,
@@ -46,10 +46,10 @@ pub trait SinglePartUploader: __private::Sealed + UploaderWithCallbacks + Clone 
     ) -> BoxFuture<'a, ApiResult<Value>>;
 
     /// 上传不可寻址的异步输入流的数据
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_upload_reader<R: AsyncRead + Unpin + Send + Sync + 'static>(
         &self,
@@ -58,10 +58,10 @@ pub trait SinglePartUploader: __private::Sealed + UploaderWithCallbacks + Clone 
     ) -> BoxFuture<ApiResult<Value>>;
 
     /// 上传可寻址的异步输入流的数据
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_upload_seekable_reader<R: AsyncRead + AsyncSeek + Unpin + Send + Sync + 'static>(
         &self,

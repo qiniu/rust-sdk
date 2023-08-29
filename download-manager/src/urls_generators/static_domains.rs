@@ -3,7 +3,7 @@ use http::Uri;
 use qiniu_apis::http_client::{ApiResult, Endpoint, Endpoints, EndpointsBuilder};
 use std::mem::take;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use futures::future::BoxFuture;
 
 /// 静态公开空间域名下载 URL 列表生成器
@@ -79,10 +79,10 @@ impl DownloadUrlsGenerator for StaticDomainsUrlsGenerator {
         self.0.generate(object_name, options)
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_generate<'a>(
         &'a self,

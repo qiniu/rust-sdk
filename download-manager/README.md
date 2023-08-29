@@ -8,7 +8,7 @@
 
 ## 概览
 
-基于 `qiniu-apis` 提供针对七牛对象的下载功能 （同时提供阻塞客户端和异步客户端，异步客户端则需要启用 `async_std_runtime` 功能或 `tokio_runtime` 功能）。
+基于 `qiniu-apis` 提供针对七牛对象的下载功能 （同时提供阻塞客户端和异步客户端，异步客户端则需要启用 `async-std-runtime` 功能或 `tokio-runtime` 功能）。
 
 ## 安装
 
@@ -23,21 +23,21 @@ qiniu-download-manager = { version = "0.3.0", features = ["ureq"] }
 
 ```toml
 [dependencies]
-qiniu-download-manager = { version = "0.3.0", features = ["async_std_runtime", "isahc"] }
+qiniu-download-manager = { version = "0.3.0", features = ["async-std-runtime", "isahc"] }
 ```
 
 ### 启用 Isahc 异步接口（基于 `tokio`）
 
 ```toml
 [dependencies]
-qiniu-download-manager = { version = "0.3.0", features = ["tokio_runtime", "isahc"] }
+qiniu-download-manager = { version = "0.3.0", features = ["tokio-runtime", "isahc"] }
 ```
 
 ### 启用 Reqwest 异步接口（基于 `tokio`，Reqwest 不支持 `async-std`）
 
 ```toml
 [dependencies]
-qiniu-download-manager = { version = "0.3.0", features = ["tokio_runtime", "reqwest"] }
+qiniu-download-manager = { version = "0.3.0", features = ["tokio-runtime", "reqwest"] }
 ```
 
 ### 其他功能

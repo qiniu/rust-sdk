@@ -14,14 +14,14 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use futures::future::BoxFuture;
 
 /// 选择 IP 地址接口
 ///
 /// 还提供了对选择结果的反馈接口，用以修正自身选择逻辑，优化选择结果
 ///
-/// 同时提供阻塞接口和异步接口，异步接口则需要启用 `async_std_runtime` 或 `tokio_runtime` 功能
+/// 同时提供阻塞接口和异步接口，异步接口则需要启用 `async-std-runtime` 或 `tokio-runtime` 功能
 #[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait Chooser: Clone + Debug + Sync + Send {
@@ -35,10 +35,10 @@ pub trait Chooser: Clone + Debug + Sync + Send {
     ///
     /// 该方法的异步版本为 [`Self::async_choose`]。
     #[inline]
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_choose<'a>(&'a self, ips: &'a [IpAddrWithPort], opts: ChooseOptions<'a>) -> BoxFuture<'a, ChosenResults> {
         Box::pin(async move { self.choose(ips, opts) })
@@ -46,10 +46,10 @@ pub trait Chooser: Clone + Debug + Sync + Send {
 
     /// 异步反馈选择的 IP 地址列表的结果
     #[inline]
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_feedback<'a>(&'a self, feedback: ChooserFeedback<'a>) -> BoxFuture<'a, ()> {
         Box::pin(async move { self.feedback(feedback) })

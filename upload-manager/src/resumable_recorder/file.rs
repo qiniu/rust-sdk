@@ -10,7 +10,7 @@ use std::{
     path::PathBuf,
 };
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use {
     super::{AppendOnlyAsyncResumableRecorderMedium, ReadOnlyAsyncResumableRecorderMedium},
     futures::future::BoxFuture,
@@ -43,7 +43,7 @@ impl<O> FileSystemResumableRecorder<O> {
         DirBuilder::new().recursive(true).create(&self.path)
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     async fn async_create_directory(&self) -> IoResult<()> {
         AsyncDirBuilder::new().recursive(true).create(&self.path).await
     }
@@ -88,10 +88,10 @@ impl<O: Digest> ResumableRecorder for FileSystemResumableRecorder<O> {
         remove_file(self.path_of(source_key))
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn open_for_async_read<'a>(
         &'a self,
@@ -107,10 +107,10 @@ impl<O: Digest> ResumableRecorder for FileSystemResumableRecorder<O> {
         })
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn open_for_async_append<'a>(
         &'a self,
@@ -126,10 +126,10 @@ impl<O: Digest> ResumableRecorder for FileSystemResumableRecorder<O> {
         })
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn open_for_async_create_new<'a>(
         &'a self,
@@ -147,10 +147,10 @@ impl<O: Digest> ResumableRecorder for FileSystemResumableRecorder<O> {
         })
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_delete<'a>(&'a self, source_key: &'a SourceKey<Self::HashAlgorithm>) -> BoxFuture<'a, IoResult<()>> {
         Box::pin(async move { async_remove_file(self.path_of(source_key)).await })
@@ -236,7 +236,7 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[qiniu_utils::async_runtime::test]
     async fn test_async_file_system_resumable_recorder() -> Result<()> {
         use futures::{AsyncReadExt, AsyncWriteExt};

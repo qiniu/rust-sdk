@@ -10,7 +10,7 @@ mod utils;
 
 pub(super) use request_call::request_call;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 pub(super) use request_call::async_request_call;
 
 #[cfg(test)]
@@ -721,7 +721,7 @@ mod tests {
     }
 
     #[qiniu_utils::async_runtime::test]
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     async fn test_async_call_single_endpoint_retry() -> Result<(), Box<dyn Error>> {
         env_logger::builder().is_test(true).try_init().ok();
 

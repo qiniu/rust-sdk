@@ -27,7 +27,7 @@ use std::{
     time::Duration,
 };
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use {
     super::{
         super::{async_request_call, AsyncResponse},
@@ -740,10 +740,10 @@ impl<'r, E: EndpointsProvider + Clone + 'r> SyncRequestBuilder<'r, E> {
 }
 
 /// 异步请求构建器
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 pub type AsyncRequestBuilder<'r, E> = RequestBuilder<'r, AsyncRequestBody<'r>, E>;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 impl<'r, E: 'r> AsyncRequestBuilder<'r, E> {
     /// 设置 HTTP 请求体为异步输入流
     #[inline]
@@ -830,7 +830,7 @@ impl<'r, E: 'r> AsyncRequestBuilder<'r, E> {
     }
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 impl<'r, E: EndpointsProvider + Clone + 'r> AsyncRequestBuilder<'r, E> {
     /// 异步发起 HTTP 请求
     #[inline]

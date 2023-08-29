@@ -10,7 +10,7 @@ use qiniu_credential::{Credential, CredentialProvider};
 use qiniu_upload_token::BucketName;
 use std::{borrow::Cow, mem::take, path::Path, sync::Arc, time::Duration};
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use futures::future::BoxFuture;
 
 const DEFAULT_SHRINK_INTERVAL: Duration = Duration::from_secs(3600);
@@ -243,10 +243,10 @@ impl EndpointsProvider for BucketDomainsProvider {
             .map(Cow::Owned)
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_get_endpoints<'a>(
         &'a self,
@@ -290,7 +290,7 @@ impl BucketDomainsProvider {
         Ok(endpoints)
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     async fn do_async_query(&self) -> ApiResult<Endpoints> {
         let endpoints: Endpoints = self
             .queryer

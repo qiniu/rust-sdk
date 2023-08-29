@@ -10,7 +10,7 @@ use cfg_if::cfg_if;
 use qiniu_http::ResponseErrorKind as HttpResponseErrorKind;
 use std::{fmt, net::IpAddr, sync::Arc};
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use {c_ares_resolver::FutureResolver, futures::future::BoxFuture};
 
 type CAresResolverResult<T> = Result<T, CAresResolverError>;
@@ -25,14 +25,14 @@ pub struct CAresResolver(Arc<CAresResolverInner>);
 struct CAresResolverInner {
     resolver: BlockingResolver,
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     future_resolver: FutureResolver,
 }
 
 impl CAresResolver {
     /// 创建 [`c-ares`](https://c-ares.org/) 域名解析器
     #[inline]
-    #[cfg(not(any(feature = "async_std_runtime", feature = "tokio_runtime")))]
+    #[cfg(not(any(feature = "async-std-runtime", feature = "tokio-runtime")))]
     pub fn new_with_options(options: CAresResolverOptions) -> CAresResolverResult<Self> {
         Ok(Self(Arc::new(CAresResolverInner {
             resolver: BlockingResolver::with_options(options)?,
@@ -41,14 +41,14 @@ impl CAresResolver {
 
     /// 创建 [`c-ares`](https://c-ares.org/) 域名解析器
     #[inline]
-    #[cfg(not(any(feature = "async_std_runtime", feature = "tokio_runtime")))]
+    #[cfg(not(any(feature = "async-std-runtime", feature = "tokio-runtime")))]
     pub fn new_with_resolver(resolver: BlockingResolver) -> Self {
         Self(Arc::new(CAresResolverInner { resolver }))
     }
 
     /// 创建 [`c-ares`](https://c-ares.org/) 域名解析器
     #[inline]
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     pub fn new_with_options(
         sync_options: CAresResolverOptions,
         async_options: CAresResolverOptions,
@@ -61,7 +61,7 @@ impl CAresResolver {
 
     /// 创建 [`c-ares`](https://c-ares.org/) 域名解析器
     #[inline]
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     pub fn new_with_resolvers(resolver: BlockingResolver, future_resolver: FutureResolver) -> Self {
         Self(Arc::new(CAresResolverInner {
             resolver,
@@ -73,7 +73,7 @@ impl CAresResolver {
     #[inline]
     pub fn new() -> CAresResolverResult<Self> {
         cfg_if! {
-            if #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))] {
+            if #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))] {
                 Self::new_with_options(CAresResolverOptions::new(), CAresResolverOptions::new())
             } else {
                 Self::new_with_options(CAresResolverOptions::new())
@@ -100,10 +100,10 @@ impl Resolver for CAresResolver {
             .map(|answers| answers.into())
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_resolve<'a>(&'a self, domain: &'a str, opts: ResolveOptions<'a>) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
@@ -141,7 +141,7 @@ fn convert_c_ares_error_to_response_error(err: CAresError, opts: ResolveOptions)
     err
 }
 
-#[cfg(all(test, feature = "tokio_runtime"))]
+#[cfg(all(test, feature = "tokio-runtime"))]
 mod tests {
     use super::*;
     use crate::test_utils::{make_record_set, make_zone, start_mock_dns_server};

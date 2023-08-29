@@ -7,7 +7,7 @@ use qiniu_apis::{
 use std::sync::Arc;
 use url_escape::encode_path_to_string;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use futures::future::BoxFuture;
 
 /// 终端地址下载 URL 列表生成器
@@ -61,10 +61,10 @@ impl DownloadUrlsGenerator for EndpointsUrlGenerator {
         generate_public_urls(&endpoints, object_name, self.use_https).collect()
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_generate<'a>(
         &'a self,

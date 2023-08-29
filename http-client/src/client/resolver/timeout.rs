@@ -2,7 +2,7 @@ use super::{super::ResponseError, ResolveOptions, ResolveResult, Resolver};
 use qiniu_http::ResponseErrorKind as HttpResponseErrorKind;
 use std::time::Duration;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use {
     futures::future::{BoxFuture, FutureExt},
     futures_timer::Delay as AsyncDelay,
@@ -41,7 +41,7 @@ impl<R: Resolver + Clone + 'static> Resolver for TimeoutResolver<R> {
     fn resolve(&self, domain: &str, opts: ResolveOptions) -> ResolveResult {
         return _resolve(self, domain, opts);
 
-        #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+        #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
         fn _resolve<R: Resolver + Clone + 'static>(
             resolver: &TimeoutResolver<R>,
             domain: &str,
@@ -57,7 +57,7 @@ impl<R: Resolver + Clone + 'static> Resolver for TimeoutResolver<R> {
             }
         }
 
-        #[cfg(not(any(feature = "async_std_runtime", feature = "tokio_runtime")))]
+        #[cfg(not(any(feature = "async-std-runtime", feature = "tokio-runtime")))]
         fn _resolve<R: Resolver + Clone + 'static>(
             resolver: &TimeoutResolver<R>,
             domain: &str,
@@ -103,10 +103,10 @@ impl<R: Resolver + Clone + 'static> Resolver for TimeoutResolver<R> {
         }
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_resolve<'a>(&'a self, domain: &'a str, opts: ResolveOptions<'a>) -> BoxFuture<'a, ResolveResult> {
         use futures::{pin_mut, select};
@@ -157,7 +157,7 @@ mod tests {
         }
 
         #[inline]
-        #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+        #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
         fn async_resolve<'a>(&'a self, _domain: &'a str, _opts: ResolveOptions) -> BoxFuture<'a, ResolveResult> {
             Box::pin(async move {
                 AsyncDelay::new(self.0).await;
@@ -179,7 +179,7 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[qiniu_utils::async_runtime::test]
     async fn test_async_timeout_resolver() -> Result<(), Box<dyn Error>> {
         let resolver = TimeoutResolver::new(WaitResolver(Duration::from_millis(100)), Duration::from_millis(200));

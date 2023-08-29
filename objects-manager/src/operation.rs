@@ -45,8 +45,8 @@ macro_rules! impl_call_methods {
             request.call()
         }
 
-        #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
-        #[cfg_attr(feature = "docs", doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))))]
+        #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
+        #[cfg_attr(feature = "docs", doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))))]
         /// 异步发起操作请求
         pub async fn async_call(&mut self) -> ApiResult<Response<qiniu_apis::storage::$mod_name::ResponseBody>> {
             let op = self.build();
@@ -995,7 +995,7 @@ fn make_callback_error(err: AnyError) -> HttpResponseError {
 }
 
 #[cfg(test)]
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 mod tests {
     use super::{
         super::{mime, ObjectsManager},

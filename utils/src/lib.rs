@@ -39,7 +39,7 @@ pub use name::{BucketName, ObjectName};
 use cfg_if::cfg_if;
 
 cfg_if! {
-    if #[cfg(feature = "tokio_runtime")] {
+    if #[cfg(feature = "tokio-runtime")] {
         use tokio as _;
         use tokio_stream as _;
         use async_compat as _;
@@ -47,7 +47,7 @@ cfg_if! {
 }
 
 cfg_if! {
-    if #[cfg(feature = "async_std_runtime")] {
+    if #[cfg(feature = "async-std-runtime")] {
         use async_std as _;
     }
 }
@@ -59,9 +59,9 @@ cfg_if! {
 }
 
 cfg_if! {
-    if #[cfg(feature = "tokio_runtime")] {
+    if #[cfg(feature = "tokio-runtime")] {
         mod tokio_runtime;
-    } else if #[cfg(feature = "async_std_runtime")] {
+    } else if #[cfg(feature = "async-std-runtime")] {
         mod async_std_runtime;
     }
 }
@@ -83,17 +83,17 @@ pub mod prelude {
 /// This module is an async version of [`std::fs`].
 ///
 /// [`std::fs`]: https://doc.rust-lang.org/std/fs/index.html
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub mod async_fs {
     use cfg_if::cfg_if;
     cfg_if! {
-        if #[cfg(feature = "tokio_runtime")] {
+        if #[cfg(feature = "tokio-runtime")] {
             pub use super::tokio_runtime::{OpenOptions, File, create_dir_all, metadata, remove_file, read_dir, ReadDir, DirEntry, DirBuilder, canonicalize};
-        } else if #[cfg(feature = "async_std_runtime")] {
+        } else if #[cfg(feature = "async-std-runtime")] {
             pub use super::async_std_runtime::{OpenOptions, File, create_dir_all, metadata, remove_file, read_dir, ReadDir, DirEntry, DirBuilder, canonicalize};
         }
     }
@@ -105,17 +105,17 @@ pub mod async_fs {
 /// threads.
 ///
 /// [`std::thread`]: https://doc.rust-lang.org/std/thread
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub mod async_task {
     use cfg_if::cfg_if;
     cfg_if! {
-        if #[cfg(feature = "tokio_runtime")] {
+        if #[cfg(feature = "tokio-runtime")] {
             pub use super::tokio_runtime::{spawn, JoinHandle, JoinError, spawn_blocking, block_on, sleep};
-        } else if #[cfg(feature = "async_std_runtime")] {
+        } else if #[cfg(feature = "async-std-runtime")] {
             pub use super::async_std_runtime::{spawn, JoinHandle, JoinError, spawn_blocking, block_on, sleep};
         }
     }
@@ -126,27 +126,27 @@ pub mod async_task {
 /// This module is an async version of [`std::sync`].
 ///
 /// [`std::sync`]: https://doc.rust-lang.org/std/sync/index.html
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub mod async_sync {
     use cfg_if::cfg_if;
     cfg_if! {
-        if #[cfg(feature = "tokio_runtime")] {
+        if #[cfg(feature = "tokio-runtime")] {
             pub use super::tokio_runtime::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-        } else if #[cfg(feature = "async_std_runtime")] {
+        } else if #[cfg(feature = "async-std-runtime")] {
             pub use super::async_std_runtime::{RwLock, RwLockReadGuard, RwLockWriteGuard};
         }
     }
 }
 
 /// Async runtime
-#[cfg(all(any(feature = "async_std_runtime", feature = "tokio_runtime"), feature = "macros"))]
+#[cfg(all(any(feature = "async-std-runtime", feature = "tokio-runtime"), feature = "macros"))]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(all(any(feature = "async_std_runtime", feature = "tokio_runtime"), feature = "macros")))
+    doc(cfg(all(any(feature = "async-std-runtime", feature = "tokio-runtime"), feature = "macros")))
 )]
 pub mod async_runtime {
     pub use qiniu_utils_macros::{main, test};

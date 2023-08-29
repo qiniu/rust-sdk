@@ -39,8 +39,8 @@ windows-sys = { version = "0.48.0", features = [
 
 [features]
 default = []
-async_std_runtime = ["async-std", "futures"]
-tokio_runtime = ["tokio", "futures", "async-compat", "tokio-stream"]
+async-std-runtime = ["async-std", "futures"]
+tokio-runtime = ["tokio", "futures", "async-compat", "tokio-stream"]
 macros = ["qiniu-utils-macros"]
 file_ext = ["rustix", "windows-sys"]
 docs = []

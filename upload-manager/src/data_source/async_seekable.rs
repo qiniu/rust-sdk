@@ -95,7 +95,7 @@ impl<A: Digest + Send> AsyncDataSource<A> for AsyncSeekableDataSource {
 #[derive(Debug)]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub struct AsyncSeekableSource {
     source: Arc<Mutex<AsyncSeekableSourceInner<dyn ReadSeek>>>,

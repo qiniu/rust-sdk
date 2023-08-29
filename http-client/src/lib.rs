@@ -25,7 +25,7 @@
 //! ## 七牛 HTTP 客户端库
 //!
 //! 基于 `qiniu-http` 提供具有重试功能的 HTTP 客户端
-//! （同时提供阻塞客户端和异步客户端，异步客户端则需要启用 `async_std_runtime` 或 `tokio_runtime` 功能），
+//! （同时提供阻塞客户端和异步客户端，异步客户端则需要启用 `async-std-runtime` 或 `tokio-runtime` 功能），
 //! 通过对七牛特有的状态码和响应头进行合理的处理和重试，竭力保证七牛 API 可以调用成功。
 //!
 //! 该接口库可以通过启用不同的功能来选择不同的客户端实现，
@@ -59,26 +59,26 @@
 //!
 //! #### [`qiniu_http::HttpCaller`]
 //!
-//! [`qiniu_http::HttpCaller`] 提供 HTTP 请求接口（同时提供阻塞接口和异步接口，异步接口则需要启用 `async_std_runtime` 或 `tokio_runtime` 功能）。
+//! [`qiniu_http::HttpCaller`] 提供 HTTP 请求接口（同时提供阻塞接口和异步接口，异步接口则需要启用 `async-std-runtime` 或 `tokio-runtime` 功能）。
 //! [`qiniu_ureq::Client`] 提供基于 `ureq` 库的 HTTP 客户端（需要启用 `ureq` 功能），特点是代码精简，依赖简单，但不支持异步接口；
 //! [`qiniu_reqwest::SyncClient`] 和 [`qiniu_reqwest::AsyncClient`] 提供基于 `reqwest` 库的 HTTP 客户端
-//! （需要启用 `reqwest` 功能，如果需要用到异步接口还需要额外启用 `async_std_runtime` 或 `tokio_runtime` 功能），
+//! （需要启用 `reqwest` 功能，如果需要用到异步接口还需要额外启用 `async-std-runtime` 或 `tokio-runtime` 功能），
 //! 特点是支持阻塞接口和异步接口，但两个客户端不能混用，
 //! 即 [`qiniu_reqwest::SyncClient`] 只能用于发送阻塞请求，而 [`qiniu_reqwest::AsyncClient`] 只能用来发送异步请求，
-//! 且由于 `reqwest` 库自身基于异步接口实现，因此即使不启用 `async_std_runtime` 或 `tokio_runtime` 功能，也会用线程启动 `tokio` 异步环境驱动 HTTP 请求发送；
+//! 且由于 `reqwest` 库自身基于异步接口实现，因此即使不启用 `async-std-runtime` 或 `tokio-runtime` 功能，也会用线程启动 `tokio` 异步环境驱动 HTTP 请求发送；
 //! [`qiniu_isahc::Client`] 提供基于 `isahc` 库的 HTTP 客户端
-//! （需要启用 `reqwest` 功能，如果需要用到异步接口还需要额外启用 `async_std_runtime` 或 `tokio_runtime` 功能），
+//! （需要启用 `reqwest` 功能，如果需要用到异步接口还需要额外启用 `async-std-runtime` 或 `tokio-runtime` 功能），
 //! 特点是功能全面，且同时支持阻塞接口和异步接口，但依赖原生的 [`libcurl`](https://curl.se/libcurl/) 库，
-//! 且由于 `isahc` 库自身基于异步接口实现，因此即使不启用 `async_std_runtime` 或 `tokio_runtime` 功能，也会用线程启动 `tokio` 异步环境驱动 HTTP 请求发送；
+//! 且由于 `isahc` 库自身基于异步接口实现，因此即使不启用 `async-std-runtime` 或 `tokio-runtime` 功能，也会用线程启动 `tokio` 异步环境驱动 HTTP 请求发送；
 //! 可以通过配置 [`HttpClientBuilder::http_caller`] 来指定使用哪个客户端。如果不指定，默认通过当前启用的功能来判定。
 //!
 //! #### [`Resolver`]
 //!
-//! [`Resolver`] 提供域名解析的接口（同时提供阻塞接口和异步接口，异步接口则需要启用 `async_std_runtime` 或 `tokio_runtime` 功能），可以将一个域名解析为 IP 地址列表。
+//! [`Resolver`] 提供域名解析的接口（同时提供阻塞接口和异步接口，异步接口则需要启用 `async-std-runtime` 或 `tokio-runtime` 功能），可以将一个域名解析为 IP 地址列表。
 //! `qiniu-http-client` 提供多种域名解析的实现，
 //! [`SimpleResolver`] 提供最简单的，基于 [`libc`](https://man7.org/linux/man-pages/man7/libc.7.html) 库的域名解析实现；
 //! [`CAresResolver`] （需要启用 `c_ares` 功能）提供基于 [`c-ares`](https://c-ares.org/) 库的域名解析实现；
-//! [`TrustDnsResolver`] （需要同时启用 `trust_dns` 功能和 `async_std_runtime` 或 `tokio_runtime` 功能）提供基于 [`trust-dns`](https://trust-dns.org/) 库的域名解析实现；
+//! [`TrustDnsResolver`] （需要同时启用 `trust_dns` 功能和 `async-std-runtime` 或 `tokio-runtime` 功能）提供基于 [`trust-dns`](https://trust-dns.org/) 库的域名解析实现；
 //! [`TimeoutResolver`] 为任意一个 [`Resolver`] 实现提供超时功能，不过该实现不是很高效，如果 [`Resolver`] 实现本身就带有超时功能，还是尽量使用自带的超时功能更好；
 //! [`ShuffledResolver`] 可以将任意一个 [`Resolver`] 实现提供打乱解析结果的功能，便于在客户端层面实现简单的服务器的负载均衡功能；
 //! [`ChainedResolver`] 提供对多个 [`Resolver`] 的链式调用，可以依次尝试不同的 [`Resolver`] 实现直到获得一个有效的解析结果为止；
@@ -87,7 +87,7 @@
 //!
 //! #### [`Chooser`]
 //!
-//! [`Chooser`] 提供 IP 地址选择的功能，以及提供反馈接口以修正自身选择逻辑的功能（同时提供阻塞接口和异步接口，异步接口则需要启用 `async_std_runtime` 或 `tokio_runtime` 功能）。
+//! [`Chooser`] 提供 IP 地址选择的功能，以及提供反馈接口以修正自身选择逻辑的功能（同时提供阻塞接口和异步接口，异步接口则需要启用 `async-std-runtime` 或 `tokio-runtime` 功能）。
 //! `qiniu-http-client` 提供多种选择器的实现，
 //! [`DirectChooser`] 提供最直接的选择器，即不做任何筛选，直接将所有传入的 IP 地址返回；
 //! [`IpChooser`] 提供包含 IP 地址黑名单的选择器，即反馈 API 调用失败，则将所有相关 IP 地址冻结一段时间，在这段时间内，这些 IP 地址将会被过滤，不会被选择到；
@@ -117,11 +117,11 @@
 //!
 //! ### 功能描述
 //!
-//! #### `async_std_runtime`
+//! #### `async-std-runtime`
 //!
 //! 启用异步接口，基于 `async-std` 库。
 //!
-//! #### `tokio_runtime`
+//! #### `tokio-runtime`
 //!
 //! 启用异步接口，基于 `tokio` 库。
 //!
@@ -334,10 +334,10 @@ pub use qiniu_credential as credential;
 pub use qiniu_http as http;
 pub use qiniu_upload_token as upload_token;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub use futures::io::AsyncRead;
 
@@ -371,16 +371,16 @@ pub use upload_token::{BucketName, ObjectName};
 #[cfg_attr(feature = "docs", doc(cfg(feature = "c_ares")))]
 pub use client::{c_ares, c_ares_resolver, CAresResolver};
 
-#[cfg(all(feature = "trust_dns", any(feature = "async_std_runtime", feature = "tokio_runtime")))]
+#[cfg(all(feature = "trust_dns", any(feature = "async-std-runtime", feature = "tokio-runtime")))]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(all(feature = "trust_dns", any(feature = "async_std_runtime", feature = "tokio_runtime"))))
+    doc(cfg(all(feature = "trust_dns", any(feature = "async-std-runtime", feature = "tokio-runtime"))))
 )]
 pub use client::{trust_dns_resolver, TrustDnsResolver};
 
 pub use ipnet::PrefixLenError;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 pub use {
     client::{AsyncMultipart, AsyncPart, AsyncPartBody, AsyncRequestBody, AsyncRequestBuilder, AsyncResponse},
     http::AsyncResponseBody,

@@ -21,7 +21,7 @@ use std::{
 /// 提供上传所用的数据源
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 #[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
@@ -75,7 +75,7 @@ impl<T: AsyncRead + AsyncReset + Unpin + Send, A: Digest + Unpin + Send> AsyncDi
 /// 提供异步读取接口
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 #[derive(Debug)]
 pub struct AsyncDataSourceReader {

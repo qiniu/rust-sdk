@@ -26,15 +26,15 @@
 //! ## 七牛上传管理
 //!
 //! 基于 `qiniu-apis` 提供针对七牛对象的上传功能
-//! （同时提供阻塞客户端和异步客户端，异步客户端则需要启用 `async_std_runtime` 或 `tokio_runtime` 功能）。
+//! （同时提供阻塞客户端和异步客户端，异步客户端则需要启用 `async-std-runtime` 或 `tokio-runtime` 功能）。
 //!
 //! ### 功能描述
 //!
-//! #### `async_std_runtime`
+//! #### `async-std-runtime`
 //!
 //! 启用异步接口，基于 `async-std` 库。
 //!
-//! #### `tokio_runtime`
+//! #### `tokio-runtime`
 //!
 //! 启用异步接口，基于 `tokio` 库。
 //!
@@ -173,7 +173,7 @@ pub use single_part_uploader::{FormUploader, SinglePartUploader};
 pub use upload_manager::{UploadManager, UploadManagerBuilder};
 pub use upload_token::{UploadTokenSigner, UploadTokenSignerBuilder};
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 pub use {
     data_source::{
         AsyncDataSource, AsyncDataSourceReader, AsyncFileDataSource, AsyncSeekableSource, AsyncUnseekableDataSource,
@@ -191,6 +191,6 @@ pub mod prelude {
         SinglePartUploader, UploadedPart, UploaderWithCallbacks,
     };
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     pub use super::{AppendOnlyAsyncResumableRecorderMedium, AsyncDataSource, ReadOnlyAsyncResumableRecorderMedium};
 }

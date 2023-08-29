@@ -22,7 +22,7 @@ qiniu-sdk = { version = "0.3.0", path = "../sdk", features = [
     "apis",
     "upload",
     "objects",
-    "async_std_runtime",
+    "async-std-runtime",
     "isahc",
     "trust_dns",
 ] }

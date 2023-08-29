@@ -40,17 +40,17 @@ qiniu-utils = { version = "0.3.0", path = "../utils", features = ["macros"] }
 
 [features]
 default = ["ureq"]
-async_std_runtime = [
+async-std-runtime = [
     "futures",
     "async-once-cell",
-    "qiniu-utils/async_std_runtime",
-    "qiniu-apis/async_std_runtime",
+    "qiniu-utils/async-std-runtime",
+    "qiniu-apis/async-std-runtime",
 ]
-tokio_runtime = [
+tokio-runtime = [
     "futures",
     "async-once-cell",
-    "qiniu-utils/tokio_runtime",
-    "qiniu-apis/tokio_runtime",
+    "qiniu-utils/tokio-runtime",
+    "qiniu-apis/tokio-runtime",
 ]
 reqwest = ["qiniu-apis/reqwest"]
 isahc = ["qiniu-apis/isahc"]

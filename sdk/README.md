@@ -52,11 +52,11 @@
 
 允许通过 `qiniu_sdk::download` 来访问 `qiniu-download-manager`。
 
-#### `async_std_runtime`
+#### `async-std-runtime`
 
 启用异步接口，基于 `async-std` 库。
 
-#### `tokio_runtime`
+#### `tokio-runtime`
 
 启用异步接口，基于 `tokio` 库。
 

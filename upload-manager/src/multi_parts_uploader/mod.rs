@@ -15,7 +15,7 @@ use qiniu_upload_token::{BucketName, ObjectName};
 use serde_json::Value;
 use std::{fmt::Debug, num::NonZeroU64};
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use {super::AsyncDataSource, futures::future::BoxFuture};
 
 pub(super) struct PartsExpiredError;
@@ -97,18 +97,18 @@ pub trait MultiPartsUploader:
         params: ObjectParams,
     ) -> Option<Self::InitializedParts>;
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     /// 初始化的异步分片信息
     type AsyncInitializedParts: InitializedParts + 'static;
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     /// 已经上传的异步分片信息
     type AsyncUploadedPart: UploadedPart;
@@ -116,10 +116,10 @@ pub trait MultiPartsUploader:
     /// 异步初始化分片信息
     ///
     /// 该步骤只负责初始化分片，但不实际上传数据，如果提供了有效的断点续传记录器，则可以尝试在这一步找到记录。
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_initialize_parts<D: AsyncDataSource<Self::HashAlgorithm> + 'static>(
         &self,
@@ -132,10 +132,10 @@ pub trait MultiPartsUploader:
     /// 实际上传的分片大小由提供的分片大小提供者获取。
     ///
     /// 如果返回 [`Ok(None)`] 则表示已经没有更多分片可以上传。
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_upload_part<'r>(
         &'r self,
@@ -146,10 +146,10 @@ pub trait MultiPartsUploader:
     /// 异步完成分片上传
     ///
     /// 在这步成功返回后，对象即可被读取。
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_complete_parts<'r>(
         &'r self,
@@ -160,10 +160,10 @@ pub trait MultiPartsUploader:
     /// 异步重新初始化分片信息
     ///
     /// 该步骤负责将先前已经初始化过的分片信息全部重置，清空断点续传记录器中的记录，之后从头上传整个文件
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_reinitialize_parts<'r>(
         &'r self,
@@ -174,10 +174,10 @@ pub trait MultiPartsUploader:
     /// 异步尝试恢复记录
     ///
     /// 如果提供了有效的断点续传记录器，该方法可以尝试在找到记录，如果找不到记录，或记录无法读取，则返回 `None`。
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn try_to_async_resume_parts<D: AsyncDataSource<Self::HashAlgorithm> + 'static>(
         &self,
@@ -247,7 +247,7 @@ impl ReinitializeOptions {
         }
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     async fn async_get_up_endpoints<M: MultiPartsUploader>(
         &self,
         uploader: &M,
@@ -327,12 +327,12 @@ pub(super) trait MultiPartsUploaderExt: MultiPartsUploader {
         self.upload_manager().upload_token().bucket_name()
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     fn async_access_key(&self) -> BoxFuture<ApiResult<AccessKey>> {
         Box::pin(async move { self.upload_manager().upload_token().async_access_key().await })
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     fn async_bucket_name(&self) -> BoxFuture<ApiResult<BucketName>> {
         Box::pin(async move { self.upload_manager().upload_token().async_bucket_name().await })
     }
@@ -345,7 +345,7 @@ pub(super) trait MultiPartsUploaderExt: MultiPartsUploader {
         }
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     fn async_get_bucket_regions<'a>(&'a self, params: &'a ObjectParams) -> BoxFuture<'a, ApiResult<GotRegions>> {
         Box::pin(async move {
             if let Some(region_provider) = params.region_provider() {
@@ -373,7 +373,7 @@ pub(super) trait MultiPartsUploaderExt: MultiPartsUploader {
         Ok(up_endpoints)
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     fn async_get_up_endpoints<'a>(&'a self, params: &'a ObjectParams) -> BoxFuture<'a, ApiResult<Endpoints>> {
         Box::pin(async move {
             let options = EndpointsGetOptions::builder().service_names(&[ServiceName::Up]).build();
@@ -399,7 +399,7 @@ pub(super) trait MultiPartsUploaderExt: MultiPartsUploader {
             .query(self.access_key()?, self.bucket_name()?))
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     fn async_get_bucket_region(&self) -> BoxFuture<ApiResult<BucketRegionsProvider>> {
         Box::pin(async move {
             Ok(self

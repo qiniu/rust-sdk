@@ -38,15 +38,15 @@ sha-1 = "0.10.1"
 
 [features]
 default = ["ureq"]
-async_std_runtime = [
+async-std-runtime = [
     "futures",
-    "qiniu-apis/async_std_runtime",
-    "qiniu-utils/async_std_runtime",
+    "qiniu-apis/async-std-runtime",
+    "qiniu-utils/async-std-runtime",
 ]
-tokio_runtime = [
+tokio-runtime = [
     "futures",
-    "qiniu-apis/tokio_runtime",
-    "qiniu-utils/tokio_runtime",
+    "qiniu-apis/tokio-runtime",
+    "qiniu-utils/tokio-runtime",
 ]
 reqwest = ["qiniu-apis/reqwest"]
 isahc = ["qiniu-apis/isahc"]

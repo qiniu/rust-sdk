@@ -15,19 +15,19 @@ mod reader;
 pub(crate) use reader::Digestible;
 pub use reader::{DataSource, DataSourceReader};
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 mod async_seekable;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 mod async_unseekable;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 mod async_file;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 mod async_reader;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 pub use {
     async_file::AsyncFileDataSource,
     async_reader::{AsyncDataSource, AsyncDataSourceReader},
@@ -35,7 +35,7 @@ pub use {
     async_unseekable::AsyncUnseekableDataSource,
 };
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 pub(crate) use {async_reader::AsyncDigestible, async_seekable::AsyncSeekableDataSource};
 
 #[cfg(test)]
@@ -102,7 +102,7 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[qiniu_utils::async_runtime::test]
     async fn test_async_data_source_reader() -> Result<()> {
         use futures::{

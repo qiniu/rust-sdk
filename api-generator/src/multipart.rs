@@ -70,7 +70,7 @@ impl CodeGenerator for MultipartFormDataRequestStruct {
                 #sync_token_stream
             }
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             #[doc = "异步 Multipart 表单"]
             pub mod async_part {
                 #async_token_stream

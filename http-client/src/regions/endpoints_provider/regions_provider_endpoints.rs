@@ -4,7 +4,7 @@ use super::{
 };
 use std::borrow::Cow;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use futures::future::BoxFuture;
 
 /// 区域终端地址列表获取
@@ -31,10 +31,10 @@ impl<R: RegionsProvider + Clone> EndpointsProvider for RegionsProviderEndpoints<
     }
 
     #[inline]
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_get_endpoints<'a>(
         &'a self,

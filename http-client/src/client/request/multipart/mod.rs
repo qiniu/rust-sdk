@@ -25,10 +25,10 @@ use std::{
 mod sync_part;
 pub use sync_part::{SyncMultipart, SyncPart, SyncPartBody};
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 mod async_part;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 pub use async_part::{AsyncMultipart, AsyncPart, AsyncPartBody};
 
 /// 文件名

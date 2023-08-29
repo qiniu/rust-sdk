@@ -14,7 +14,7 @@ use std::{
     time::Duration,
 };
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use {
     super::super::super::cache::{AsyncCache, AsyncCacheController},
     futures::future::BoxFuture,
@@ -25,7 +25,7 @@ use {
 pub(super) struct EndpointsCache {
     cache: Cache<CacheKey, Endpoints>,
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     async_cache: AsyncCache<CacheKey, Endpoints>,
 }
 
@@ -39,7 +39,7 @@ impl EndpointsCache {
         Self {
             cache: Cache::load_or_create_from(path, auto_persistent, cache_lifetime, shrink_interval),
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             async_cache: AsyncCache::load_or_create_from(path, auto_persistent, cache_lifetime, shrink_interval),
         }
     }
@@ -68,7 +68,7 @@ impl EndpointsCache {
         Self {
             cache: Cache::in_memory(cache_lifetime, shrink_interval),
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             async_cache: AsyncCache::in_memory(cache_lifetime, shrink_interval),
         }
     }
@@ -77,7 +77,7 @@ impl EndpointsCache {
         self.cache.get(key, f)
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     pub(super) async fn async_get<Fut: Future<Output = ApiResult<Endpoints>>>(
         &self,
         key: &CacheKey,
@@ -94,7 +94,7 @@ impl CacheController for EndpointsCache {
     }
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 impl AsyncCacheController for EndpointsCache {
     #[inline]
     fn async_clear(&self) -> BoxFuture<()> {

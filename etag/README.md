@@ -8,7 +8,7 @@
 
 ## 概览
 
-负责根据输入的数据计算七牛 Etag，适配 V1 和 V2 版本，同时提供阻塞接口和异步接口（异步接口需要启用 `async_std_runtime` 或 `tokio_runtime` 功能）
+负责根据输入的数据计算七牛 Etag，适配 V1 和 V2 版本，同时提供阻塞接口和异步接口（异步接口需要启用 `async-std-runtime` 或 `tokio-runtime` 功能）
 
 七牛 Etag 文档：https://developer.qiniu.com/kodo/1231/appendix
 
@@ -25,14 +25,14 @@ qiniu-etag = "0.3.0"
 
 ```toml
 [dependencies]
-qiniu-etag = { version = "0.3.0", features = ["async_std_runtime"] }
+qiniu-etag = { version = "0.3.0", features = ["async-std-runtime"] }
 ```
 
 ### 启用异步接口（基于 `tokio`）
 
 ```toml
 [dependencies]
-qiniu-etag = { version = "0.3.0", features = ["tokio_runtime"] }
+qiniu-etag = { version = "0.3.0", features = ["tokio-runtime"] }
 ```
 
 ## 代码示例

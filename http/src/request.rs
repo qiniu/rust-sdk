@@ -748,7 +748,7 @@ mod body {
         }
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     mod async_body {
         use super::super::super::{AsyncReset, BoxFuture};
         use assert_impl::assert_impl;
@@ -768,7 +768,7 @@ mod body {
         #[derive(Debug)]
         #[cfg_attr(
             feature = "docs",
-            doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+            doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
         )]
         struct OwnedAsyncRequestBody<'a>(OwnedAsyncRequestBodyInner<'a>);
 
@@ -840,7 +840,7 @@ mod body {
         #[derive(Debug)]
         #[cfg_attr(
             feature = "docs",
-            doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+            doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
         )]
         pub struct AsyncRequestBody<'a>(AsyncRequestBodyInner<'a>);
 
@@ -981,11 +981,11 @@ mod body {
         }
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     pub use async_body::*;
 }
 
 pub use body::RequestBody;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 pub use body::AsyncRequestBody;

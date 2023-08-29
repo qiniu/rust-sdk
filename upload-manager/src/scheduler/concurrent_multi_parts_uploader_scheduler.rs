@@ -24,7 +24,7 @@ use std::{
 };
 use tap::Tap;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use {
     super::AsyncDataSource,
     futures::future::{join_all, BoxFuture, OptionFuture},
@@ -478,10 +478,10 @@ impl<M: MultiPartsUploader + 'static> MultiPartsUploaderScheduler<M::HashAlgorit
         }
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_upload(
         &self,

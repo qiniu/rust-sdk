@@ -24,7 +24,7 @@ use std::{
     sync::Arc,
 };
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use {
     futures::{
         io::{copy as async_copy, Cursor as AsyncCursor},
@@ -176,7 +176,7 @@ macro_rules! sync_block {
     };
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 macro_rules! async_block {
     ($code:block) => {
         $code.await
@@ -285,10 +285,10 @@ macro_rules! with_uploader {
 trait ReadDebug: Read + Debug {}
 impl<T: Read + Debug> ReadDebug for T {}
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 trait AsyncReadDebug: AsyncRead + Debug {}
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 impl<T: AsyncRead + Debug> AsyncReadDebug for T {}
 
 impl<H: Digest + Send + 'static> AutoUploader<H> {
@@ -352,10 +352,10 @@ impl<H: Digest + Send + 'static> AutoUploader<H> {
     }
 
     /// 异步上传指定路径的文件
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     pub async fn async_upload_path<'a>(
         &'a self,
@@ -383,10 +383,10 @@ impl<H: Digest + Send + 'static> AutoUploader<H> {
     }
 
     /// 异步上传不可寻址的阅读器的数据
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     pub async fn async_upload_reader<R: AsyncRead + Unpin + Debug + Send + Sync + 'static>(
         &self,

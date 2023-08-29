@@ -12,7 +12,7 @@ use qiniu_credential::AccessKey;
 use qiniu_upload_token::BucketName;
 use std::{convert::TryFrom, fmt::Debug, mem::take, path::Path, time::Duration};
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use futures::future::BoxFuture;
 
 const DEFAULT_SHRINK_INTERVAL: Duration = Duration::from_secs(86400);
@@ -259,10 +259,10 @@ impl RegionsProvider for BucketRegionsProvider {
     }
 
     #[inline]
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_get(&self, opts: GetOptions) -> BoxFuture<'_, ApiResult<GotRegion>> {
         Box::pin(async move {
@@ -273,10 +273,10 @@ impl RegionsProvider for BucketRegionsProvider {
     }
 
     #[inline]
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_get_all(&self, _opts: GetOptions) -> BoxFuture<'_, ApiResult<GotRegions>> {
         Box::pin(async move {
@@ -303,7 +303,7 @@ impl BucketRegionsProvider {
         )
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     async fn do_async_query(&self) -> ApiResult<GotRegions> {
         handle_response_body(
             self.queryer
@@ -333,7 +333,7 @@ fn handle_response_body(response: Response<ResponseBody>) -> ApiResult<GotRegion
     Ok(got_regions)
 }
 
-#[cfg(all(test, feature = "isahc", feature = "tokio_runtime"))]
+#[cfg(all(test, feature = "isahc", feature = "tokio-runtime"))]
 mod tests {
     use super::{super::super::Endpoint, *};
     use futures::channel::oneshot::channel;

@@ -14,7 +14,7 @@ use std::{
     time::Duration,
 };
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use {
     super::super::super::cache::{AsyncCache, AsyncCacheController},
     futures::future::BoxFuture,
@@ -25,7 +25,7 @@ use {
 pub(super) struct RegionsCache {
     cache: Cache<CacheKey, GotRegions>,
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     async_cache: AsyncCache<CacheKey, GotRegions>,
 }
 
@@ -39,7 +39,7 @@ impl RegionsCache {
         Self {
             cache: Cache::load_or_create_from(path, auto_persistent, cache_lifetime, shrink_interval),
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             async_cache: AsyncCache::load_or_create_from(path, auto_persistent, cache_lifetime, shrink_interval),
         }
     }
@@ -68,7 +68,7 @@ impl RegionsCache {
         Self {
             cache: Cache::in_memory(cache_lifetime, shrink_interval),
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             async_cache: AsyncCache::in_memory(cache_lifetime, shrink_interval),
         }
     }
@@ -88,7 +88,7 @@ impl RegionsCache {
     }
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 impl RegionsCache {
     pub(super) async fn async_get<Fut: Future<Output = ApiResult<GotRegions>>>(
         &self,
@@ -116,7 +116,7 @@ impl CacheController for RegionsCache {
     }
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 impl AsyncCacheController for RegionsCache {
     #[inline]
     fn async_clear(&self) -> BoxFuture<()> {
@@ -357,7 +357,7 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     mod async_test {
         use super::*;
         use qiniu_utils::async_task::sleep;

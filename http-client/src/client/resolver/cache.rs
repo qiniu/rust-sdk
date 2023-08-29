@@ -7,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use {super::super::super::cache::AsyncCache, futures::future::BoxFuture};
 
 const DEFAULT_SHRINK_INTERVAL: Duration = Duration::from_secs(120);
@@ -23,7 +23,7 @@ pub struct CachedResolver<R: ?Sized> {
     resolver: Arc<R>,
     cache: Cache<String, ResolveAnswers>,
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     async_cache: AsyncCache<String, ResolveAnswers>,
 }
 
@@ -70,7 +70,7 @@ impl<R> Clone for CachedResolver<R> {
             resolver: self.resolver.clone(),
             cache: self.cache.clone(),
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             async_cache: self.async_cache.clone(),
         }
     }
@@ -81,10 +81,10 @@ impl<R: Resolver + 'static> Resolver for CachedResolver<R> {
         self.cache.get(domain, || self.resolver.resolve(domain, opts))
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_resolve<'a>(&'a self, domain: &'a str, opts: ResolveOptions<'a>) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
@@ -142,7 +142,7 @@ impl<R> CachedResolverBuilder<R> {
                 self.shrink_interval,
             ),
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             async_cache: AsyncCache::load_or_create_from(
                 path.as_ref(),
                 auto_persistent,
@@ -166,7 +166,7 @@ impl<R> CachedResolverBuilder<R> {
                 self.shrink_interval,
             ),
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             async_cache: AsyncCache::load_or_create_from(
                 &CachedResolver::<R>::default_persistent_path(),
                 auto_persistent,
@@ -185,7 +185,7 @@ impl<R> CachedResolverBuilder<R> {
             resolver: Arc::new(self.resolver),
             cache: Cache::in_memory(self.cache_lifetime, self.shrink_interval),
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             async_cache: AsyncCache::in_memory(self.cache_lifetime, self.shrink_interval),
         }
     }
@@ -239,10 +239,10 @@ mod tests {
                 .into())
         }
 
-        #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+        #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
         #[cfg_attr(
             feature = "docs",
-            doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+            doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
         )]
         fn async_resolve<'a>(&'a self, _domain: &'a str, _opts: ResolveOptions) -> BoxFuture<'a, ResolveResult> {
             unreachable!()

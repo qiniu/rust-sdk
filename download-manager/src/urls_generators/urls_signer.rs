@@ -3,7 +3,7 @@ use http::Uri;
 use qiniu_apis::{credential::CredentialProvider, http_client::ApiResult};
 use std::time::Duration;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use futures::future::BoxFuture;
 
 /// URL 列表签名器
@@ -38,10 +38,10 @@ impl DownloadUrlsGenerator for UrlsSigner {
             .collect())
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_generate<'a>(
         &'a self,

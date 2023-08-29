@@ -9,7 +9,7 @@
 ## 概览
 
 负责存储调用七牛 API 所必要的认证信息，提供 `CredentialProvider` 方便扩展获取认证信息的方式。
-同时提供阻塞接口和异步接口（异步接口需要启用 `async_std_runtime` 或 `tokio_runtime` 功能）。
+同时提供阻塞接口和异步接口（异步接口需要启用 `async-std-runtime` 或 `tokio-runtime` 功能）。
 提供 `CredentialProvider` 的多个实现方式，例如：
 
 - `GlobalCredentialProvider` 使用全局变量配置的认证信息
@@ -27,14 +27,14 @@ qiniu-credential = "0.3.0"
 
 ```toml
 [dependencies]
-qiniu-credential = { version = "0.3.0", features = ["async_std_runtime"] }
+qiniu-credential = { version = "0.3.0", features = ["async-std-runtime"] }
 ```
 
 ### 启用异步接口（基于 `tokio`）
 
 ```toml
 [dependencies]
-qiniu-credential = { version = "0.3.0", features = ["tokio_runtime"] }
+qiniu-credential = { version = "0.3.0", features = ["tokio-runtime"] }
 ```
 
 ## 代码示例

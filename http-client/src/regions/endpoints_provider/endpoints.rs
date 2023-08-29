@@ -110,7 +110,7 @@ impl Endpoints {
         ))
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     pub(super) async fn async_from_region_provider(
         region_provider: &dyn RegionsProvider,
         services: &[ServiceName],

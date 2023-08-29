@@ -21,7 +21,7 @@ use qiniu_apis::{
 };
 use std::{borrow::Cow, io::Result as IOResult, mem::take, sync::Arc};
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use {super::list::ListStream, async_once_cell::OnceCell as AsyncOnceCell};
 
 /// 七牛存储空间管理器
@@ -35,7 +35,7 @@ struct BucketInner {
     region_provider: Option<Box<dyn RegionsProvider>>,
     bucket_regions_provider: OnceCell<BucketRegionsProvider>,
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     async_bucket_regions_provider: AsyncOnceCell<BucketRegionsProvider>,
 }
 
@@ -51,7 +51,7 @@ impl Bucket {
             region_provider,
             bucket_regions_provider: Default::default(),
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             async_bucket_regions_provider: AsyncOnceCell::new(),
         }))
     }
@@ -529,7 +529,7 @@ impl Bucket {
             })
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     pub(super) async fn async_region_provider(&self) -> IOResult<&dyn RegionsProvider> {
         return if let Some(region_provider) = self.0.region_provider.as_ref() {
             Ok(region_provider)
@@ -680,10 +680,10 @@ impl<'a> ListBuilder<'a> {
     ///
     /// 对象列举流采用异步 API 列举对象信息
     #[inline]
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     pub fn stream(&mut self) -> ListStream<'a> {
         let owned = self.take_self();

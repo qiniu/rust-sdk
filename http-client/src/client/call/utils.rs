@@ -19,7 +19,7 @@ use qiniu_http::{
 use std::{borrow::Cow, io::Error as IoError, net::IpAddr, time::Duration};
 use url::ParseError as UrlParseError;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use {
     super::super::AsyncResponse,
     qiniu_http::{AsyncRequestBody, AsyncReset},
@@ -134,7 +134,7 @@ pub(super) fn reset_request_body(body: &mut SyncRequestBody<'_>, retried: &Retri
     })
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 pub(super) async fn reset_async_request_body(
     body: &mut AsyncRequestBody<'_>,
     retried: &RetriedStatsInfo,
@@ -402,7 +402,7 @@ fn check_x_req_id(response: &mut SyncResponse, retried: &RetriedStatsInfo) -> Ap
     }
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 async fn async_check_x_req_id(response: &mut AsyncResponse, retried: &RetriedStatsInfo) -> ApiResult<()> {
     if response.x_reqid().is_some() {
         Ok(())
@@ -431,7 +431,7 @@ fn make_unexpected_status_code_error(parts: &ResponseParts, retried: &RetriedSta
     .retried(retried)
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 mod async_utils {
     use super::{
         super::super::{AsyncResponse, InnerRequestParts},
@@ -535,7 +535,7 @@ mod async_utils {
     }
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 pub(super) use async_utils::*;
 
 #[cfg(test)]

@@ -19,7 +19,7 @@ use std::{
     num::NonZeroU16,
 };
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use {
     futures::{AsyncRead, AsyncReadExt},
     qiniu_utils::async_task::JoinError,
@@ -152,7 +152,7 @@ impl Error {
 
     /// 异步设置响应体样本
     #[inline]
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     pub async fn async_read_response_body_sample<R: AsyncRead + Unpin>(mut self, body: R) -> IOResult<Self> {
         body.take(RESPONSE_BODY_SAMPLE_LEN_LIMIT)
             .read_to_end(&mut self.response_body_sample)
@@ -333,7 +333,7 @@ impl From<IoError> for Error {
     }
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 impl From<JoinError> for Error {
     #[inline]
     fn from(error: JoinError) -> Self {

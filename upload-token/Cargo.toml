@@ -37,15 +37,15 @@ qiniu-utils = { version = "0.3.0", path = "../utils", features = ["macros"] }
 
 [features]
 default = []
-async_std_runtime = [
+async-std-runtime = [
     "futures",
-    "qiniu-utils/async_std_runtime",
-    "qiniu-credential/async_std_runtime",
+    "qiniu-utils/async-std-runtime",
+    "qiniu-credential/async-std-runtime",
 ]
-tokio_runtime = [
+tokio-runtime = [
     "futures",
-    "qiniu-utils/tokio_runtime",
-    "qiniu-credential/tokio_runtime",
+    "qiniu-utils/tokio-runtime",
+    "qiniu-credential/tokio-runtime",
 ]
 docs = []
 

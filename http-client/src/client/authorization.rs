@@ -19,7 +19,7 @@ use tap::Tap;
 use thiserror::Error;
 use url::ParseError as UrlParseError;
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use {futures::future::BoxFuture, qiniu_http::AsyncRequest};
 
 /// 七牛鉴权签名接口
@@ -34,10 +34,10 @@ pub trait AuthorizationProvider: Clone + Debug + Sync + Send {
     fn sign(&self, request: &mut SyncRequest) -> AuthorizationResult<()>;
 
     /// 使用指定的鉴权方式对异步 HTTP 请求进行签名
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>>;
 }
@@ -68,10 +68,10 @@ impl<P: UploadTokenProvider + Clone> AuthorizationProvider for UploadTokenAuthor
         Ok(())
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         Box::pin(async move {
@@ -118,10 +118,10 @@ impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthoriz
         }
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         return Box::pin(async move {
@@ -155,7 +155,7 @@ fn authorization_v1_for_request(credential: &Credential, request: &mut SyncReque
         .map_err(|err| err.into())
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 async fn authorization_v1_for_async_request(
     credential: &Credential,
     request: &mut AsyncRequest<'_>,
@@ -253,10 +253,10 @@ impl<P: CredentialProvider + Clone> AuthorizationProvider for CredentialAuthoriz
         }
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         return Box::pin(async move {
@@ -300,7 +300,7 @@ fn authorization_v2_for_request(credential: &Credential, request: &mut SyncReque
         .map_err(|err| err.into())
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 async fn authorization_v2_for_async_request(
     credential: &Credential,
     request: &mut AsyncRequest<'_>,
@@ -359,10 +359,10 @@ impl<P: CredentialProvider + Clone> AuthorizationProvider for DownloadUrlCredent
         Ok(())
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         Box::pin(async move {
@@ -481,10 +481,10 @@ impl AuthorizationProvider for Authorization<'_> {
         self.as_ref().sign(request)
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_sign<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AuthorizationResult<()>> {
         self.as_ref().async_sign(request)

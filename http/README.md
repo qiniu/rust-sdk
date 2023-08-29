@@ -8,7 +8,7 @@
 
 ## 概览
 
-为更高层的 HTTP 客户端提供基础 HTTP 请求接口 `HttpCaller`（同时提供阻塞接口和异步接口，异步接口需要启用 `async_std_runtime` 或 `tokio_runtime` 功能），
+为更高层的 HTTP 客户端提供基础 HTTP 请求接口 `HttpCaller`（同时提供阻塞接口和异步接口，异步接口需要启用 `async-std-runtime` 或 `tokio-runtime` 功能），
 使不同的 HTTP 客户端基于相同的接口实现，
 以便于七牛 API 调用层可以灵活切换 HTTP 客户端实现。
 该接口库只关注 HTTP 调用相关逻辑，不包含七牛 API 调用相关逻辑。
@@ -26,14 +26,14 @@ qiniu-http = "0.3.0"
 
 ```toml
 [dependencies]
-qiniu-http = { version = "0.3.0", features = ["async_std_runtime"] }
+qiniu-http = { version = "0.3.0", features = ["async-std-runtime"] }
 ```
 
 ### 启用异步接口（基于 `tokio`）
 
 ```toml
 [dependencies]
-qiniu-http = { version = "0.3.0", features = ["tokio_runtime"] }
+qiniu-http = { version = "0.3.0", features = ["tokio-runtime"] }
 ```
 
 ## 最低支持的 Rust 版本（MSRV）

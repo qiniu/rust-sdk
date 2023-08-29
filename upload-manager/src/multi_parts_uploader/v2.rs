@@ -49,7 +49,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use {
     super::super::{
         data_source::{AsyncDataSource, AsyncDigestible},
@@ -481,24 +481,24 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV2Uploader<H> 
         }
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     type AsyncInitializedParts = MultiPartsV2UploaderInitializedObject<Box<dyn AsyncDataSource<H>>>;
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     type AsyncUploadedPart = MultiPartsV2UploaderUploadedPart;
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_initialize_parts<D: AsyncDataSource<Self::HashAlgorithm> + 'static>(
         &self,
@@ -526,10 +526,10 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV2Uploader<H> 
         })
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn try_to_async_resume_parts<D: AsyncDataSource<Self::HashAlgorithm> + 'static>(
         &self,
@@ -555,10 +555,10 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV2Uploader<H> 
         })
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_reinitialize_parts<'r>(
         &'r self,
@@ -577,10 +577,10 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV2Uploader<H> 
         })
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_upload_part<'r>(
         &'r self,
@@ -720,10 +720,10 @@ impl<H: Digest + Send + 'static> MultiPartsUploader for MultiPartsV2Uploader<H> 
         }
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_complete_parts<'r>(
         &'r self,
@@ -858,7 +858,7 @@ fn sha1_of_sync_reader<R: Read + Reset>(reader: &mut R) -> IoResult<String> {
     Ok(urlsafe_base64(Digestible::<Sha1>::digest(reader)?.as_slice()))
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 async fn sha1_of_async_reader<R: AsyncRead + AsyncReset + Unpin + Send>(reader: &mut R) -> IoResult<String> {
     Ok(urlsafe_base64(
         AsyncDigestible::<Sha1>::digest(reader).await?.as_slice(),
@@ -937,7 +937,7 @@ impl<H: Digest + Send + 'static> MultiPartsV2Uploader<H> {
         }
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     async fn async_call_initialize_parts(
         &self,
         params: &ObjectParams,
@@ -1051,7 +1051,7 @@ impl<H: Digest + Send + 'static> MultiPartsV2Uploader<H> {
         Ok(records)
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     async fn async_resume_or_create_records<D: AsyncDataSource<H>>(
         &self,
         source: &D,
@@ -1081,7 +1081,7 @@ impl<H: Digest + Send + 'static> MultiPartsV2Uploader<H> {
         Ok(result)
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     async fn try_to_async_resume_records(
         &self,
         source_key: &SourceKey<H>,
@@ -1124,7 +1124,7 @@ impl<H: Digest + Send + 'static> MultiPartsV2Uploader<H> {
         Ok(Some((info, records)))
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     async fn async_create_new_records<D: AsyncDataSource<H>>(
         &self,
         source: &D,
@@ -1145,7 +1145,7 @@ impl<H: Digest + Send + 'static> MultiPartsV2Uploader<H> {
         Ok(())
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     async fn try_to_async_delete_records<D: AsyncDataSource<H>>(&self, source: &D) -> ApiResult<()> {
         if let Some(source_key) = source.source_key().await? {
             self.resumable_recorder.async_delete(&source_key).await?;
@@ -1166,7 +1166,7 @@ fn _create_new_records<H: Digest>(
     records
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 async fn _async_create_new_records<H: Digest>(
     resumable_recorder: &dyn ResumableRecorder<HashAlgorithm = H>,
     source_key: &SourceKey<H>,
@@ -1313,7 +1313,7 @@ struct AppendOnlyMediumForMultiPartsV2ResumableRecorderRecords {
     header_written: bool,
 }
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 #[derive(Debug)]
 struct AsyncAppendOnlyMediumForMultiPartsV2ResumableRecorderRecords {
     medium: Box<dyn AppendOnlyAsyncResumableRecorderMedium>,
@@ -1326,7 +1326,7 @@ struct MultiPartsV2ResumableRecorderRecords {
     up_endpoints: Endpoints,
     append_only_medium: Option<Arc<Mutex<AppendOnlyMediumForMultiPartsV2ResumableRecorderRecords>>>,
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     async_append_only_medium: Option<Arc<AsyncMutex<AsyncAppendOnlyMediumForMultiPartsV2ResumableRecorderRecords>>>,
 }
 
@@ -1336,7 +1336,7 @@ impl MultiPartsV2ResumableRecorderRecords {
             up_endpoints,
             map: Default::default(),
             append_only_medium: None,
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             async_append_only_medium: None,
         }
     }
@@ -1346,7 +1346,7 @@ impl MultiPartsV2ResumableRecorderRecords {
         )));
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     fn set_medium_for_async_append(
         &mut self,
         medium: Box<dyn AppendOnlyAsyncResumableRecorderMedium>,
@@ -1394,7 +1394,7 @@ impl MultiPartsV2ResumableRecorderRecords {
         Ok(())
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     async fn async_persist(
         &self,
         info: &MultiPartsV2UploaderInitializedResponseInfo,
@@ -1438,7 +1438,7 @@ impl FromIterator<MultiPartsV2ResumableRecorderRecord> for MultiPartsV2Resumable
             up_endpoints: Default::default(),
             append_only_medium: None,
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             async_append_only_medium: None,
         }
     }
@@ -1486,7 +1486,7 @@ mod tests {
     use tempfile::{Builder as TempfileBuilder, TempPath};
     use text_io::scan as scan_text;
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     use {
         crate::data_source::AsyncFileDataSource,
         futures::{
@@ -1577,7 +1577,7 @@ mod tests {
                     .build())
             }
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                 unreachable!()
             }
@@ -1613,7 +1613,7 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[qiniu_utils::async_runtime::test]
     async fn test_async_multi_parts_v2_upload() -> Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
@@ -1630,7 +1630,7 @@ mod tests {
                 unreachable!()
             }
 
-            #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+            #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
             fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     let resp_body = if request.url().path() == "/buckets/fakebucket/objects/~/uploads" {
@@ -1804,7 +1804,7 @@ mod tests {
                         .build())
                 }
 
-                #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+                #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
                 fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                     unreachable!()
                 }
@@ -1909,7 +1909,7 @@ mod tests {
                         .build())
                 }
 
-                #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+                #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
                 fn async_call(&self, _request: &mut AsyncRequest<'_>) -> BoxFuture<AsyncResponseResult> {
                     unreachable!()
                 }
@@ -1947,7 +1947,7 @@ mod tests {
             Ok(())
         }
 
-        #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+        #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
         #[qiniu_utils::async_runtime::test]
         async fn test_async_multi_parts_v2_upload_with_recovery() -> Result<()> {
             use qiniu_utils::async_fs::read_dir as async_read_dir;
@@ -1978,7 +1978,7 @@ mod tests {
                     unreachable!()
                 }
 
-                #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+                #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
                 fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                     Box::pin(async move {
                         let resp_body = if self.allow_init_parts
@@ -2076,7 +2076,7 @@ mod tests {
                     unreachable!()
                 }
 
-                #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+                #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
                 fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                     Box::pin(async move {
                         let resp_body = if request
@@ -2177,7 +2177,7 @@ mod tests {
                     unreachable!()
                 }
 
-                #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+                #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
                 fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                     Box::pin(async move {
                         let resp_body = if request
@@ -2320,7 +2320,7 @@ mod tests {
         Ok(size)
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     async fn size_of_async_reader<R: AsyncRead + AsyncReset + Unpin>(mut reader: &mut R) -> IoResult<u64> {
         let size = async_io_copy(&mut reader, &mut async_io_sink()).await?;
         reader.reset().await?;

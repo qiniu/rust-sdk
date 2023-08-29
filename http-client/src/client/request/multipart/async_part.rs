@@ -47,14 +47,14 @@ impl Debug for AsyncPartBodyInner<'_> {
 #[derive(Debug)]
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub struct AsyncPartBody<'a>(AsyncPartBodyInner<'a>);
 
 /// 异步 Multipart 表单组件
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub type AsyncPart<'a> = Part<AsyncPartBody<'a>>;
 
@@ -125,7 +125,7 @@ impl<'a> AsyncPart<'a> {
 /// 异步 Multipart
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub type AsyncMultipart<'a> = Multipart<AsyncPart<'a>>;
 

@@ -15,12 +15,12 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use futures::future::BoxFuture;
 
 /// 域名解析的接口
 ///
-/// 同时提供阻塞接口和异步接口，异步接口则需要启用 `async_std_runtime` 或 `tokio_runtime` 功能
+/// 同时提供阻塞接口和异步接口，异步接口则需要启用 `async-std-runtime` 或 `tokio-runtime` 功能
 #[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait Resolver: Clone + Debug + Sync + Send {
@@ -31,10 +31,10 @@ pub trait Resolver: Clone + Debug + Sync + Send {
 
     /// 异步解析域名
     #[inline]
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_resolve<'a>(&'a self, domain: &'a str, opts: ResolveOptions<'a>) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move { self.resolve(domain, opts) })
@@ -210,8 +210,8 @@ mod c_ares_impl;
 #[cfg(feature = "c_ares")]
 pub use c_ares_impl::{c_ares, c_ares_resolver, CAresResolver};
 
-#[cfg(all(feature = "trust_dns", any(feature = "async_std_runtime", feature = "tokio_runtime")))]
+#[cfg(all(feature = "trust_dns", any(feature = "async-std-runtime", feature = "tokio-runtime")))]
 mod trust_dns;
 
-#[cfg(all(feature = "trust_dns", any(feature = "async_std_runtime", feature = "tokio_runtime")))]
+#[cfg(all(feature = "trust_dns", any(feature = "async-std-runtime", feature = "tokio-runtime")))]
 pub use trust_dns::{trust_dns_resolver, TrustDnsResolver};

@@ -15,7 +15,7 @@ async fn _etag_of_reader(mut reader: impl AsyncRead + Unpin, out: &mut GenericAr
 /// 异步读取 reader 中的数据并计算它的 Etag V1，生成结果
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub async fn etag_of(reader: impl AsyncRead + Unpin) -> Result<String> {
     let mut buf = GenericArray::default();
@@ -26,7 +26,7 @@ pub async fn etag_of(reader: impl AsyncRead + Unpin) -> Result<String> {
 /// 异步读取 reader 中的数据并计算它的 Etag V1，生成结果到指定的缓冲中
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub async fn etag_to_buf(reader: impl AsyncRead + Unpin, array: &mut [u8; ETAG_SIZE]) -> Result<()> {
     _etag_of_reader(reader, GenericArray::from_mut_slice(array)).await?;
@@ -57,7 +57,7 @@ async fn _etag_of_reader_with_parts(
 /// 根据给出的数据块尺寸，异步读取 reader 中的数据并计算它的 Etag V2，生成结果
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub async fn etag_with_parts(reader: impl AsyncRead + Unpin, parts: &[usize]) -> Result<String> {
     let mut buf = GenericArray::default();
@@ -68,7 +68,7 @@ pub async fn etag_with_parts(reader: impl AsyncRead + Unpin, parts: &[usize]) ->
 /// 根据给出的数据块尺寸，异步读取 reader 中的数据并计算它的 Etag V2，生成结果到指定的数组中
 #[cfg_attr(
     feature = "docs",
-    doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+    doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
 )]
 pub async fn etag_with_parts_to_buf(
     reader: impl AsyncRead + Unpin,

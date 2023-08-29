@@ -4,7 +4,7 @@ use http::Uri;
 use qiniu_apis::http_client::ApiResult;
 use std::{fmt::Debug, mem::take, time::Duration};
 
-#[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+#[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 use futures::future::BoxFuture;
 
 /// 生成下载 URL 列表的接口
@@ -19,10 +19,10 @@ pub trait DownloadUrlsGenerator: Clone + Debug + Sync + Send {
     fn generate(&self, object_name: &str, options: GeneratorOptions<'_>) -> ApiResult<Vec<Uri>>;
 
     /// 异步生成下载 URL 列表
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[cfg_attr(
         feature = "docs",
-        doc(cfg(any(feature = "async_std_runtime", feature = "tokio_runtime")))
+        doc(cfg(any(feature = "async-std-runtime", feature = "tokio-runtime")))
     )]
     fn async_generate<'a>(
         &'a self,

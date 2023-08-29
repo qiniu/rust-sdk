@@ -24,8 +24,8 @@ futures = { version = "0.3.28", optional = true }
 qiniu-http = { version = "0.3.0", path = "../http" }
 
 [features]
-async_std_runtime = ["futures", "qiniu-http/async_std_runtime"]
-tokio_runtime = ["futures", "qiniu-http/tokio_runtime"]
+async-std-runtime = ["futures", "qiniu-http/async-std-runtime"]
+tokio-runtime = ["futures", "qiniu-http/tokio-runtime"]
 http2 = ["isahc/http2"]
 psl = ["isahc/psl"]
 spnego = ["isahc/spnego"]

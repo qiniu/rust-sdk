@@ -301,7 +301,7 @@ mod tests {
         );
     }
 
-    #[cfg(any(feature = "async_std_runtime", feature = "tokio_runtime"))]
+    #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
     #[qiniu_utils::async_runtime::test]
     async fn test_ip_chooser_expiration_and_shrink() {
         use futures_timer::Delay as AsyncDelay;
