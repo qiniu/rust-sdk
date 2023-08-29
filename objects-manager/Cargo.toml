@@ -57,9 +57,18 @@ isahc = ["qiniu-apis/isahc"]
 ureq = ["qiniu-apis/ureq"]
 c_ares = ["qiniu-apis/c_ares"]
 trust_dns = ["qiniu-apis/trust_dns"]
-tokio1 = ["qiniu-apis/tokio1"]
-tokio02 = ["qiniu-apis/tokio02"]
-tokio03 = ["qiniu-apis/tokio03"]
+async-std-runtime-tokio1 = [
+    "async-std-runtime",
+    "qiniu-apis/async-std-runtime-tokio1",
+]
+async-std-runtime-tokio02 = [
+    "async-std-runtime",
+    "qiniu-apis/async-std-runtime-tokio02",
+]
+async-std-runtime-tokio03 = [
+    "async-std-runtime",
+    "qiniu-apis/async-std-runtime-tokio03",
+]
 dns-over-https = ["qiniu-apis/dns-over-https"]
 dns-over-https-rustls = ["qiniu-apis/dns-over-https-rustls"]
 dns-over-tls = ["qiniu-apis/dns-over-tls"]

@@ -90,7 +90,7 @@ pub trait MultiPartsUploader:
     ///
     /// 如果提供了有效的断点续传记录器，该方法可以尝试在找到记录，如果找不到记录，或记录无法读取，则返回 `None`。
     ///
-    /// 该方法的异步版本为 [`Self::try_to_async_resume_records`]。
+    /// 该方法的异步版本为 [`Self::try_to_async_resume_parts`]。
     fn try_to_resume_parts<D: DataSource<Self::HashAlgorithm> + 'static>(
         &self,
         source: D,

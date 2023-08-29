@@ -110,26 +110,29 @@ trust_dns = [
     "qiniu-upload-manager?/trust_dns",
     "qiniu-download-manager?/trust_dns",
 ]
-tokio1 = [
-    "qiniu-http-client?/tokio1",
-    "qiniu-apis?/tokio1",
-    "qiniu-objects-manager?/tokio1",
-    "qiniu-upload-manager?/tokio1",
-    "qiniu-download-manager?/tokio1",
+async-std-runtime-tokio1 = [
+    "async-std-runtime",
+    "qiniu-http-client?/async-std-runtime-tokio1",
+    "qiniu-apis?/async-std-runtime-tokio1",
+    "qiniu-objects-manager?/async-std-runtime-tokio1",
+    "qiniu-upload-manager?/async-std-runtime-tokio1",
+    "qiniu-download-manager?/async-std-runtime-tokio1",
 ]
-tokio02 = [
-    "qiniu-http-client?/tokio02",
-    "qiniu-apis?/tokio02",
-    "qiniu-objects-manager?/tokio02",
-    "qiniu-upload-manager?/tokio02",
-    "qiniu-download-manager?/tokio02",
+async-std-runtime-tokio02 = [
+    "async-std-runtime",
+    "qiniu-http-client?/async-std-runtime-tokio02",
+    "qiniu-apis?/async-std-runtime-tokio02",
+    "qiniu-objects-manager?/async-std-runtime-tokio02",
+    "qiniu-upload-manager?/async-std-runtime-tokio02",
+    "qiniu-download-manager?/async-std-runtime-tokio02",
 ]
-tokio03 = [
-    "qiniu-http-client?/tokio03",
-    "qiniu-apis?/tokio03",
-    "qiniu-objects-manager?/tokio03",
-    "qiniu-upload-manager?/tokio03",
-    "qiniu-download-manager?/tokio03",
+async-std-runtime-tokio03 = [
+    "async-std-runtime",
+    "qiniu-http-client?/async-std-runtime-tokio03",
+    "qiniu-apis?/async-std-runtime-tokio03",
+    "qiniu-objects-manager?/async-std-runtime-tokio03",
+    "qiniu-upload-manager?/async-std-runtime-tokio03",
+    "qiniu-download-manager?/async-std-runtime-tokio03",
 ]
 dns-over-https = [
     "qiniu-http-client?/dns-over-https",

@@ -35,7 +35,7 @@
 mod extensions;
 mod sync_client;
 
-#[cfg(feature = "tokio-runtime")]
+#[cfg(any(feature = "tokio-runtime", feature = "async-std-runtime"))]
 mod async_client;
 
 pub use extensions::*;
@@ -43,7 +43,7 @@ pub use qiniu_http as http;
 pub use reqwest;
 pub use sync_client::SyncClient;
 
-#[cfg(feature = "tokio-runtime")]
+#[cfg(any(feature = "tokio-runtime", feature = "async-std-runtime"))]
 pub use async_client::AsyncClient;
 
 #[cfg(test)]

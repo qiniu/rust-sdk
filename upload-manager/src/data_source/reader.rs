@@ -14,6 +14,8 @@ use std::{
 /// 提供上传所用的数据源
 ///
 /// 该 Trait 的异步版本为 [`AsyncDataSource`]。
+///
+/// [`AsyncDataSource`]: super::AsyncDataSource
 #[clonable]
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait DataSource<A: Digest>: Clone + Debug + Sync + Send {

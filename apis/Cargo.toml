@@ -23,8 +23,6 @@ serde = { version = "1.0.185", features = ["derive"] }
 serde_json = "1.0.105"
 indexmap = "2.0.0"
 futures = { version = "0.3.28", optional = true }
-async-std = { version = "1.12.0", optional = true }
-tokio = { version = "1", optional = true }
 
 qiniu-http-client = { version = "0.3.0", path = "../http-client", default-features = false }
 qiniu-utils = { version = "0.3.0", path = "../utils" }
@@ -33,13 +31,11 @@ qiniu-utils = { version = "0.3.0", path = "../utils" }
 default = ["ureq"]
 async-std-runtime = [
     "futures",
-    "async-std",
     "qiniu-utils/async-std-runtime",
     "qiniu-http-client/async-std-runtime",
 ]
 tokio-runtime = [
     "futures",
-    "tokio",
     "qiniu-utils/tokio-runtime",
     "qiniu-http-client/tokio-runtime",
 ]
@@ -48,9 +44,18 @@ isahc = ["qiniu-http-client/isahc"]
 ureq = ["qiniu-http-client/ureq"]
 c_ares = ["qiniu-http-client/c_ares"]
 trust_dns = ["qiniu-http-client/trust_dns"]
-tokio1 = ["qiniu-http-client/tokio1"]
-tokio02 = ["qiniu-http-client/tokio02"]
-tokio03 = ["qiniu-http-client/tokio03"]
+async-std-runtime-tokio1 = [
+    "async-std-runtime",
+    "qiniu-http-client/async-std-runtime-tokio1",
+]
+async-std-runtime-tokio02 = [
+    "async-std-runtime",
+    "qiniu-http-client/async-std-runtime-tokio02",
+]
+async-std-runtime-tokio03 = [
+    "async-std-runtime",
+    "qiniu-http-client/async-std-runtime-tokio03",
+]
 dns-over-https = ["qiniu-http-client/dns-over-https"]
 dns-over-https-rustls = ["qiniu-http-client/dns-over-https-rustls"]
 dns-over-tls = ["qiniu-http-client/dns-over-tls"]
