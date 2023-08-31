@@ -1,4 +1,7 @@
-use super::{super::super::cache::Cache, ResolveAnswers, ResolveOptions, ResolveResult, Resolver};
+use super::{
+    super::super::cache::{Cache, MaybeExpiredCache},
+    ResolveAnswers, ResolveOptions, ResolveResult, Resolver,
+};
 use std::{
     env::temp_dir,
     fmt::Debug,
@@ -21,10 +24,11 @@ const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(120);
 #[derive(Debug)]
 pub struct CachedResolver<R: ?Sized> {
     resolver: Arc<R>,
-    cache: Cache<String, ResolveAnswers>,
+    cache_lifetime: Duration,
+    cache: Cache<String, MaybeExpiredCache<ResolveAnswers>>,
 
     #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
-    async_cache: AsyncCache<String, ResolveAnswers>,
+    async_cache: AsyncCache<String, MaybeExpiredCache<ResolveAnswers>>,
 }
 
 impl<R> CachedResolver<R> {
@@ -68,6 +72,7 @@ impl<R> Clone for CachedResolver<R> {
     fn clone(&self) -> Self {
         Self {
             resolver: self.resolver.clone(),
+            cache_lifetime: self.cache_lifetime,
             cache: self.cache.clone(),
 
             #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
@@ -78,7 +83,13 @@ impl<R> Clone for CachedResolver<R> {
 
 impl<R: Resolver + 'static> Resolver for CachedResolver<R> {
     fn resolve(&self, domain: &str, opts: ResolveOptions) -> ResolveResult {
-        self.cache.get(domain, || self.resolver.resolve(domain, opts))
+        self.cache
+            .get(domain, || {
+                self.resolver
+                    .resolve(domain, opts)
+                    .map(|r| MaybeExpiredCache::new(r, self.cache_lifetime))
+            })
+            .map(|r| r.into_value())
     }
 
     #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
@@ -89,8 +100,14 @@ impl<R: Resolver + 'static> Resolver for CachedResolver<R> {
     fn async_resolve<'a>(&'a self, domain: &'a str, opts: ResolveOptions<'a>) -> BoxFuture<'a, ResolveResult> {
         Box::pin(async move {
             self.async_cache
-                .get(domain, self.resolver.async_resolve(domain, opts))
+                .get(domain, async {
+                    self.resolver
+                        .async_resolve(domain, opts)
+                        .await
+                        .map(|r| MaybeExpiredCache::new(r, self.cache_lifetime))
+                })
                 .await
+                .map(|r| r.into_value())
         })
     }
 }
@@ -135,20 +152,11 @@ impl<R> CachedResolverBuilder<R> {
     pub fn load_or_create_from(self, path: impl AsRef<Path>, auto_persistent: bool) -> CachedResolver<R> {
         CachedResolver {
             resolver: Arc::new(self.resolver),
-            cache: Cache::load_or_create_from(
-                path.as_ref(),
-                auto_persistent,
-                self.cache_lifetime,
-                self.shrink_interval,
-            ),
+            cache_lifetime: self.cache_lifetime,
+            cache: Cache::load_or_create_from(path.as_ref(), auto_persistent, self.shrink_interval),
 
             #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
-            async_cache: AsyncCache::load_or_create_from(
-                path.as_ref(),
-                auto_persistent,
-                self.cache_lifetime,
-                self.shrink_interval,
-            ),
+            async_cache: AsyncCache::load_or_create_from(path.as_ref(), auto_persistent, self.shrink_interval),
         }
     }
 
@@ -159,10 +167,10 @@ impl<R> CachedResolverBuilder<R> {
     pub fn default_load_or_create_from(self, auto_persistent: bool) -> CachedResolver<R> {
         CachedResolver {
             resolver: Arc::new(self.resolver),
+            cache_lifetime: self.cache_lifetime,
             cache: Cache::load_or_create_from(
                 &CachedResolver::<R>::default_persistent_path(),
                 auto_persistent,
-                self.cache_lifetime,
                 self.shrink_interval,
             ),
 
@@ -170,7 +178,6 @@ impl<R> CachedResolverBuilder<R> {
             async_cache: AsyncCache::load_or_create_from(
                 &CachedResolver::<R>::default_persistent_path(),
                 auto_persistent,
-                self.cache_lifetime,
                 self.shrink_interval,
             ),
         }
@@ -183,10 +190,11 @@ impl<R> CachedResolverBuilder<R> {
     pub fn in_memory(self) -> CachedResolver<R> {
         CachedResolver {
             resolver: Arc::new(self.resolver),
-            cache: Cache::in_memory(self.cache_lifetime, self.shrink_interval),
+            cache_lifetime: self.cache_lifetime,
+            cache: Cache::in_memory(self.shrink_interval),
 
             #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
-            async_cache: AsyncCache::in_memory(self.cache_lifetime, self.shrink_interval),
+            async_cache: AsyncCache::in_memory(self.shrink_interval),
         }
     }
 }

@@ -4,7 +4,7 @@ mod shuffled;
 mod simple;
 mod timeout;
 
-use super::{super::cache::IsCacheValid, ApiResult, RetriedStatsInfo};
+use super::{ApiResult, RetriedStatsInfo};
 use auto_impl::auto_impl;
 use dyn_clonable::clonable;
 use serde::{Deserialize, Serialize};
@@ -105,8 +105,6 @@ impl ResolveAnswers {
         self.ip_addrs
     }
 }
-
-impl IsCacheValid for ResolveAnswers {}
 
 impl From<Box<[IpAddr]>> for ResolveAnswers {
     #[inline]

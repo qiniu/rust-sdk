@@ -16,7 +16,6 @@ use std::{convert::TryFrom, fmt::Debug, mem::take, path::Path, time::Duration};
 use futures::future::BoxFuture;
 
 const DEFAULT_SHRINK_INTERVAL: Duration = Duration::from_secs(86400);
-const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(86400);
 
 /// 存储空间相关区域查询器
 ///
@@ -89,7 +88,6 @@ pub struct BucketRegionsQueryer {
 pub struct BucketRegionsQueryerBuilder {
     http_client: Option<HttpClient>,
     uc_endpoints: Option<Endpoints>,
-    cache_lifetime: Duration,
     shrink_interval: Duration,
 }
 
@@ -132,7 +130,6 @@ impl Default for BucketRegionsQueryerBuilder {
         Self {
             http_client: None,
             uc_endpoints: None,
-            cache_lifetime: DEFAULT_CACHE_LIFETIME,
             shrink_interval: DEFAULT_SHRINK_INTERVAL,
         }
     }
@@ -166,13 +163,6 @@ impl BucketRegionsQueryerBuilder {
         self
     }
 
-    /// 缓存时长
-    #[inline]
-    pub fn cache_lifetime(&mut self, cache_lifetime: Duration) -> &mut Self {
-        self.cache_lifetime = cache_lifetime;
-        self
-    }
-
     /// 清理间隔时长
     #[inline]
     pub fn shrink_interval(&mut self, shrink_interval: Duration) -> &mut Self {
@@ -186,12 +176,7 @@ impl BucketRegionsQueryerBuilder {
     pub fn load_or_create_from(&mut self, path: impl AsRef<Path>, auto_persistent: bool) -> BucketRegionsQueryer {
         let owned = take(self);
         BucketRegionsQueryer {
-            cache: RegionsCache::load_or_create_from(
-                path.as_ref(),
-                auto_persistent,
-                owned.cache_lifetime,
-                owned.shrink_interval,
-            ),
+            cache: RegionsCache::load_or_create_from(path.as_ref(), auto_persistent, owned.shrink_interval),
             http_client: owned.http_client.unwrap_or_default(),
             uc_endpoints: owned
                 .uc_endpoints
@@ -211,11 +196,7 @@ impl BucketRegionsQueryerBuilder {
     pub fn default_load_or_create_from(&mut self, auto_persistent: bool) -> BucketRegionsQueryer {
         let owned = take(self);
         BucketRegionsQueryer {
-            cache: RegionsCache::default_load_or_create_from(
-                auto_persistent,
-                owned.cache_lifetime,
-                owned.shrink_interval,
-            ),
+            cache: RegionsCache::default_load_or_create_from(auto_persistent, owned.shrink_interval),
             http_client: owned.http_client.unwrap_or_default(),
             uc_endpoints: owned
                 .uc_endpoints
@@ -229,7 +210,7 @@ impl BucketRegionsQueryerBuilder {
     pub fn in_memory(&mut self) -> BucketRegionsQueryer {
         let owned = take(self);
         BucketRegionsQueryer {
-            cache: RegionsCache::in_memory(owned.cache_lifetime, owned.shrink_interval),
+            cache: RegionsCache::in_memory(owned.shrink_interval),
             http_client: owned.http_client.unwrap_or_default(),
             uc_endpoints: owned
                 .uc_endpoints
@@ -337,7 +318,7 @@ fn handle_response_body(response: Response<ResponseBody>) -> ApiResult<GotRegion
 mod tests {
     use super::{super::super::Endpoint, *};
     use futures::channel::oneshot::channel;
-    use qiniu_utils::async_task::spawn;
+    use qiniu_utils::async_task::{sleep, spawn};
     use serde::{Deserialize, Serialize};
     use serde_json::{json, Value as JsonValue};
     use std::{
@@ -398,7 +379,7 @@ mod tests {
                 .uc_endpoints(vec![Endpoint::from(addr)])
                 .in_memory();
 
-            for _ in 0..2 {
+            for _ in 0..6 {
                 let provider = queryer.query(ACCESS_KEY, BUCKET_NAME);
                 let got_regions = provider.async_get_all(Default::default()).await?;
                 assert_eq!(got_regions.lifetime(), Some(Duration::from_secs(5)));
@@ -498,9 +479,10 @@ mod tests {
                     &[Endpoint::from_str("s3-cn-north-1.qiniucs.com").unwrap(),]
                 );
                 assert!(region.s3_alternative_endpoints().is_empty());
+                sleep(Duration::from_secs(1)).await;
             }
 
-            assert_eq!(called.load(Relaxed), 1);
+            assert_eq!(called.load(Relaxed), 2);
         });
         Ok(())
     }

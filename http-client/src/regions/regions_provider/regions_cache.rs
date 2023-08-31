@@ -30,31 +30,17 @@ pub(super) struct RegionsCache {
 }
 
 impl RegionsCache {
-    pub(super) fn load_or_create_from(
-        path: &Path,
-        auto_persistent: bool,
-        cache_lifetime: Duration,
-        shrink_interval: Duration,
-    ) -> Self {
+    pub(super) fn load_or_create_from(path: &Path, auto_persistent: bool, shrink_interval: Duration) -> Self {
         Self {
-            cache: Cache::load_or_create_from(path, auto_persistent, cache_lifetime, shrink_interval),
+            cache: Cache::load_or_create_from(path, auto_persistent, shrink_interval),
 
             #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
-            async_cache: AsyncCache::load_or_create_from(path, auto_persistent, cache_lifetime, shrink_interval),
+            async_cache: AsyncCache::load_or_create_from(path, auto_persistent, shrink_interval),
         }
     }
 
-    pub(super) fn default_load_or_create_from(
-        auto_persistent: bool,
-        cache_lifetime: Duration,
-        shrink_interval: Duration,
-    ) -> Self {
-        Self::load_or_create_from(
-            &Self::default_persistent_path(),
-            auto_persistent,
-            cache_lifetime,
-            shrink_interval,
-        )
+    pub(super) fn default_load_or_create_from(auto_persistent: bool, shrink_interval: Duration) -> Self {
+        Self::load_or_create_from(&Self::default_persistent_path(), auto_persistent, shrink_interval)
     }
 
     fn default_persistent_path() -> PathBuf {
@@ -64,12 +50,12 @@ impl RegionsCache {
         path
     }
 
-    pub(super) fn in_memory(cache_lifetime: Duration, shrink_interval: Duration) -> Self {
+    pub(super) fn in_memory(shrink_interval: Duration) -> Self {
         Self {
-            cache: Cache::in_memory(cache_lifetime, shrink_interval),
+            cache: Cache::in_memory(shrink_interval),
 
             #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
-            async_cache: AsyncCache::in_memory(cache_lifetime, shrink_interval),
+            async_cache: AsyncCache::in_memory(shrink_interval),
         }
     }
 
@@ -140,7 +126,7 @@ mod tests {
     fn test_regions_cache_in_memory() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
-        let cache = RegionsCache::in_memory(Duration::from_secs(1), Duration::from_secs(1));
+        let cache = RegionsCache::in_memory(Duration::from_secs(1));
         let cache_key = CacheKey::new_from_endpoint_and_ak_and_bucket(
             &Endpoints::builder("fake.uc.qiniu.com".parse()?).build(),
             "fakebucket".into(),
@@ -151,7 +137,10 @@ mod tests {
             cache
                 .get(&cache_key, || {
                     generate_new_cache = true;
-                    Ok(vec![chaotic_up_domains_region()].into())
+                    Ok(GotRegions::new(
+                        vec![chaotic_up_domains_region()],
+                        Duration::from_secs(1),
+                    ))
                 })?
                 .len(),
             1
@@ -173,7 +162,10 @@ mod tests {
             cache
                 .get(&cache_key2, || {
                     generate_new_cache = true;
-                    Ok(vec![chaotic_up_domains_region()].into())
+                    Ok(GotRegions::new(
+                        vec![chaotic_up_domains_region()],
+                        Duration::from_secs(1),
+                    ))
                 })?
                 .len(),
             1
@@ -192,7 +184,7 @@ mod tests {
     fn test_regions_cache_in_memory_with_invalidation() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
-        let cache = RegionsCache::in_memory(Duration::from_secs(60), Duration::from_secs(60));
+        let cache = RegionsCache::in_memory(Duration::from_secs(60));
         let cache_key = CacheKey::new_from_endpoint_and_ak_and_bucket(
             &Endpoints::builder("fake.uc.qiniu.com".parse()?).build(),
             "fakebucket".into(),
@@ -203,9 +195,10 @@ mod tests {
             cache
                 .get(&cache_key, || {
                     generate_new_cache = true;
-                    let mut regions: GotRegions = vec![chaotic_up_domains_region()].into();
-                    *regions.lifetime_mut() = Some(Duration::from_secs(1));
-                    Ok(regions)
+                    Ok(GotRegions::new(
+                        vec![chaotic_up_domains_region()],
+                        Duration::from_secs(1),
+                    ))
                 })?
                 .len(),
             1
@@ -219,9 +212,11 @@ mod tests {
         generate_new_cache = false;
         cache.get(&cache_key, || {
             generate_new_cache = true;
-            Ok(vec![chaotic_up_domains_region()].into())
+            Ok(GotRegions::new(
+                vec![chaotic_up_domains_region()],
+                Duration::from_secs(1),
+            ))
         })?;
-        sleep(Duration::from_secs(3));
         assert!(generate_new_cache);
 
         Ok(())
@@ -233,12 +228,8 @@ mod tests {
 
         let temp_file = NamedTempFile::new()?;
         let temp_file_path = temp_file.into_temp_path();
-        let cache = RegionsCache::load_or_create_from(
-            &temp_file_path,
-            true,
-            Duration::from_secs(120),
-            Duration::from_secs(120),
-        );
+        let temp_file_path = temp_file_path.keep()?;
+        let cache = RegionsCache::load_or_create_from(&temp_file_path, true, Duration::from_secs(120));
         let cache_key_1 = CacheKey::new_from_endpoint_and_ak_and_bucket(
             &Endpoints::builder("fake.uc.qiniu.com".parse()?).build(),
             "fakebucket".into(),
@@ -250,42 +241,38 @@ mod tests {
             "fakeaccesskey".into(),
         );
 
-        let regions_1 = vec![Region::builder("test")
-            .add_up_preferred_endpoint("fakedomain_1.withport.com".parse()?)
-            .build()];
-        assert_eq!(cache.get(&cache_key_1, || Ok(regions_1.to_owned().into()))?.len(), 1);
+        let regions_1 = GotRegions::new(
+            vec![Region::builder("test")
+                .add_up_preferred_endpoint("fakedomain_1.withport.com".parse()?)
+                .build()],
+            Duration::from_secs(2),
+        );
+        assert_eq!(cache.get(&cache_key_1, || Ok(regions_1.to_owned()))?.len(), 1);
         assert!(cache.cache.exists(&cache_key_1));
 
-        let regions_2 = vec![Region::builder("test")
-            .add_up_preferred_endpoint("fakedomain_2.withport.com".parse()?)
-            .build()];
-        cache.set(cache_key_1.to_owned(), regions_2.to_owned().into());
+        let regions_2 = GotRegions::new(
+            vec![Region::builder("test")
+                .add_up_preferred_endpoint("fakedomain_2.withport.com".parse()?)
+                .build()],
+            Duration::from_secs(2),
+        );
+        cache.set(cache_key_1.to_owned(), regions_2.to_owned());
         assert!(cache.cache.exists(&cache_key_1));
         drop(cache);
         sleep(Duration::from_secs(1));
 
-        let cache = RegionsCache::load_or_create_from(
-            &temp_file_path,
-            true,
-            Duration::from_secs(120),
-            Duration::from_secs(120),
-        );
-        assert_eq!(cache.get(&cache_key_1, || unreachable!())?, regions_2.to_owned().into());
+        let cache = RegionsCache::load_or_create_from(&temp_file_path, true, Duration::from_secs(120));
+        assert_eq!(cache.get(&cache_key_1, || unreachable!())?, regions_2.to_owned());
         cache.remove(&cache_key_1);
         assert!(!cache.cache.exists(&cache_key_1));
         drop(cache);
         sleep(Duration::from_secs(1));
 
-        let cache = RegionsCache::load_or_create_from(
-            &temp_file_path,
-            true,
-            Duration::from_secs(120),
-            Duration::from_secs(120),
-        );
+        let cache = RegionsCache::load_or_create_from(&temp_file_path, true, Duration::from_secs(120));
         assert!(!cache.cache.exists(&cache_key_1));
 
-        assert_eq!(cache.get(&cache_key_1, || Ok(regions_1.to_owned().into()))?.len(), 1);
-        assert_eq!(cache.get(&cache_key_2, || Ok(regions_2.to_owned().into()))?.len(), 1);
+        assert_eq!(cache.get(&cache_key_1, || Ok(regions_1.to_owned()))?.len(), 1);
+        assert_eq!(cache.get(&cache_key_2, || Ok(regions_2.to_owned()))?.len(), 1);
         assert!(cache.cache.exists(&cache_key_1));
         assert!(cache.cache.exists(&cache_key_2));
 
@@ -298,24 +285,18 @@ mod tests {
         sleep(Duration::from_secs(1));
         drop(cache);
 
-        let cache = RegionsCache::load_or_create_from(
-            &temp_file_path,
-            true,
-            Duration::from_secs(120),
-            Duration::from_secs(120),
-        );
+        let cache = RegionsCache::load_or_create_from(&temp_file_path, true, Duration::from_secs(120));
         assert!(!cache.cache.exists(&cache_key_1));
         assert!(!cache.cache.exists(&cache_key_2));
 
-        assert_eq!(cache.get(&cache_key_1, || Ok(regions_1.to_owned().into()))?.len(), 1);
-        assert_eq!(cache.get(&cache_key_2, || Ok(regions_2.to_owned().into()))?.len(), 1);
+        assert_eq!(cache.get(&cache_key_1, || Ok(regions_1.to_owned()))?.len(), 1);
+        assert_eq!(cache.get(&cache_key_2, || Ok(regions_2.to_owned()))?.len(), 1);
         sleep(Duration::from_secs(1));
         assert!(cache.cache.exists(&cache_key_1));
         assert!(cache.cache.exists(&cache_key_2));
         drop(cache);
 
-        let cache =
-            RegionsCache::load_or_create_from(&temp_file_path, true, Duration::from_secs(1), Duration::from_secs(120));
+        let cache = RegionsCache::load_or_create_from(&temp_file_path, true, Duration::from_secs(120));
         assert!(!cache.cache.exists(&cache_key_1));
         assert!(!cache.cache.exists(&cache_key_2));
 
@@ -328,12 +309,7 @@ mod tests {
 
         let temp_file = NamedTempFile::new()?;
         let temp_file_path = temp_file.into_temp_path();
-        let cache = RegionsCache::load_or_create_from(
-            &temp_file_path,
-            false,
-            Duration::from_secs(120),
-            Duration::from_secs(120),
-        );
+        let cache = RegionsCache::load_or_create_from(&temp_file_path, false, Duration::from_secs(120));
         let cache_key = CacheKey::new_from_endpoint_and_ak_and_bucket(
             &Endpoints::builder("fake.uc.qiniu.com".parse()?).build(),
             "fakebucket".into(),
@@ -346,12 +322,7 @@ mod tests {
         assert!(cache.cache.exists(&cache_key));
         drop(cache);
 
-        let cache = RegionsCache::load_or_create_from(
-            &temp_file_path,
-            false,
-            Duration::from_secs(120),
-            Duration::from_secs(120),
-        );
+        let cache = RegionsCache::load_or_create_from(&temp_file_path, false, Duration::from_secs(120));
         assert!(!cache.cache.exists(&cache_key));
 
         Ok(())
@@ -366,7 +337,7 @@ mod tests {
         async fn test_regions_cache_in_memory() -> anyhow::Result<()> {
             env_logger::builder().is_test(true).try_init().ok();
 
-            let cache = RegionsCache::in_memory(Duration::from_secs(1), Duration::from_secs(1));
+            let cache = RegionsCache::in_memory(Duration::from_secs(1));
             let cache_key = CacheKey::new_from_endpoint_and_ak_and_bucket(
                 &Endpoints::builder("fake.uc.qiniu.com".parse()?).build(),
                 "fakebucket".into(),
@@ -377,7 +348,10 @@ mod tests {
                 cache
                     .async_get(&cache_key, async {
                         generate_new_cache = true;
-                        Ok(vec![chaotic_up_domains_region()].into())
+                        Ok(GotRegions::new(
+                            vec![chaotic_up_domains_region()],
+                            Duration::from_secs(1),
+                        ))
                     })
                     .await?
                     .len(),
@@ -400,7 +374,10 @@ mod tests {
                 cache
                     .async_get(&cache_key2, async {
                         generate_new_cache = true;
-                        Ok(vec![chaotic_up_domains_region()].into())
+                        Ok(GotRegions::new(
+                            vec![chaotic_up_domains_region()],
+                            Duration::from_secs(1),
+                        ))
                     })
                     .await?
                     .len(),
@@ -420,7 +397,7 @@ mod tests {
         async fn test_regions_cache_in_memory_with_invalidation() -> anyhow::Result<()> {
             env_logger::builder().is_test(true).try_init().ok();
 
-            let cache = RegionsCache::in_memory(Duration::from_secs(60), Duration::from_secs(60));
+            let cache = RegionsCache::in_memory(Duration::from_secs(60));
             let cache_key = CacheKey::new_from_endpoint_and_ak_and_bucket(
                 &Endpoints::builder("fake.uc.qiniu.com".parse()?).build(),
                 "fakebucket".into(),
@@ -431,9 +408,10 @@ mod tests {
                 cache
                     .async_get(&cache_key, async {
                         generate_new_cache = true;
-                        let mut regions: GotRegions = vec![chaotic_up_domains_region()].into();
-                        *regions.lifetime_mut() = Some(Duration::from_secs(1));
-                        Ok(regions)
+                        Ok(GotRegions::new(
+                            vec![chaotic_up_domains_region()],
+                            Duration::from_secs(1),
+                        ))
                     })
                     .await?
                     .len(),
@@ -449,7 +427,10 @@ mod tests {
             cache
                 .async_get(&cache_key, async {
                     generate_new_cache = true;
-                    Ok(vec![chaotic_up_domains_region()].into())
+                    Ok(GotRegions::new(
+                        vec![chaotic_up_domains_region()],
+                        Duration::from_secs(1),
+                    ))
                 })
                 .await?;
             sleep(Duration::from_secs(3)).await;
@@ -464,12 +445,7 @@ mod tests {
 
             let temp_file = NamedTempFile::new()?;
             let temp_file_path = temp_file.into_temp_path();
-            let cache = RegionsCache::load_or_create_from(
-                &temp_file_path,
-                true,
-                Duration::from_secs(120),
-                Duration::from_secs(120),
-            );
+            let cache = RegionsCache::load_or_create_from(&temp_file_path, true, Duration::from_secs(120));
             let cache_key_1 = CacheKey::new_from_endpoint_and_ak_and_bucket(
                 &Endpoints::builder("fake.uc.qiniu.com".parse()?).build(),
                 "fakebucket".into(),
@@ -486,7 +462,9 @@ mod tests {
                 .build()];
             assert_eq!(
                 cache
-                    .async_get(&cache_key_1, async { Ok(regions_1.to_owned().into()) })
+                    .async_get(&cache_key_1, async {
+                        Ok(GotRegions::new(regions_1.to_owned(), Duration::from_secs(2)))
+                    })
                     .await?
                     .len(),
                 1
@@ -497,7 +475,10 @@ mod tests {
                 .add_up_preferred_endpoint("fakedomain_2.withport.com".parse()?)
                 .build()];
             cache
-                .async_set(cache_key_1.to_owned(), regions_2.to_owned().into())
+                .async_set(
+                    cache_key_1.to_owned(),
+                    GotRegions::new(regions_2.to_owned(), Duration::from_secs(2)),
+                )
                 .await;
             assert!(cache.async_cache.exists(&cache_key_1).await);
 
@@ -505,12 +486,7 @@ mod tests {
 
             sleep(Duration::from_secs(1)).await;
 
-            let cache = RegionsCache::load_or_create_from(
-                &temp_file_path,
-                true,
-                Duration::from_secs(120),
-                Duration::from_secs(120),
-            );
+            let cache = RegionsCache::load_or_create_from(&temp_file_path, true, Duration::from_secs(120));
             assert_eq!(
                 cache.async_get(&cache_key_1, async { unreachable!() }).await?,
                 regions_2.to_owned().into()
@@ -520,59 +496,55 @@ mod tests {
             drop(cache);
             sleep(Duration::from_secs(1)).await;
 
-            let cache = RegionsCache::load_or_create_from(
-                &temp_file_path,
-                true,
-                Duration::from_secs(120),
-                Duration::from_secs(120),
-            );
+            let cache = RegionsCache::load_or_create_from(&temp_file_path, true, Duration::from_secs(120));
             assert!(!cache.async_cache.exists(&cache_key_1).await);
 
             assert_eq!(
                 cache
-                    .async_get(&cache_key_1, async { Ok(regions_1.to_owned().into()) })
+                    .async_get(&cache_key_1, async {
+                        Ok(GotRegions::new(regions_1.to_owned(), Duration::from_secs(1)))
+                    })
                     .await?
                     .len(),
                 1
             );
             assert_eq!(
                 cache
-                    .async_get(&cache_key_2, async { Ok(regions_2.to_owned().into()) })
+                    .async_get(&cache_key_2, async {
+                        Ok(GotRegions::new(regions_2.to_owned(), Duration::from_secs(1)))
+                    })
                     .await?
                     .len(),
                 1
             );
             assert!(cache.async_cache.exists(&cache_key_1).await);
             assert!(cache.async_cache.exists(&cache_key_2).await);
-
-            sleep(Duration::from_secs(1)).await;
 
             cache.async_clear().await;
             assert!(!cache.async_cache.exists(&cache_key_1).await);
             assert!(!cache.async_cache.exists(&cache_key_2).await);
 
-            sleep(Duration::from_secs(1)).await;
+            sleep(Duration::from_secs(2)).await;
             drop(cache);
 
-            let cache = RegionsCache::load_or_create_from(
-                &temp_file_path,
-                true,
-                Duration::from_secs(120),
-                Duration::from_secs(120),
-            );
+            let cache = RegionsCache::load_or_create_from(&temp_file_path, true, Duration::from_secs(120));
             assert!(!cache.async_cache.exists(&cache_key_1).await);
             assert!(!cache.async_cache.exists(&cache_key_2).await);
 
             assert_eq!(
                 cache
-                    .async_get(&cache_key_1, async { Ok(regions_1.to_owned().into()) })
+                    .async_get(&cache_key_1, async {
+                        Ok(GotRegions::new(regions_1.to_owned(), Duration::from_secs(1)))
+                    })
                     .await?
                     .len(),
                 1
             );
             assert_eq!(
                 cache
-                    .async_get(&cache_key_2, async { Ok(regions_2.to_owned().into()) })
+                    .async_get(&cache_key_2, async {
+                        Ok(GotRegions::new(regions_2.to_owned(), Duration::from_secs(1)))
+                    })
                     .await?
                     .len(),
                 1
@@ -580,14 +552,10 @@ mod tests {
             sleep(Duration::from_secs(1)).await;
             assert!(cache.async_cache.exists(&cache_key_1).await);
             assert!(cache.async_cache.exists(&cache_key_2).await);
+            sleep(Duration::from_secs(1)).await;
             drop(cache);
 
-            let cache = RegionsCache::load_or_create_from(
-                &temp_file_path,
-                true,
-                Duration::from_secs(1),
-                Duration::from_secs(120),
-            );
+            let cache = RegionsCache::load_or_create_from(&temp_file_path, true, Duration::from_secs(120));
             assert!(!cache.async_cache.exists(&cache_key_1).await);
             assert!(!cache.async_cache.exists(&cache_key_2).await);
 
@@ -600,12 +568,7 @@ mod tests {
 
             let temp_file = NamedTempFile::new()?;
             let temp_file_path = temp_file.into_temp_path();
-            let cache = RegionsCache::load_or_create_from(
-                &temp_file_path,
-                false,
-                Duration::from_secs(120),
-                Duration::from_secs(120),
-            );
+            let cache = RegionsCache::load_or_create_from(&temp_file_path, false, Duration::from_secs(120));
             let cache_key = CacheKey::new_from_endpoint_and_ak_and_bucket(
                 &Endpoints::builder("fake.uc.qiniu.com".parse()?).build(),
                 "fakebucket".into(),
@@ -616,7 +579,9 @@ mod tests {
                 .build()];
             assert_eq!(
                 cache
-                    .async_get(&cache_key, async { Ok(regions.to_owned().into()) })
+                    .async_get(&cache_key, async {
+                        Ok(GotRegions::new(regions, Duration::from_secs(120)))
+                    })
                     .await?
                     .len(),
                 1
@@ -624,12 +589,7 @@ mod tests {
             assert!(cache.async_cache.exists(&cache_key).await);
             drop(cache);
 
-            let cache = RegionsCache::load_or_create_from(
-                &temp_file_path,
-                false,
-                Duration::from_secs(120),
-                Duration::from_secs(120),
-            );
+            let cache = RegionsCache::load_or_create_from(&temp_file_path, false, Duration::from_secs(120));
             assert!(!cache.async_cache.exists(&cache_key).await);
 
             Ok(())

@@ -1,7 +1,7 @@
 use super::{
     super::{
         super::{
-            cache::{Cache, CacheController},
+            cache::{Cache, CacheController, MaybeExpiredCache},
             ApiResult,
         },
         cache_key::CacheKey,
@@ -23,10 +23,11 @@ use {
 
 #[derive(Debug, Clone)]
 pub(super) struct EndpointsCache {
-    cache: Cache<CacheKey, Endpoints>,
+    cache_lifetime: Duration,
+    cache: Cache<CacheKey, MaybeExpiredCache<Endpoints>>,
 
     #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
-    async_cache: AsyncCache<CacheKey, Endpoints>,
+    async_cache: AsyncCache<CacheKey, MaybeExpiredCache<Endpoints>>,
 }
 
 impl EndpointsCache {
@@ -37,10 +38,11 @@ impl EndpointsCache {
         shrink_interval: Duration,
     ) -> Self {
         Self {
-            cache: Cache::load_or_create_from(path, auto_persistent, cache_lifetime, shrink_interval),
+            cache_lifetime,
+            cache: Cache::load_or_create_from(path, auto_persistent, shrink_interval),
 
             #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
-            async_cache: AsyncCache::load_or_create_from(path, auto_persistent, cache_lifetime, shrink_interval),
+            async_cache: AsyncCache::load_or_create_from(path, auto_persistent, shrink_interval),
         }
     }
 
@@ -66,15 +68,18 @@ impl EndpointsCache {
 
     pub(super) fn in_memory(cache_lifetime: Duration, shrink_interval: Duration) -> Self {
         Self {
-            cache: Cache::in_memory(cache_lifetime, shrink_interval),
+            cache_lifetime,
+            cache: Cache::in_memory(shrink_interval),
 
             #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
-            async_cache: AsyncCache::in_memory(cache_lifetime, shrink_interval),
+            async_cache: AsyncCache::in_memory(shrink_interval),
         }
     }
 
     pub(super) fn get(&self, key: &CacheKey, f: impl FnOnce() -> ApiResult<Endpoints>) -> ApiResult<Endpoints> {
-        self.cache.get(key, f)
+        self.cache
+            .get(key, || f().map(|v| MaybeExpiredCache::new(v, self.cache_lifetime)))
+            .map(|r| r.into_value())
     }
 
     #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
@@ -83,7 +88,12 @@ impl EndpointsCache {
         key: &CacheKey,
         fut: Fut,
     ) -> ApiResult<Endpoints> {
-        self.async_cache.get(key, fut).await
+        self.async_cache
+            .get(key, async {
+                fut.await.map(|v| MaybeExpiredCache::new(v, self.cache_lifetime))
+            })
+            .await
+            .map(|r| r.into_value())
     }
 }
 

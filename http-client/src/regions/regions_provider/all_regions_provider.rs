@@ -13,7 +13,6 @@ use std::{path::Path, time::Duration};
 use futures::future::BoxFuture;
 
 const DEFAULT_SHRINK_INTERVAL: Duration = Duration::from_secs(86400);
-const DEFAULT_CACHE_LIFETIME: Duration = Duration::from_secs(86400);
 
 /// 七牛所有区域信息查询器
 ///
@@ -68,7 +67,6 @@ impl AllRegionsProvider {
     pub fn builder(credential_provider: impl CredentialProvider + 'static) -> AllRegionsProviderBuilder {
         AllRegionsProviderBuilder {
             credential_provider: Box::new(credential_provider),
-            cache_lifetime: DEFAULT_CACHE_LIFETIME,
             shrink_interval: DEFAULT_SHRINK_INTERVAL,
             uc_endpoints: None,
             http_client: None,
@@ -118,7 +116,6 @@ impl RegionsProvider for AllRegionsProvider {
 /// 七牛所有区域信息查询构建器
 #[derive(Clone, Debug)]
 pub struct AllRegionsProviderBuilder {
-    cache_lifetime: Duration,
     shrink_interval: Duration,
     http_client: Option<HttpClient>,
     uc_endpoints: Option<Endpoints>,
@@ -126,13 +123,6 @@ pub struct AllRegionsProviderBuilder {
 }
 
 impl AllRegionsProviderBuilder {
-    /// 缓存时长
-    #[inline]
-    pub fn cache_lifetime(mut self, cache_lifetime: Duration) -> Self {
-        self.cache_lifetime = cache_lifetime;
-        self
-    }
-
     /// 清理间隔时长
     #[inline]
     pub fn shrink_interval(mut self, shrink_interval: Duration) -> Self {
@@ -166,12 +156,7 @@ impl AllRegionsProviderBuilder {
     /// 可以选择是否启用自动持久化缓存功能
     pub fn load_or_create_from(self, path: impl AsRef<Path>, auto_persistent: bool) -> AllRegionsProvider {
         AllRegionsProvider {
-            cache: RegionsCache::load_or_create_from(
-                path.as_ref(),
-                auto_persistent,
-                self.cache_lifetime,
-                self.shrink_interval,
-            ),
+            cache: RegionsCache::load_or_create_from(path.as_ref(), auto_persistent, self.shrink_interval),
             cache_key: self.new_cache_key(),
             provider: self.new_regions_provider(),
         }
@@ -188,11 +173,7 @@ impl AllRegionsProviderBuilder {
     /// 可以选择是否启用自动持久化缓存功能
     pub fn default_load_or_create_from(self, auto_persistent: bool) -> AllRegionsProvider {
         AllRegionsProvider {
-            cache: RegionsCache::default_load_or_create_from(
-                auto_persistent,
-                self.cache_lifetime,
-                self.shrink_interval,
-            ),
+            cache: RegionsCache::default_load_or_create_from(auto_persistent, self.shrink_interval),
             cache_key: self.new_cache_key(),
             provider: self.new_regions_provider(),
         }
@@ -203,7 +184,7 @@ impl AllRegionsProviderBuilder {
     /// 不启用文件系统持久化缓存
     pub fn in_memory(self) -> AllRegionsProvider {
         AllRegionsProvider {
-            cache: RegionsCache::in_memory(self.cache_lifetime, self.shrink_interval),
+            cache: RegionsCache::in_memory(self.shrink_interval),
             cache_key: self.new_cache_key(),
             provider: self.new_regions_provider(),
         }

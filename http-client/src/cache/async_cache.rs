@@ -1,9 +1,6 @@
 use super::{
     super::ApiResult,
-    traits::{
-        CacheInnerLockedData, CacheValue, PersistentCacheCommand, PersistentCacheEntry, PersistentFile,
-        PersistentResult,
-    },
+    traits::{CacheInnerLockedData, PersistentCacheCommand, PersistentCacheEntry, PersistentFile, PersistentResult},
     AsyncCacheController, IsCacheValid,
 };
 use async_once_cell::Lazy;
@@ -44,15 +41,13 @@ pub(in super::super) struct AsyncCache<
     inner: Arc<CacheInner<K, V>>,
 }
 
-type RwLockedMap<K, V> = RwLock<HashMap<K, V>>;
-type CacheMap<K, V> = RwLockedMap<K, CacheValue<V>>;
+type CacheMap<K, V> = RwLock<HashMap<K, V>>;
 type LazyCacheMap<K, V> = Lazy<CacheMap<K, V>, Pin<Box<dyn Future<Output = CacheMap<K, V>> + Send + 'static>>>;
 
 struct CacheInner<
     K: Eq + PartialEq + Hash + Clone + Debug + Serialize + Send + Sync + 'static,
     V: IsCacheValid + Clone + Serialize + Send + Sync + 'static,
 > {
-    cache_lifetime: Duration,
     shrink_interval: Duration,
     cache: LazyCacheMap<K, V>,
     persistent: Option<PersistentFile<K, V>>,
@@ -65,18 +60,12 @@ impl<
         V: IsCacheValid + Clone + Serialize + Send + Sync + DeserializeOwned + 'static,
     > AsyncCache<K, V>
 {
-    pub(in super::super) fn load_or_create_from(
-        path: &Path,
-        auto_persistent: bool,
-        cache_lifetime: Duration,
-        shrink_interval: Duration,
-    ) -> Self {
+    pub(in super::super) fn load_or_create_from(path: &Path, auto_persistent: bool, shrink_interval: Duration) -> Self {
         let path = path.to_owned();
         return Self::new(
-            cache_lifetime,
             shrink_interval,
             Some(PersistentFile::new(path.to_owned(), auto_persistent)),
-            async move { load_or_create_from(&path, cache_lifetime).await },
+            async move { load_or_create_from(&path).await },
         );
 
         async fn load_or_create_from<
@@ -84,11 +73,8 @@ impl<
             V: IsCacheValid + Clone + Serialize + Send + Sync + DeserializeOwned + 'static,
         >(
             path: &Path,
-            cache_lifetime: Duration,
         ) -> CacheMap<K, V> {
-            load_cache_from_persistent_file(path, cache_lifetime)
-                .await
-                .unwrap_or_default()
+            load_cache_from_persistent_file(path).await.unwrap_or_default()
         }
 
         async fn load_cache_from_persistent_file<
@@ -96,7 +82,6 @@ impl<
             V: IsCacheValid + Clone + Serialize + Send + Sync + DeserializeOwned + 'static,
         >(
             path: &Path,
-            cache_lifetime: Duration,
         ) -> PersistentResult<CacheMap<K, V>> {
             let mut cache = HashMap::new();
             let mut file = File::open(path).await?;
@@ -106,7 +91,7 @@ impl<
                 let entry: PersistentCacheEntry<K, V> = serde_json::from_str(&line)?;
                 let (key, value) = entry.into_parts();
                 if let Some(value) = value {
-                    if value.is_cache_valid(cache_lifetime) {
+                    if value.is_valid() {
                         cache.insert(key, value);
                     }
                 } else {
@@ -124,19 +109,17 @@ impl<
         V: IsCacheValid + Clone + Serialize + Send + Sync + 'static,
     > AsyncCache<K, V>
 {
-    pub(in super::super) fn in_memory(cache_lifetime: Duration, shrink_interval: Duration) -> Self {
-        Self::new(cache_lifetime, shrink_interval, None, async move { Default::default() })
+    pub(in super::super) fn in_memory(shrink_interval: Duration) -> Self {
+        Self::new(shrink_interval, None, async move { Default::default() })
     }
 
     fn new<Fut: Future<Output = CacheMap<K, V>> + Send + 'static>(
-        cache_lifetime: Duration,
         shrink_interval: Duration,
         persistent: Option<PersistentFile<K, V>>,
         cache_fut: Fut,
     ) -> Self {
         Self {
             inner: Arc::new(CacheInner {
-                cache_lifetime,
                 shrink_interval,
                 persistent,
                 cache: Lazy::new(Box::pin(cache_fut)),
@@ -186,15 +169,14 @@ impl<
         ) -> ApiResult<V> {
             let locked_map = cache.inner.cache().await.read().await;
             let value_ref = locked_map.get(key);
-            if let Some(old_value) = &value_ref {
-                if old_value.is_cache_valid(cache.inner.cache_lifetime) {
-                    return Ok(old_value.value().to_owned());
+            if let Some(old_value) = value_ref {
+                if old_value.is_valid() {
+                    return Ok(old_value.to_owned());
                 }
             }
             match fut.await {
                 Ok(new_value) => {
                     drop(locked_map);
-                    let new_value = CacheValue::new(new_value);
                     cache
                         .inner
                         .cache()
@@ -208,17 +190,16 @@ impl<
                             Some(new_value.to_owned()),
                         ))
                     });
-                    Ok(new_value.into_value())
+                    Ok(new_value)
                 }
                 Err(err) => value_ref
-                    .map(|found_value| Ok(found_value.value().to_owned()))
+                    .map(|found_value| Ok(found_value.to_owned()))
                     .unwrap_or(Err(err)),
             }
         }
     }
 
     pub(in super::super) async fn set(&self, key: K, value: V) {
-        let value = CacheValue::new(value);
         self.push_command_if_persistent_enabled(|| {
             PersistentCacheCommand::Append(PersistentCacheEntry::new(key.to_owned(), Some(value.to_owned())))
         });
@@ -277,9 +258,7 @@ impl<
         } else {
             d.field("cache", &"<uninitialized>");
         }
-        d.field("cache_lifetime", &self.cache_lifetime)
-            .field("shrink_interval", &self.shrink_interval)
-            .finish()
+        d.field("shrink_interval", &self.shrink_interval).finish()
     }
 }
 
@@ -315,7 +294,6 @@ impl<
         swap(&mut self.cache, &mut cache);
         let mut new_cache_inner = CacheInner {
             cache,
-            cache_lifetime: self.cache_lifetime,
             shrink_interval: self.shrink_interval,
             locked_data: take(&mut self.locked_data),
             persistent: self.persistent.take(),
@@ -392,7 +370,7 @@ async fn do_some_work_with_locked_data<
         let mut count = 0usize;
         let mut cache = inner.cache().await.write().await;
         cache.retain(|_, cache| {
-            if cache.is_cache_valid(inner.cache_lifetime) {
+            if cache.is_valid() {
                 true
             } else {
                 count += 1;
@@ -412,8 +390,7 @@ async fn do_some_work_with_locked_data<
         inner: &CacheInner<K, V>,
     ) {
         if let Some(persistent) = &inner.persistent {
-            if let Err(err) = _persistent_to_file(persistent.commands(), persistent.path(), inner.cache_lifetime).await
-            {
+            if let Err(err) = _persistent_to_file(persistent.commands(), persistent.path()).await {
                 warn!(
                     "AsyncCache was failed to persist to file {}: {}",
                     persistent.path().display(),
@@ -426,7 +403,6 @@ async fn do_some_work_with_locked_data<
     async fn _persistent_to_file<K: Serialize, V: IsCacheValid + Serialize>(
         commands: &SegQueue<PersistentCacheCommand<K, V>>,
         path: &Path,
-        cache_lifetime: Duration,
     ) -> PersistentResult<()> {
         if !commands.is_empty() {
             if let Some(parent_dir) = path.parent() {
@@ -436,7 +412,7 @@ async fn do_some_work_with_locked_data<
             file = spawn_blocking(move || file.lock_exclusive().map(|_| file)).await??;
             file.seek(SeekFrom::End(0)).await?;
             let mut writer = BufWriter::new(file);
-            let result = _execute_commands(commands, &mut writer, cache_lifetime).await;
+            let result = _execute_commands(commands, &mut writer).await;
             writer.flush().await?;
             writer.get_mut().unlock()?;
             result?;
@@ -448,13 +424,12 @@ async fn do_some_work_with_locked_data<
     async fn _execute_commands<K: Serialize, V: IsCacheValid + Serialize>(
         commands: &SegQueue<PersistentCacheCommand<K, V>>,
         mut writer: &mut BufWriter<File>,
-        cache_lifetime: Duration,
     ) -> PersistentResult<()> {
         while let Some(command) = commands.pop() {
             match command {
                 PersistentCacheCommand::Append(entry) => {
                     let (key, value) = entry.into_parts();
-                    _append_cache_entry_to_file(&mut writer, key, value, cache_lifetime).await?;
+                    _append_cache_entry_to_file(&mut writer, key, value).await?;
                 }
                 PersistentCacheCommand::ClearAll => {
                     writer.flush().await?;
@@ -468,11 +443,10 @@ async fn do_some_work_with_locked_data<
     async fn _append_cache_entry_to_file<K: Serialize, V: IsCacheValid + Serialize>(
         mut writer: impl AsyncWrite + Unpin,
         key: K,
-        value: Option<CacheValue<V>>,
-        cache_lifetime: Duration,
+        value: Option<V>,
     ) -> PersistentResult<()> {
         if let Some(value) = value {
-            if value.is_cache_valid(cache_lifetime) {
+            if value.is_valid() {
                 let line = serde_json::to_string(&PersistentCacheEntry::new(key, Some(value)))?;
                 writer.write_all(line.as_bytes()).await?;
                 writer.write_all(b"\n").await?;
@@ -506,57 +480,59 @@ fn is_time_to_shrink<
 #[cfg(test)]
 mod tests {
     use super::{
-        super::super::{ResponseError, ResponseErrorKind},
+        super::super::{cache::MaybeExpiredCache, ResponseError, ResponseErrorKind},
         *,
     };
     use qiniu_utils::async_task::sleep;
-    use serde::Deserialize;
     use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
-
-    #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-    struct SimpleCacheValue(String);
-
-    impl IsCacheValid for SimpleCacheValue {}
 
     #[qiniu_utils::async_runtime::test]
     async fn test_async_cache_in_memory_refresh() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
-        let cache = AsyncCache::in_memory(Duration::from_secs(2), Duration::from_secs(2));
+        let cache = AsyncCache::in_memory(Duration::from_secs(2));
         let called = Arc::new(AtomicUsize::new(0));
         let cache_key = "key_1".to_owned();
-        let cache_value_1 = SimpleCacheValue("val_1".to_owned());
+        let cache_value_1 = MaybeExpiredCache::new("val_1".to_owned(), Duration::from_secs(2));
         assert_eq!(
             cache
                 .get(&cache_key, async {
                     called.fetch_add(1, Relaxed);
                     Ok(cache_value_1.to_owned())
                 })
-                .await?,
-            cache_value_1,
+                .await?
+                .value(),
+            cache_value_1.value(),
         );
         assert_eq!(called.load(Relaxed), 1);
         assert!(cache.exists(&cache_key).await);
-        assert_eq!(cache.get(&cache_key, async { unreachable!() }).await?, cache_value_1);
+        assert_eq!(
+            cache.get(&cache_key, async { unreachable!() }).await?.value(),
+            cache_value_1.value()
+        );
 
         sleep(Duration::from_secs(2)).await;
 
-        let cache_value_2 = SimpleCacheValue("val_2".to_owned());
+        let cache_value_2 = MaybeExpiredCache::new("val_2".to_owned(), Duration::from_secs(2));
         assert_eq!(
             cache
                 .get(&cache_key, async {
                     called.fetch_add(1, Relaxed);
                     Ok(cache_value_2.to_owned())
                 })
-                .await?,
-            cache_value_2,
+                .await?
+                .value(),
+            cache_value_2.value(),
         );
         assert_eq!(called.load(Relaxed), 2);
 
         sleep(Duration::from_secs(1)).await;
 
         assert!(cache.exists(&cache_key).await);
-        assert_eq!(cache.get(&cache_key, async { unreachable!() }).await?, cache_value_2);
+        assert_eq!(
+            cache.get(&cache_key, async { unreachable!() }).await?.value(),
+            cache_value_2.value()
+        );
 
         Ok(())
     }
@@ -565,18 +541,19 @@ mod tests {
     async fn test_async_cache_in_memory_shrink() -> anyhow::Result<()> {
         env_logger::builder().is_test(true).try_init().ok();
 
-        let cache = AsyncCache::in_memory(Duration::from_secs(2), Duration::from_secs(2));
+        let cache = AsyncCache::in_memory(Duration::from_secs(2));
         let called = Arc::new(AtomicUsize::new(0));
         let cache_key = "key_1".to_owned();
-        let cache_value_1 = SimpleCacheValue("val_1".to_owned());
+        let cache_value_1 = MaybeExpiredCache::new("val_1".to_owned(), Duration::from_secs(2));
         assert_eq!(
             cache
                 .get(&cache_key, async {
                     called.fetch_add(1, Relaxed);
                     Ok(cache_value_1.to_owned())
                 })
-                .await?,
-            cache_value_1,
+                .await?
+                .value(),
+            cache_value_1.value(),
         );
         assert_eq!(called.load(Relaxed), 1);
         assert!(cache.exists(&cache_key).await);
@@ -585,8 +562,9 @@ mod tests {
                 .get(&cache_key, async {
                     Err(ResponseError::new_with_msg(ResponseErrorKind::NoTry, "test error"))
                 })
-                .await?,
-            cache_value_1
+                .await?
+                .value(),
+            cache_value_1.value()
         );
 
         sleep(Duration::from_secs(2)).await;
@@ -596,8 +574,9 @@ mod tests {
                 .get(&cache_key, async {
                     Err(ResponseError::new_with_msg(ResponseErrorKind::NoTry, "test error"))
                 })
-                .await?,
-            cache_value_1
+                .await?
+                .value(),
+            cache_value_1.value()
         );
 
         sleep(Duration::from_secs(1)).await;

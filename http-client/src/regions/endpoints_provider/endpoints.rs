@@ -1,8 +1,5 @@
 use super::{
-    super::{
-        super::{cache::IsCacheValid, ApiResult},
-        Endpoint, Region, RegionsProvider,
-    },
+    super::{super::ApiResult, Endpoint, Region, RegionsProvider},
     ServiceName,
 };
 use md5::{
@@ -226,8 +223,6 @@ impl<'p> From<Cow<'p, Endpoints>> for Endpoints {
         }
     }
 }
-
-impl IsCacheValid for Endpoints {}
 
 /// 终端地址列表构建器
 #[derive(Clone, Debug, Default)]

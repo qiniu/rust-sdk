@@ -104,6 +104,16 @@ impl From<Region> for GotRegion {
 }
 
 impl GotRegion {
+    /// 创建区域信息
+    #[inline]
+    pub fn new(region: Region, lifetime: Duration) -> Self {
+        Self {
+            region,
+            got_at: SystemTime::now(),
+            lifetime: Some(lifetime),
+        }
+    }
+
     /// 获取的区域信息
     #[inline]
     pub fn region(&self) -> &Region {
@@ -249,6 +259,16 @@ impl IntoIterator for GotRegions {
 }
 
 impl GotRegions {
+    /// 创建区域信息列表
+    #[inline]
+    pub fn new(regions: Vec<Region>, lifetime: Duration) -> Self {
+        Self {
+            regions,
+            got_at: SystemTime::now(),
+            lifetime: Some(lifetime),
+        }
+    }
+
     /// 获取的区域信息列表
     #[inline]
     pub fn regions(&self) -> &[Region] {

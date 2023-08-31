@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Error as JsonError;
 use std::{
     io::Error as IoError,
+    ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     sync::atomic::{AtomicBool, Ordering::Relaxed},
     time::{Duration, Instant, SystemTime},
@@ -11,8 +12,60 @@ use std::{
 use thiserror::Error;
 
 pub(in super::super) trait IsCacheValid {
+    fn is_valid(&self) -> bool;
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(in super::super) struct MaybeExpiredCache<V> {
+    value: V,
+    created_at: SystemTime,
+    cache_lifetime: Duration,
+}
+
+impl<V> MaybeExpiredCache<V> {
+    pub(in super::super) fn new(value: V, cache_lifetime: Duration) -> Self {
+        Self {
+            value,
+            cache_lifetime,
+            created_at: SystemTime::now(),
+        }
+    }
+
+    pub(in super::super) fn value(&self) -> &V {
+        &self.value
+    }
+
+    pub(in super::super) fn value_mut(&mut self) -> &mut V {
+        &mut self.value
+    }
+
+    pub(in super::super) fn into_value(self) -> V {
+        self.value
+    }
+}
+
+impl<V> Deref for MaybeExpiredCache<V> {
+    type Target = V;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.value()
+    }
+}
+
+impl<V> DerefMut for MaybeExpiredCache<V> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.value_mut()
+    }
+}
+
+impl<V> IsCacheValid for MaybeExpiredCache<V> {
     fn is_valid(&self) -> bool {
-        true
+        SystemTime::now()
+            .duration_since(self.created_at)
+            .map(|d| d < self.cache_lifetime)
+            .unwrap_or(true)
     }
 }
 
@@ -28,39 +81,6 @@ use futures::future::BoxFuture;
 #[cfg(any(feature = "async-std-runtime", feature = "tokio-runtime"))]
 pub(crate) trait AsyncCacheController {
     fn async_clear(&self) -> BoxFuture<()>;
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub(super) struct CacheValue<V> {
-    value: V,
-    cached_at: SystemTime,
-}
-
-impl<V: IsCacheValid> CacheValue<V> {
-    pub(super) fn new(value: V) -> Self {
-        Self {
-            value,
-            cached_at: SystemTime::now(),
-        }
-    }
-
-    pub(super) fn value(&self) -> &V {
-        &self.value
-    }
-
-    pub(super) fn into_value(self) -> V {
-        self.value
-    }
-
-    pub(super) fn is_cache_valid(&self, cache_lifetime: Duration) -> bool {
-        self.cached_at + cache_lifetime >= SystemTime::now() && self.value.is_valid()
-    }
-}
-
-impl<V: IsCacheValid> IsCacheValid for CacheValue<V> {
-    fn is_valid(&self) -> bool {
-        self.value.is_valid()
-    }
 }
 
 #[derive(Debug)]
@@ -118,15 +138,15 @@ impl Default for CacheInnerLockedData {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(super) struct PersistentCacheEntry<K, V> {
     key: K,
-    value: Option<CacheValue<V>>,
+    value: Option<V>,
 }
 
 impl<K, V> PersistentCacheEntry<K, V> {
-    pub(super) fn new(key: K, value: Option<CacheValue<V>>) -> Self {
+    pub(super) fn new(key: K, value: Option<V>) -> Self {
         Self { key, value }
     }
 
-    pub(super) fn into_parts(self) -> (K, Option<CacheValue<V>>) {
+    pub(super) fn into_parts(self) -> (K, Option<V>) {
         (self.key, self.value)
     }
 }
