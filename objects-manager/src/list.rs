@@ -1471,7 +1471,7 @@ mod tests {
         let mut counter = 0usize;
         let bucket = get_bucket(FakeHttpCaller::default());
         let mut iter = bucket.list().version(ListVersion::V2).prefix("non-existed").iter();
-        for (_i, _entry) in (&mut iter).enumerate() {
+        for _entry in &mut iter {
             counter += 1;
         }
         assert_eq!(counter, 0usize);

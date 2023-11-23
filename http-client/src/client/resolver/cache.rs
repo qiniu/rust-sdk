@@ -279,8 +279,8 @@ mod tests {
         });
         threads_1
             .into_iter()
-            .chain(threads_2.into_iter())
-            .chain(threads_3.into_iter())
+            .chain(threads_2)
+            .chain(threads_3)
             .try_for_each(|thread| thread.join())
             .unwrap();
         let resolver = Arc::try_unwrap(resolver).unwrap();

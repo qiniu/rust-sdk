@@ -78,11 +78,11 @@ mod tests {
             GeneratorOptions::builder().ttl(Duration::from_secs(100)).build(),
         )?;
         assert!(urls
-            .get(0)
+            .first()
             .unwrap()
             .to_string()
             .starts_with("http://first.domain.com/abc/def/%E4%B8%AD%E6%96%87?e="));
-        assert!(urls.get(0).unwrap().to_string().contains("&token=ak"));
+        assert!(urls.first().unwrap().to_string().contains("&token=ak"));
         assert!(urls
             .get(1)
             .unwrap()

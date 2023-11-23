@@ -111,7 +111,7 @@ pub use {
 };
 
 #[cfg(feature = "async")]
-use std::{future::Future, pin::Pin, io::SeekFrom};
+use std::{future::Future, pin::Pin};
 
 #[cfg(feature = "async")]
 type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a + Send>>;
@@ -192,6 +192,7 @@ pub trait AsyncReset {
 impl<T: AsyncSeek + Unpin + Send + Sync> AsyncReset for T {
     #[inline]
     fn reset(&mut self) -> BoxFuture<IoResult<()>> {
+        use std::io::SeekFrom;
         use futures_lite::io::AsyncSeekExt;
 
         Box::pin(async move {

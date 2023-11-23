@@ -564,6 +564,82 @@ impl OperationResponseData {
         })
     }
 }
+impl OperationResponseData {
+    #[doc = "获取 文件生命周期中转为深度归档存储的日期，UNIX 时间戳格式，文件在设置转深度归档后才会返回该字段，仅对 stat 指令才有效"]
+    pub fn get_transition_to_deep_archive_time_as_i64(&self) -> Option<i64> {
+        self.0
+            .as_object()
+            .and_then(|obj| obj.get("transitionToDeepArchive"))
+            .and_then(|val| val.as_i64())
+    }
+}
+impl OperationResponseData {
+    #[doc = "设置 文件生命周期中转为深度归档存储的日期，UNIX 时间戳格式，文件在设置转深度归档后才会返回该字段，仅对 stat 指令才有效"]
+    pub fn set_transition_to_deep_archive_time_as_i64(&mut self, new: i64) -> Option<i64> {
+        self.0.as_object_mut().and_then(|object| {
+            object
+                .insert("transitionToDeepArchive".to_owned(), new.into())
+                .and_then(|val| val.as_i64())
+        })
+    }
+}
+impl OperationResponseData {
+    #[doc = "获取 文件生命周期中转为深度归档存储的日期，UNIX 时间戳格式，文件在设置转深度归档后才会返回该字段，仅对 stat 指令才有效"]
+    pub fn get_transition_to_deep_archive_time_as_u64(&self) -> Option<u64> {
+        self.0
+            .as_object()
+            .and_then(|obj| obj.get("transitionToDeepArchive"))
+            .and_then(|val| val.as_u64())
+    }
+}
+impl OperationResponseData {
+    #[doc = "设置 文件生命周期中转为深度归档存储的日期，UNIX 时间戳格式，文件在设置转深度归档后才会返回该字段，仅对 stat 指令才有效"]
+    pub fn set_transition_to_deep_archive_time_as_u64(&mut self, new: u64) -> Option<u64> {
+        self.0.as_object_mut().and_then(|object| {
+            object
+                .insert("transitionToDeepArchive".to_owned(), new.into())
+                .and_then(|val| val.as_u64())
+        })
+    }
+}
+impl OperationResponseData {
+    #[doc = "获取 文件生命周期中转为归档直读存储的日期，UNIX 时间戳格式，文件在设置转归档直读后才会返回该字段，仅对 stat 指令才有效"]
+    pub fn get_transition_to_archive_ir_time_as_i64(&self) -> Option<i64> {
+        self.0
+            .as_object()
+            .and_then(|obj| obj.get("transitionToArchiveIR"))
+            .and_then(|val| val.as_i64())
+    }
+}
+impl OperationResponseData {
+    #[doc = "设置 文件生命周期中转为归档直读存储的日期，UNIX 时间戳格式，文件在设置转归档直读后才会返回该字段，仅对 stat 指令才有效"]
+    pub fn set_transition_to_archive_ir_time_as_i64(&mut self, new: i64) -> Option<i64> {
+        self.0.as_object_mut().and_then(|object| {
+            object
+                .insert("transitionToArchiveIR".to_owned(), new.into())
+                .and_then(|val| val.as_i64())
+        })
+    }
+}
+impl OperationResponseData {
+    #[doc = "获取 文件生命周期中转为归档直读存储的日期，UNIX 时间戳格式，文件在设置转归档直读后才会返回该字段，仅对 stat 指令才有效"]
+    pub fn get_transition_to_archive_ir_time_as_u64(&self) -> Option<u64> {
+        self.0
+            .as_object()
+            .and_then(|obj| obj.get("transitionToArchiveIR"))
+            .and_then(|val| val.as_u64())
+    }
+}
+impl OperationResponseData {
+    #[doc = "设置 文件生命周期中转为归档直读存储的日期，UNIX 时间戳格式，文件在设置转归档直读后才会返回该字段，仅对 stat 指令才有效"]
+    pub fn set_transition_to_archive_ir_time_as_u64(&mut self, new: u64) -> Option<u64> {
+        self.0.as_object_mut().and_then(|object| {
+            object
+                .insert("transitionToArchiveIR".to_owned(), new.into())
+                .and_then(|val| val.as_u64())
+        })
+    }
+}
 impl OperationResponse {
     #[doc = "获取 响应数据"]
     pub fn get_data(&self) -> Option<OperationResponseData> {
