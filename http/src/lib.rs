@@ -60,7 +60,7 @@ pub use response::{
 };
 use std::{
     fmt::Debug,
-    io::{Result as IoResult, Seek, SeekFrom},
+    io::{Result as IoResult, Seek},
 };
 
 /// 阻塞 HTTP 响应
@@ -111,7 +111,7 @@ pub use {
 };
 
 #[cfg(feature = "async")]
-use std::{future::Future, pin::Pin};
+use std::{future::Future, pin::Pin, io::SeekFrom};
 
 #[cfg(feature = "async")]
 type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a + Send>>;
