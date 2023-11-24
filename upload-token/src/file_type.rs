@@ -1,10 +1,9 @@
 use duplicate::duplicate;
 use serde::{Deserialize, Serialize};
-use smart_default::SmartDefault;
 use std::fmt::{self, Display};
 
 /// 文件存储类型
-#[derive(Copy, Clone, Debug, Eq, PartialEq, SmartDefault, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, Serialize, Deserialize)]
 #[serde(from = "u8", into = "u8")]
 #[non_exhaustive]
 pub enum FileType {

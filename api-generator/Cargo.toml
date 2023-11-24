@@ -22,7 +22,6 @@ quote = "1.0.10"
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = "1.0.68"
 serde_yaml = "0.8.21"
-smart-default = "0.6.0"
 tempfile = "3.2.0"
 trybuild = "1.0.50"
 walkdir = "2.3.2"

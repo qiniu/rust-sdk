@@ -13,7 +13,6 @@ use qiniu_apis::{
 };
 use qiniu_upload_token::{BucketName, ObjectName};
 use serde_json::Value;
-use smart_default::SmartDefault;
 use std::{fmt::Debug, num::NonZeroU64};
 
 #[cfg(feature = "async")]
@@ -201,7 +200,7 @@ impl ReinitializeOptions {
     }
 }
 
-#[derive(Debug, Clone, SmartDefault)]
+#[derive(Debug, Clone, Default)]
 enum ReinitializedUpEndpointsProvider {
     #[default]
     KeepOriginalUpEndpoints,

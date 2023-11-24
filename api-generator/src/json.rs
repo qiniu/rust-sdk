@@ -3,9 +3,8 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use serde::{Deserialize, Serialize};
-use smart_default::SmartDefault;
 
-#[derive(SmartDefault, Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 /// JSON 字段类型
 pub(super) enum JsonType {
@@ -25,7 +24,6 @@ pub(super) enum JsonType {
     Array(Box<JsonArray>),
 
     /// 结构体
-    #[default]
     Struct(JsonStruct),
 
     /// 任意数据结构
@@ -38,6 +36,13 @@ pub(super) enum JsonType {
 impl CodeGenerator for JsonType {
     fn to_rust_token_stream(&self, name: &str, documentation: &str) -> TokenStream {
         self.to_rust_token_stream_inner(name, documentation)
+    }
+}
+
+impl Default for JsonType {
+    #[inline]
+    fn default() -> Self {
+        Self::Struct(Default::default())
     }
 }
 
