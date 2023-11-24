@@ -52,7 +52,7 @@ jobs:
           submodules: 'recursive'
       - name: Install dependencies
         run: |
-          brew install make
+          brew install make automake autoconf
       - name: Install Rust stable
         uses: actions-rs/toolchain@v1
         with:
