@@ -7,7 +7,7 @@ jobs:
     strategy:
       matrix:
         rust:
-          - 1.63.0
+          - 1.70.0
           - stable
     steps:
       - name: Checkout code
@@ -43,7 +43,7 @@ jobs:
     strategy:
       matrix:
         rust:
-          - 1.63.0
+          - 1.70.0
           - stable
     steps:
       - name: Checkout code
@@ -75,7 +75,7 @@ jobs:
     strategy:
       matrix:
         rust:
-          - 1.63.0
+          - 1.70.0
           - stable
     steps:
       - name: Checkout code
