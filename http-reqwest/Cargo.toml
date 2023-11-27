@@ -1,9 +1,9 @@
 [package]
 name = "qiniu-reqwest"
-version = "0.2.3"
+version = "0.2.4"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2021"
-rust-version = "1.60.0"
+rust-version = "1.70.0"
 readme = "README.md"
 license = "MIT"
 repository = "https://github.com/qiniu/rust-sdk.git"
@@ -15,8 +15,8 @@ keywords = ["qiniu", "storage"]
 
 [dependencies]
 anyhow = "1.0.41"
-reqwest = { version = "0.11.4", features = ["blocking", "stream"] }
-qiniu-http = { version = "0.2.3", path = "../http" }
+reqwest = { version = "0.11.20", features = ["blocking", "stream"] }
+qiniu-http = { version = "0.2.4", path = "../http" }
 bytes = { version = "1.0.1", optional = true }
 futures = { version = "0.3.16", optional = true }
 

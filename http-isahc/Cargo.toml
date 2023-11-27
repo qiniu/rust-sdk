@@ -1,9 +1,9 @@
 [package]
 name = "qiniu-isahc"
-version = "0.2.3"
+version = "0.2.4"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2021"
-rust-version = "1.60.0"
+rust-version = "1.70.0"
 readme = "README.md"
 license = "MIT"
 repository = "https://github.com/qiniu/rust-sdk.git"
@@ -16,7 +16,7 @@ keywords = ["qiniu", "storage"]
 [dependencies]
 anyhow = "1.0.41"
 isahc = { version = "1.4.0" }
-qiniu-http = { version = "0.2.3", path = "../http" }
+qiniu-http = { version = "0.2.4", path = "../http" }
 futures = { version = "0.3.16", optional = true }
 
 [features]

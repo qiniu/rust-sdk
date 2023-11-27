@@ -102,12 +102,12 @@ mod tests {
             .build();
         let urls = generator.generate("abc/def/中文", Default::default())?;
         assert!(urls
-            .get(0)
+            .first()
             .unwrap()
             .to_string()
             .starts_with("http://first.domain.com/abc/def/%E4%B8%AD%E6%96%87"));
-        assert!(!urls.get(0).unwrap().to_string().contains("?e="));
-        assert!(!urls.get(0).unwrap().to_string().contains("&token=ak"));
+        assert!(!urls.first().unwrap().to_string().contains("?e="));
+        assert!(!urls.first().unwrap().to_string().contains("&token=ak"));
         assert!(urls
             .get(1)
             .unwrap()

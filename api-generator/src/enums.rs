@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
-use smart_default::SmartDefault;
 
-#[derive(SmartDefault, Clone, Debug, Copy, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 /// HTTP 方法
 pub(super) enum Method {
@@ -12,7 +11,7 @@ pub(super) enum Method {
     Delete,
 }
 
-#[derive(SmartDefault, Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Default, Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 /// 七牛服务名称
 pub(super) enum ServiceName {
@@ -26,7 +25,7 @@ pub(super) enum ServiceName {
     S3,
 }
 
-#[derive(SmartDefault, Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Default, Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(super) enum Idempotent {
     Always,
@@ -51,7 +50,7 @@ pub(super) enum Authorization {
     UploadToken,
 }
 
-#[derive(SmartDefault, Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Default, Copy, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 /// 类字符串参数类型
 pub(super) enum StringLikeType {

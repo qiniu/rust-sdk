@@ -60,7 +60,7 @@ pub use response::{
 };
 use std::{
     fmt::Debug,
-    io::{Result as IoResult, Seek, SeekFrom},
+    io::{Result as IoResult, Seek},
 };
 
 /// 阻塞 HTTP 响应
@@ -192,6 +192,7 @@ pub trait AsyncReset {
 impl<T: AsyncSeek + Unpin + Send + Sync> AsyncReset for T {
     #[inline]
     fn reset(&mut self) -> BoxFuture<IoResult<()>> {
+        use std::io::SeekFrom;
         use futures_lite::io::AsyncSeekExt;
 
         Box::pin(async move {

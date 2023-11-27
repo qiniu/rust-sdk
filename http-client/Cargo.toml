@@ -1,9 +1,9 @@
 [package]
 name = "qiniu-http-client"
-version = "0.2.3"
+version = "0.2.4"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2021"
-rust-version = "1.60.0"
+rust-version = "1.70.0"
 readme = "README.md"
 license = "MIT"
 repository = "https://github.com/qiniu/rust-sdk.git"
@@ -15,8 +15,8 @@ keywords = ["qiniu", "storage"]
 
 [dependencies]
 thiserror = "1.0.20"
-dashmap = "5.1.0"
-serde = { version ="1.0.117", features = ["derive", "rc"] }
+dashmap = "5.4.0"
+serde = { version = "1.0.117", features = ["derive", "rc"] }
 serde_json = "1.0.59"
 dirs = "3.0.1"
 dns-lookup = "1.0.4"
@@ -32,7 +32,7 @@ assert-impl = "0.1.3"
 crossbeam-channel = "0.5.1"
 crossbeam-queue = "0.3.2"
 percent-encoding = "2.1.0"
-regex = "1.5.4"
+regex = "1.9.6"
 typenum = "1.15.0"
 mime_guess = "2.0.3"
 cfg-if = "1.0.0"
@@ -43,26 +43,25 @@ md-5 = "0.9.1"
 hex = "0.4.3"
 chrono = "0.4.19"
 maybe-owned = "0.3.4"
-smart-default = "0.6.0"
 dyn-clonable = "0.9.0"
 auto_impl = "1.0.0"
 num-rational = { version = "0.3.0", default-features = false }
-c-ares = { version ="=7.2.0", optional = true }
-c-ares-resolver = { version ="7.1.3", optional = true }
+c-ares = { version = "7.7.0", optional = true }
+c-ares-resolver = { version = "7.5.0", optional = true }
 futures = { version = "0.3.5", optional = true }
 futures-timer = { version = "3.0.2", optional = true }
 async-std = { version = "1.12.0", optional = true }
-trust-dns-resolver = { version = "0.21.2", optional = true }
-async-std-resolver = { version = "0.21.2", optional = true }
-async-once-cell = { version = "0.3.0", optional = true }
+trust-dns-resolver = { version = "0.22.0", optional = true }
+async-std-resolver = { version = "0.22.0", optional = true }
+async-once-cell = { version = "0.3.1", optional = true }
 
-qiniu-http = { version = "0.2.3", path = "../http" }
-qiniu-credential = { version = "0.2.3", path = "../credential" }
-qiniu-upload-token = { version = "0.2.3", path = "../upload-token" }
-qiniu-reqwest = { version = "0.2.3", path = "../http-reqwest", optional = true }
-qiniu-isahc = { version = "0.2.3", path = "../http-isahc", optional = true }
-qiniu-ureq = { version = "0.2.3", path = "../http-ureq", optional = true }
-qiniu-utils = { version = "0.2.3", path = "../utils" }
+qiniu-http = { version = "0.2.4", path = "../http" }
+qiniu-credential = { version = "0.2.4", path = "../credential" }
+qiniu-upload-token = { version = "0.2.4", path = "../upload-token" }
+qiniu-reqwest = { version = "0.2.4", path = "../http-reqwest", optional = true }
+qiniu-isahc = { version = "0.2.4", path = "../http-isahc", optional = true }
+qiniu-ureq = { version = "0.2.4", path = "../http-ureq", optional = true }
+qiniu-utils = { version = "0.2.4", path = "../utils" }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.48.0", features = ["Win32_Storage_FileSystem", "Win32_Foundation", "Win32_System_IO"] }
@@ -70,11 +69,11 @@ windows-sys = { version = "0.48.0", features = ["Win32_Storage_FileSystem", "Win
 [dev-dependencies]
 async-std = { version = "1.9.0", features = ["attributes"] }
 tokio = { version = "1", features = ["full"] }
-tempfile = "3.1.0"
-warp = "0.3.1"
-futures = "0.3.5"
-env_logger = "0.9.0"
-once_cell = "1.8.0"
+tempfile = "3.8.0"
+warp = "0.3.5"
+futures = "0.3.28"
+env_logger = "0.10.0"
+trust-dns-server = "0.22.0"
 
 [features]
 default = ["ureq"]

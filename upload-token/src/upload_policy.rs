@@ -10,7 +10,6 @@ use serde_json::{
 };
 use std::{
     borrow::{Borrow, Cow},
-    convert::TryInto,
     fmt,
     hash::Hash,
     ops::{Bound, RangeBounds},
@@ -530,7 +529,7 @@ impl UploadPolicyBuilder {
                 .checked_add(secs_one_day)
                 .and_then(|s| s.checked_sub(1))
                 .and_then(|s| s.checked_div(secs_one_day))
-                .and_then(|s| s.try_into().ok())
+                .map(|s| s.into())
                 .unwrap_or_else(|| JsonValue::Number(u64::max_value().into())),
         )
     }

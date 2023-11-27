@@ -1,9 +1,9 @@
 [package]
 name = "qiniu-utils"
-version = "0.2.3"
+version = "0.2.4"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2021"
-rust-version = "1.60.0"
+rust-version = "1.70.0"
 license = "MIT"
 repository = "https://github.com/qiniu/rust-sdk.git"
 homepage = "https://www.qiniu.com"

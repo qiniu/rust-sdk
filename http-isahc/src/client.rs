@@ -538,7 +538,7 @@ fn from_isahc_error(err: IsahcError, request: &RequestParts) -> ResponseError {
         IsahcErrorKind::InvalidCredentials => ResponseError::builder(ResponseErrorKind::InvalidHeader, err),
         IsahcErrorKind::InvalidRequest => ResponseError::builder(ResponseErrorKind::InvalidRequestResponse, err),
         IsahcErrorKind::Io => ResponseError::builder(ResponseErrorKind::SendError, err),
-        IsahcErrorKind::NameResolution => ResponseError::builder(ResponseErrorKind::UnknownHostError, err),
+        IsahcErrorKind::NameResolution => ResponseError::builder(ResponseErrorKind::DnsServerError, err),
         IsahcErrorKind::ProtocolViolation => ResponseError::builder(ResponseErrorKind::InvalidRequestResponse, err),
         IsahcErrorKind::Timeout => ResponseError::builder(ResponseErrorKind::TimeoutError, err),
         IsahcErrorKind::TlsEngine => ResponseError::builder(ResponseErrorKind::SslError, err),

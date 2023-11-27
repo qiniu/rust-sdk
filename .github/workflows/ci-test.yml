@@ -7,7 +7,7 @@ jobs:
     strategy:
       matrix:
         rust:
-          - 1.60.0
+          - 1.70.0
           - stable
     steps:
       - name: Checkout code
@@ -43,7 +43,7 @@ jobs:
     strategy:
       matrix:
         rust:
-          - 1.60.0
+          - 1.70.0
           - stable
     steps:
       - name: Checkout code
@@ -52,7 +52,7 @@ jobs:
           submodules: 'recursive'
       - name: Install dependencies
         run: |
-          brew install make
+          brew install make automake autoconf
       - name: Install Rust stable
         uses: actions-rs/toolchain@v1
         with:
@@ -75,7 +75,7 @@ jobs:
     strategy:
       matrix:
         rust:
-          - 1.60.0
+          - 1.70.0
           - stable
     steps:
       - name: Checkout code

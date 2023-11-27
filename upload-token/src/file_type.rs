@@ -1,10 +1,9 @@
 use duplicate::duplicate;
 use serde::{Deserialize, Serialize};
-use smart_default::SmartDefault;
 use std::fmt::{self, Display};
 
 /// 文件存储类型
-#[derive(Copy, Clone, Debug, Eq, PartialEq, SmartDefault, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, Serialize, Deserialize)]
 #[serde(from = "u8", into = "u8")]
 #[non_exhaustive]
 pub enum FileType {
@@ -20,6 +19,9 @@ pub enum FileType {
 
     /// 深度归档存储
     DeepArchive,
+
+    /// 归档直读存储
+    ArchiveIR,
 
     /// 其他存储类型
     Other(u8),
@@ -52,6 +54,7 @@ impl From<FileType> for ty {
             FileType::InfrequentAccess => 1,
             FileType::Archive => 2,
             FileType::DeepArchive => 3,
+            FileType::ArchiveIR => 4,
             #[allow(clippy::unnecessary_cast)]
             FileType::Other(ft) => ft as ty,
         }
@@ -73,6 +76,7 @@ impl From<ty> for FileType {
             1 => Self::InfrequentAccess,
             2 => Self::Archive,
             3 => Self::DeepArchive,
+            4 => Self::ArchiveIR,
             ft => Self::Other(ft),
         }
     }

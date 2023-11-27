@@ -243,7 +243,7 @@ fn from_ureq_error(kind: UreqErrorKind, err: AnyError, request: &RequestParts) -
         UreqErrorKind::InvalidUrl => ResponseErrorKind::InvalidUrl,
         UreqErrorKind::UnknownScheme => ResponseErrorKind::InvalidUrl,
         UreqErrorKind::Dns => ResponseErrorKind::DnsServerError,
-        UreqErrorKind::ConnectionFailed => ResponseErrorKind::DnsServerError,
+        UreqErrorKind::ConnectionFailed => ResponseErrorKind::ConnectError,
         UreqErrorKind::TooManyRedirects => ResponseErrorKind::TooManyRedirect,
         UreqErrorKind::BadStatus => ResponseErrorKind::InvalidRequestResponse,
         UreqErrorKind::BadHeader => ResponseErrorKind::InvalidHeader,

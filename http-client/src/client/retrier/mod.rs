@@ -6,7 +6,6 @@ use super::{Idempotent, ResponseError, RetriedStatsInfo};
 use auto_impl::auto_impl;
 use dyn_clonable::clonable;
 use qiniu_http::RequestParts as HttpRequestParts;
-use smart_default::SmartDefault;
 use std::{
     fmt::{self, Debug},
     ops::{Deref, DerefMut},
@@ -23,7 +22,7 @@ pub trait RequestRetrier: Clone + Debug + Sync + Send {
 }
 
 /// 重试决定
-#[derive(Copy, Clone, Debug, Eq, PartialEq, SmartDefault)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 #[non_exhaustive]
 pub enum RetryDecision {
     /// 不再重试

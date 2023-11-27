@@ -1,9 +1,9 @@
 [package]
 name = "qiniu-sdk-examples"
-version = "0.2.3"
+version = "0.2.4"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2021"
-rust-version = "1.60.0"
+rust-version = "1.70.0"
 license = "MIT"
 repository = "https://github.com/qiniu/rust-sdk.git"
 homepage = "https://www.qiniu.com"
@@ -15,7 +15,7 @@ anyhow = "1.0.41"
 async-std = { version = "1.6.3", features = ["attributes"] }
 env_logger = "0.9.0"
 log = "0.4.14"
-qiniu-sdk = { version = "0.2.3", path = "../sdk", features = ["apis", "upload", "objects", "async", "isahc", "trust_dns"] }
+qiniu-sdk = { version = "0.2.4", path = "../sdk", features = ["apis", "upload", "objects", "async", "isahc", "trust_dns"] }
 structopt = "0.3.23"
 
 [dependencies]

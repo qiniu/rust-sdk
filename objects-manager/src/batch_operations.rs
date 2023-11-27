@@ -78,7 +78,7 @@ impl<'a> BatchOperations<'a> {
         <I as IntoIterator>::IntoIter: Sync + Send,
     {
         if let Some(iter) = take(&mut self.operations) {
-            self.operations = Some(Box::new(iter.chain(new_iter.into_iter())));
+            self.operations = Some(Box::new(iter.chain(new_iter)));
         } else {
             self.operations = Some(Box::new(new_iter.into_iter()));
         }
@@ -277,7 +277,6 @@ mod async_stream {
     use super::*;
     use futures::{future::BoxFuture, ready, FutureExt, Stream};
     use qiniu_apis::storage::batch_ops::AsyncRequestBuilder as BatchOpsAsyncRequestBuilder;
-    use smart_default::SmartDefault;
     use std::{
         fmt::{self, Debug},
         io::Result as IOResult,
@@ -298,9 +297,7 @@ mod async_stream {
         closed: bool,
     }
 
-    #[derive(SmartDefault)]
     enum BatchOperationsStep<'a> {
-        #[default]
         FromBuffer {
             buffer: VecDeque<ApiResult<OperationResponseData>>,
         },
@@ -311,6 +308,13 @@ mod async_stream {
             task: BoxFuture<'a, IOResult<&'a dyn RegionsProvider>>,
         },
         Done,
+    }
+
+    impl Default for BatchOperationsStep<'_> {
+        #[inline]
+        fn default() -> Self {
+            Self::FromBuffer { buffer: Default::default() }
+        }
     }
 
     impl Debug for BatchOperationsStep<'_> {

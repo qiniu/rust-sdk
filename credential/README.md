@@ -128,7 +128,7 @@ let authorization = credential
 
 ## 最低支持的 Rust 版本（MSRV）
 
-1.60.0
+1.70.0
 
 ## 联系我们
 

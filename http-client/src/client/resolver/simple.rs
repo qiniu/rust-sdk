@@ -36,14 +36,13 @@ fn convert_io_error_to_response_error(err: IOError, opts: ResolveOptions) -> Res
     err
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "async"))]
 mod tests {
     use super::*;
+    use anyhow::Result as AnyResult;
     use std::{
         collections::HashSet,
-        error::Error,
         net::{IpAddr, Ipv4Addr},
-        result::Result,
     };
 
     const DOMAIN: &str = "dns.alidns.com";
@@ -53,7 +52,7 @@ mod tests {
     ];
 
     #[test]
-    fn test_simple_resolver() -> Result<(), Box<dyn Error>> {
+    fn test_simple_resolver() -> AnyResult<()> {
         let resolver = SimpleResolver;
         let ips = resolver.resolve(DOMAIN, Default::default())?;
         assert!(is_subset_of(IPS, ips.ip_addrs()));

@@ -7,6 +7,7 @@ pub struct PathParams {
     r#to_ia_after_days: Option<std::borrow::Cow<'static, str>>,
     r#to_archive_after_days: Option<std::borrow::Cow<'static, str>>,
     r#to_deep_archive_after_days: Option<std::borrow::Cow<'static, str>>,
+    r#to_archive_ir_after_days: Option<std::borrow::Cow<'static, str>>,
     r#delete_after_days: Option<std::borrow::Cow<'static, str>>,
     extended_segments: Vec<std::borrow::Cow<'static, str>>,
 }
@@ -33,6 +34,10 @@ impl PathParams {
         }
         if let Some(segment) = self.r#to_deep_archive_after_days {
             all_segments.push(std::borrow::Cow::Borrowed("toDeepArchiveAfterDays"));
+            all_segments.push(segment);
+        }
+        if let Some(segment) = self.r#to_archive_ir_after_days {
+            all_segments.push(std::borrow::Cow::Borrowed("toArchiveIRAfterDays"));
             all_segments.push(segment);
         }
         if let Some(segment) = self.r#delete_after_days {
@@ -259,6 +264,76 @@ impl PathParams {
     #[doc = "指定文件上传后在设置的 toDeepArchiveAfterDays 转换到深度归档存储类型， 设置为 -1 表示取消已设置的转深度归档存储的生命周期规则"]
     pub fn set_to_deep_archive_after_days_as_usize(mut self, value: usize) -> Self {
         self.r#to_deep_archive_after_days = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[must_use]
+    #[doc = "指定文件上传后在设置的 toArchiveIRAfterDays 转换到归档直读存储类型， 设置为 -1 表示取消已设置的转归档直读存储的生命周期规则"]
+    pub fn set_to_archive_ir_after_days_as_i8(mut self, value: i8) -> Self {
+        self.r#to_archive_ir_after_days = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[must_use]
+    #[doc = "指定文件上传后在设置的 toArchiveIRAfterDays 转换到归档直读存储类型， 设置为 -1 表示取消已设置的转归档直读存储的生命周期规则"]
+    pub fn set_to_archive_ir_after_days_as_i16(mut self, value: i16) -> Self {
+        self.r#to_archive_ir_after_days = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[must_use]
+    #[doc = "指定文件上传后在设置的 toArchiveIRAfterDays 转换到归档直读存储类型， 设置为 -1 表示取消已设置的转归档直读存储的生命周期规则"]
+    pub fn set_to_archive_ir_after_days_as_i32(mut self, value: i32) -> Self {
+        self.r#to_archive_ir_after_days = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[must_use]
+    #[doc = "指定文件上传后在设置的 toArchiveIRAfterDays 转换到归档直读存储类型， 设置为 -1 表示取消已设置的转归档直读存储的生命周期规则"]
+    pub fn set_to_archive_ir_after_days_as_i64(mut self, value: i64) -> Self {
+        self.r#to_archive_ir_after_days = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[must_use]
+    #[doc = "指定文件上传后在设置的 toArchiveIRAfterDays 转换到归档直读存储类型， 设置为 -1 表示取消已设置的转归档直读存储的生命周期规则"]
+    pub fn set_to_archive_ir_after_days_as_isize(mut self, value: isize) -> Self {
+        self.r#to_archive_ir_after_days = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[must_use]
+    #[doc = "指定文件上传后在设置的 toArchiveIRAfterDays 转换到归档直读存储类型， 设置为 -1 表示取消已设置的转归档直读存储的生命周期规则"]
+    pub fn set_to_archive_ir_after_days_as_u8(mut self, value: u8) -> Self {
+        self.r#to_archive_ir_after_days = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[must_use]
+    #[doc = "指定文件上传后在设置的 toArchiveIRAfterDays 转换到归档直读存储类型， 设置为 -1 表示取消已设置的转归档直读存储的生命周期规则"]
+    pub fn set_to_archive_ir_after_days_as_u16(mut self, value: u16) -> Self {
+        self.r#to_archive_ir_after_days = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[must_use]
+    #[doc = "指定文件上传后在设置的 toArchiveIRAfterDays 转换到归档直读存储类型， 设置为 -1 表示取消已设置的转归档直读存储的生命周期规则"]
+    pub fn set_to_archive_ir_after_days_as_u32(mut self, value: u32) -> Self {
+        self.r#to_archive_ir_after_days = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[must_use]
+    #[doc = "指定文件上传后在设置的 toArchiveIRAfterDays 转换到归档直读存储类型， 设置为 -1 表示取消已设置的转归档直读存储的生命周期规则"]
+    pub fn set_to_archive_ir_after_days_as_u64(mut self, value: u64) -> Self {
+        self.r#to_archive_ir_after_days = Some(value.to_string().into());
+        self
+    }
+    #[inline]
+    #[must_use]
+    #[doc = "指定文件上传后在设置的 toArchiveIRAfterDays 转换到归档直读存储类型， 设置为 -1 表示取消已设置的转归档直读存储的生命周期规则"]
+    pub fn set_to_archive_ir_after_days_as_usize(mut self, value: usize) -> Self {
+        self.r#to_archive_ir_after_days = Some(value.to_string().into());
         self
     }
     #[inline]

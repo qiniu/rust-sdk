@@ -7,3 +7,6 @@ pub(super) use client::{
 };
 pub(super) use region::{chaotic_up_domains_endpoint, chaotic_up_domains_region, single_up_domain_endpoint};
 pub(super) use resolver::{make_dumb_resolver, make_error_resolver, make_random_resolver, make_static_resolver};
+
+#[cfg(all(feature = "async", any(feature = "c_ares", feature = "trust_dns")))]
+pub(super) use resolver::{make_record_set, make_zone, start_mock_dns_server};

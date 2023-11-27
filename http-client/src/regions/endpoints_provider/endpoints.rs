@@ -40,9 +40,10 @@ impl Endpoints {
 
     pub(in super::super) fn public_uc_endpoints() -> &'static Self {
         static DEFAULT_UC_ENDPOINTS: Lazy<Endpoints> = Lazy::new(|| {
-            Endpoints::builder(Endpoint::new_from_domain("uc.qbox.me"))
+            Endpoints::builder(Endpoint::new_from_domain("uc.qiniuapi.com"))
                 .add_preferred_endpoint(Endpoint::new_from_domain("kodo-config.qiniuapi.com"))
                 .add_preferred_endpoint(Endpoint::new_from_domain("api.qiniu.com"))
+                .add_alternative_endpoint(Endpoint::new_from_domain("uc.qbox.me"))
                 .build()
         });
         &DEFAULT_UC_ENDPOINTS

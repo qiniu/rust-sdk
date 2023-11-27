@@ -12,7 +12,6 @@ use qiniu_apis::{
     storage::get_objects_v2::SyncRequestBuilder as GetObjectsV2SyncRequestBuilder,
 };
 use serde::{Deserialize, Serialize};
-use smart_default::SmartDefault;
 use std::{
     borrow::Cow,
     collections::VecDeque,
@@ -156,7 +155,7 @@ impl Debug for ListIter<'_> {
 /// 列举 API 版本
 ///
 /// 目前支持 V1 和 V2，默认为 V1
-#[derive(Copy, Clone, Debug, SmartDefault)]
+#[derive(Copy, Clone, Debug, Default)]
 #[non_exhaustive]
 pub enum ListVersion {
     /// 列举 API V1
@@ -193,16 +192,22 @@ impl From<ListVersion> for SyncListVersionWithStep {
     }
 }
 
-#[derive(Clone, Debug, SmartDefault)]
+#[derive(Clone, Debug)]
 pub(super) enum SyncListV1Step {
-    #[default]
     Buffer {
         buffer: VecDeque<ListedObjectEntry>,
     },
     Done,
 }
 
-#[derive(Debug, SmartDefault)]
+impl Default for SyncListV1Step {
+    #[inline]
+    fn default() -> Self {
+        Self::Buffer { buffer: Default::default() }
+    }
+}
+
+#[derive(Debug, Default)]
 pub(super) enum SyncListV2Step {
     #[default]
     Start,
@@ -488,9 +493,7 @@ mod async_list_stream {
         }
     }
 
-    #[derive(SmartDefault)]
     enum AsyncListV1Step<'a> {
-        #[default]
         FromBuffer {
             buffer: VecDeque<ListedObjectEntry>,
         },
@@ -501,6 +504,13 @@ mod async_list_stream {
             task: BoxFuture<'a, IOResult<&'a dyn RegionsProvider>>,
         },
         Done,
+    }
+
+    impl Default for AsyncListV1Step<'_> {
+        #[inline]
+        fn default() -> Self {
+            Self::FromBuffer { buffer: Default::default() }
+        }
     }
 
     impl Debug for AsyncListV1Step<'_> {
@@ -709,7 +719,7 @@ mod async_list_stream {
         }
     }
 
-    #[derive(SmartDefault)]
+    #[derive(Default)]
     enum AsyncListV2Step<'a> {
         #[default]
         Start,
@@ -1471,7 +1481,7 @@ mod tests {
         let mut counter = 0usize;
         let bucket = get_bucket(FakeHttpCaller::default());
         let mut iter = bucket.list().version(ListVersion::V2).prefix("non-existed").iter();
-        for (_i, _entry) in (&mut iter).enumerate() {
+        for _entry in &mut iter {
             counter += 1;
         }
         assert_eq!(counter, 0usize);

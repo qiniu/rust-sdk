@@ -175,7 +175,6 @@ mod async_reader {
         ready, AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, Future,
     };
     use qiniu_apis::http::AsyncReset;
-    use smart_default::SmartDefault;
     use std::{
         fmt,
         pin::Pin,
@@ -208,9 +207,7 @@ mod async_reader {
         }
     }
 
-    #[derive(SmartDefault)]
     enum AsyncSeekableSourceReadStep {
-        #[default]
         Buffered {
             buffer: Vec<u8>,
             consumed: usize,
@@ -219,6 +216,13 @@ mod async_reader {
             task: Pin<Box<dyn Future<Output = IoResult<Vec<u8>>> + Send + Sync + 'static>>,
         },
         Done,
+    }
+
+    impl Default for AsyncSeekableSourceReadStep {
+        #[inline]
+        fn default() -> Self {
+            Self::Buffered { buffer: Default::default(), consumed: Default::default() }
+        }
     }
 
     impl Debug for AsyncSeekableSourceReadStep {

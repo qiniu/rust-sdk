@@ -180,7 +180,7 @@ impl Response<AsyncResponseBody> {
 
 fn parse_json_from_slice<'a, T: Deserialize<'a>>(v: &'a [u8]) -> serde_json::Result<T> {
     // Sometimes the API are supposed to response with JSON but actually Empty!
-    if v.as_ref().is_empty() {
+    if v.is_empty() {
         serde_json::from_slice(b"{}".as_slice())
     } else {
         serde_json::from_slice(v)

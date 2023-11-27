@@ -1,9 +1,9 @@
 [package]
 name = "qiniu-upload-manager"
-version = "0.2.3"
+version = "0.2.4"
 authors = ["Rong Zhou <zhourong@qiniu.com>", "Shanghai Qiniu Information Technologies Co., Ltd."]
 edition = "2021"
-rust-version = "1.60.0"
+rust-version = "1.70.0"
 readme = "README.md"
 license = "MIT"
 repository = "https://github.com/qiniu/rust-sdk.git"
@@ -17,17 +17,16 @@ keywords = ["qiniu", "storage"]
 log = "0.4.14"
 auto_impl = "1.0.0"
 anyhow = "1.0.51"
-smart-default = "0.6.0"
 sha-1 = "0.10.0"
 hex = "0.4.3"
 digest = "0.10"
-dashmap = "5.1.0"
+dashmap = "5.4.0"
 once_cell = "1.9.0"
 serde_json = "1.0.74"
 assert-impl = "0.1.3"
 dyn-clonable = "0.9.0"
 crossbeam-utils = "0.8.6"
-os_str_bytes = "6.0.0"
+os_str_bytes = { version = "6.6.1", features = ["conversions"] }
 tap = "1.0.1"
 md-5 = "0.10.1"
 rayon = "1.5.1"
@@ -36,9 +35,9 @@ futures = { version = "0.3.5", optional = true }
 async-once-cell = { version = "0.3.0", optional = true }
 async-std = { version = "1.10.0", optional = true }
 
-qiniu-apis = { version = "0.2.3", path = "../apis", default-features = false }
-qiniu-upload-token = { version = "0.2.3", path = "../upload-token" }
-qiniu-utils = { version = "0.2.3", path = "../utils" }
+qiniu-apis = { version = "0.2.4", path = "../apis", default-features = false }
+qiniu-upload-token = { version = "0.2.4", path = "../upload-token" }
+qiniu-utils = { version = "0.2.4", path = "../utils" }
 
 [dev-dependencies]
 env_logger = "0.9.0"
