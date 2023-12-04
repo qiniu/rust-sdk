@@ -101,13 +101,6 @@ macro_rules! wrap_smallstr {
             }
         }
 
-        impl Borrow<[u8]> for $name {
-            #[inline]
-            fn borrow(&self) -> &[u8] {
-                self.inner.borrow()
-            }
-        }
-
         impl Deref for $name {
             type Target = str;
 
