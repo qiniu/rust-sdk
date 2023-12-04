@@ -793,6 +793,7 @@ pub(super) struct ModifyObjectLifeCycle<'a> {
     to_ia_after_days: AfterDays,
     to_archive_after_days: AfterDays,
     to_deep_archive_after_days: AfterDays,
+    to_archive_ir_after_days: AfterDays,
     delete_after_days: AfterDays,
 }
 
@@ -804,6 +805,7 @@ impl ModifyObjectLifeCycle<'_> {
                 to_ia_after_days: Default::default(),
                 to_archive_after_days: Default::default(),
                 to_deep_archive_after_days: Default::default(),
+                to_archive_ir_after_days: Default::default(),
                 delete_after_days: Default::default(),
             },
             before_request_callback: None,
@@ -822,6 +824,9 @@ impl ModifyObjectLifeCycle<'_> {
         if !self.to_deep_archive_after_days.is_unmodified() {
             params = params.set_to_deep_archive_after_days_as_isize(self.to_deep_archive_after_days.into());
         }
+        if !self.to_archive_ir_after_days.is_unmodified() {
+            params = params.set_to_archive_ir_after_days_as_isize(self.to_archive_after_days.into());
+        }
         if !self.delete_after_days.is_unmodified() {
             params = params.set_delete_after_days_as_isize(self.delete_after_days.into());
         }
@@ -837,6 +842,12 @@ impl Display for ModifyObjectLifeCycle<'_> {
         }
         if !self.to_archive_after_days.is_unmodified() {
             write!(f, "/toARCHIVEAfterDays/{}", self.to_archive_after_days)?;
+        }
+        if !self.to_deep_archive_after_days.is_unmodified() {
+            write!(f, "/toDeepArchiveAfterDays/{}", self.to_deep_archive_after_days)?;
+        }
+        if !self.to_archive_ir_after_days.is_unmodified() {
+            write!(f, "/toArchiveIRAfterDays/{}", self.to_archive_ir_after_days)?;
         }
         if !self.delete_after_days.is_unmodified() {
             write!(f, "/deleteAfterDays/{}", self.delete_after_days)?;
@@ -876,6 +887,13 @@ impl<'a> ModifyObjectLifeCycleBuilder<'a> {
         self
     }
 
+    /// 设置多少天后自动转换为归档直读文件
+    #[inline]
+    pub fn archive_ir_after_days(&mut self, to_archive_ir_after_days: AfterDays) -> &mut Self {
+        self.inner.to_archive_ir_after_days = to_archive_ir_after_days;
+        self
+    }
+
     /// 设置多少天后自动删除
     #[inline]
     pub fn delete_after_days(&mut self, to_delete_after_days: AfterDays) -> &mut Self {
@@ -899,6 +917,7 @@ impl<'a> ModifyObjectLifeCycleBuilder<'a> {
             to_ia_after_days: take(&mut self.inner.to_ia_after_days),
             to_archive_after_days: take(&mut self.inner.to_archive_after_days),
             to_deep_archive_after_days: take(&mut self.inner.to_deep_archive_after_days),
+            to_archive_ir_after_days: take(&mut self.inner.to_archive_ir_after_days),
             delete_after_days: take(&mut self.inner.delete_after_days),
         }
     }
