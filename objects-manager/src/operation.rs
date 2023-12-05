@@ -825,7 +825,7 @@ impl ModifyObjectLifeCycle<'_> {
             params = params.set_to_deep_archive_after_days_as_isize(self.to_deep_archive_after_days.into());
         }
         if !self.to_archive_ir_after_days.is_unmodified() {
-            params = params.set_to_archive_ir_after_days_as_isize(self.to_archive_after_days.into());
+            params = params.set_to_archive_ir_after_days_as_isize(self.to_archive_ir_after_days.into());
         }
         if !self.delete_after_days.is_unmodified() {
             params = params.set_delete_after_days_as_isize(self.delete_after_days.into());
@@ -1343,7 +1343,7 @@ mod tests {
             fn async_call<'a>(&'a self, request: &'a mut AsyncRequest<'_>) -> BoxFuture<'a, AsyncResponseResult> {
                 Box::pin(async move {
                     assert!(request.url().to_string().ends_with(&format!(
-                        "/lifecycle/{}/toIAAfterDays/1/toArchiveAfterDays/2/toDeepArchiveAfterDays/3/deleteAfterDays/4",
+                        "/lifecycle/{}/toIAAfterDays/1/toArchiveAfterDays/2/toDeepArchiveAfterDays/3/toArchiveIRAfterDays/4/deleteAfterDays/5",
                         &encode_entry("fakeobjectname"),
                     )));
                     Ok(AsyncResponse::builder()
@@ -1361,7 +1361,8 @@ mod tests {
             .ia_after_days(AfterDays::new(1))
             .archive_after_days(AfterDays::new(2))
             .deep_archive_after_days(AfterDays::new(3))
-            .delete_after_days(AfterDays::new(4))
+            .archive_ir_after_days(AfterDays::new(4))
+            .delete_after_days(AfterDays::new(5))
             .async_call()
             .await?;
 
