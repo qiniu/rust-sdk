@@ -1,0 +1,33 @@
+name: Rust SDK Version Check
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+jobs:
+  linux:
+    name: Version Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Set env
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/v}" >> $GITHUB_ENV
+      - name: Check
+        run: |
+          set -e
+          grep -qF "version = \"${RELEASE_VERSION}\"" etag/Cargo.toml
+          grep -qF "version = \"${RELEASE_VERSION}\"" credential/Cargo.toml
+          grep -qF "version = \"${RELEASE_VERSION}\"" upload-token/Cargo.toml
+          grep -qF "version = \"${RELEASE_VERSION}\"" apis/Cargo.toml
+          grep -qF "version = \"${RELEASE_VERSION}\"" http/Cargo.toml
+          grep -qF "version = \"${RELEASE_VERSION}\"" http-client/Cargo.toml
+          grep -qF "version = \"${RELEASE_VERSION}\"" http-isahc/Cargo.toml
+          grep -qF "version = \"${RELEASE_VERSION}\"" http-reqwest/Cargo.toml
+          grep -qF "version = \"${RELEASE_VERSION}\"" http-ureq/Cargo.toml
+          grep -qF "version = \"${RELEASE_VERSION}\"" objects-manager/Cargo.toml
+          grep -qF "version = \"${RELEASE_VERSION}\"" upload-manager/Cargo.toml
+          grep -qF "version = \"${RELEASE_VERSION}\"" download-manager/Cargo.toml
+          grep -qF "version = \"${RELEASE_VERSION}\"" sdk/Cargo.toml
+          grep -qF "version = \"${RELEASE_VERSION}\"" api-generator/Cargo.toml
+          grep -qF "version = \"${RELEASE_VERSION}\"" utils/Cargo.toml
+          grep -qF "version = \"${RELEASE_VERSION}\"" sdk-examples/Cargo.toml
